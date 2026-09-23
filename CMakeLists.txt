@@ -62,6 +62,13 @@ set_tests_properties(runtime_fatal_unhooked PROPERTIES PASS_REGULAR_EXPRESSION "
 set_tests_properties(runtime_fatal_decimal PROPERTIES PASS_REGULAR_EXPRESSION "ct: \\$C10000: ADC with D=1")
 set_tests_properties(runtime_fatal_entry PROPERTIES PASS_REGULAR_EXPRESSION "ct: \\$C10089: entry state m0 x0 e0, expected m1 x0")
 
+add_executable(test_c1_math test/test_c1_math.c)
+target_link_libraries(test_c1_math ct_c1_math)
+target_compile_options(test_c1_math PRIVATE ${CT_WARN})
+foreach(t mul8 mulaccum divide shifts)
+    add_test(NAME c1_math_${t} COMMAND test_c1_math ${t})
+endforeach()
+
 # ---- test environment (keep last) ----
 get_property(ct_tests DIRECTORY PROPERTY TESTS)
 set_tests_properties(${ct_tests} PROPERTIES ENVIRONMENT "CT_ROM=${CT_ROM}")
