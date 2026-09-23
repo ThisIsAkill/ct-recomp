@@ -94,6 +94,11 @@ foreach(t format divten reencode)
     add_test(NAME interp_c1_text_${t} COMMAND test_c1_text ${t} interp)
 endforeach()
 
+add_executable(test_diff test/test_diff.c)
+target_link_libraries(test_diff ct_gen ct_interp)
+target_compile_options(test_diff PRIVATE ${CT_WARN})
+add_test(NAME diff_all COMMAND test_diff 2000)
+
 # ---- test environment (keep last) ----
 get_property(ct_tests DIRECTORY PROPERTY TESTS)
 set_tests_properties(${ct_tests} PROPERTIES ENVIRONMENT "CT_ROM=${CT_ROM}")
