@@ -37,6 +37,20 @@ static inline void set_p(CPU *c, uint8_t p)
     index_width(c);
 }
 
+/* XCE: swap carry and emulation; entering emulation forces 8-bit A/X and page-1 S. */
+static inline void op_xce(CPU *c)
+{
+    uint8_t t = c->c;
+    c->c = c->e;
+    c->e = t;
+    if (c->e) {
+        c->m = 1;
+        c->x = 1;
+        index_width(c);
+        c->S = (uint16_t)(0x0100 | (c->S & 0xFF));
+    }
+}
+
 static inline void op_rep(CPU *c, uint8_t v) { set_p(c, get_p(c) & (uint8_t)~v); }
 static inline void op_sep(CPU *c, uint8_t v) { set_p(c, get_p(c) | v); }
 

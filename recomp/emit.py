@@ -192,6 +192,7 @@ _SPECIAL = {
     (0xC2, ''):   lambda i: [f'op_rep(cpu, 0x{i.operand:02X});'],                          # REP
     (0xE2, ''):   lambda i: [f'op_sep(cpu, 0x{i.operand:02X});'],                          # SEP
     (0xEA, ''):   lambda i: [';'],                                                         # NOP
+    (0xFB, ''):   lambda i: ['op_xce(cpu);'],                                              # XCE
     (0x54, '16'): lambda i: [f'mvn16(cpu, 0x{i.operand & 0xFF:02X}, 0x{i.operand >> 8:02X});'],  # MVN
 }
 
@@ -216,7 +217,7 @@ NO_FALLTHROUGH = {'RTS', 'RTL', 'RTI', 'BRA', 'BRL', 'JMP', 'JML', 'STP'}  # JMP
 
 
 def implemented_opcodes() -> set[int]:
-    return {op for op, _ in TEMPLATES} | {0x20, 0x22, 0x4C, 0x7C, 0xFC}   # calls/jumps: emit_function
+    return {op for op, _ in TEMPLATES} | {0x20, 0x22, 0x4C, 0x5C, 0x7C, 0xFC}   # emit_function
 
 
 def c_name(addr: int, st: decode.State) -> str:
@@ -298,6 +299,10 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
                 if is_call:
                     body.append(f'cpu_check_return(cpu, 0x{i.addr:06X}, 0x{(ret + 1) & 0xFFFF:04X});')
                 return body
+        elif i.opcode == 0x5C and i.key in fn.tails:
+            target, cst = fn.tails[i.key]
+            t = lambda i, target=target, cst=cst: [f'cpu->PB = 0x{target >> 16:02X};',
+                                                   f'{callee(target, cst)}(cpu);', 'return;']
         elif i.opcode == 0x4C:
             if i.key in fn.tails:
                 target, cst = fn.tails[i.key]
@@ -324,7 +329,14 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
             if post[0] is None or post[1] is None:
                 raise EmitError(f'${i.addr:06X}: PLP restores unknown M/X')
             body.append(f'cpu_check_mx(cpu, 0x{i.addr:06X}, {int(post[0])}, {int(post[1])});')
-        if i.mnemonic not in NO_FALLTHROUGH:
+        if i.key in fn.call_exits and not fn.call_exits[i.key]:
+            body.append(f'ct_fatal("${i.addr:06X}: callee does not return");')
+        elif i.key in fn.call_exits:
+            for k in fn.call_exits[i.key]:
+                body.append(f'if (cpu->m == {int(k[0])} && cpu->x == {int(k[1])}) '
+                            f'goto {label(i.next_addr, k)};')
+            body.append(f'ct_fatal("${i.addr:06X}: callee returned with m%d x%d", cpu->m, cpu->x);')
+        elif i.mnemonic not in NO_FALLTHROUGH:
             succ = (i.next_addr,) + post
             if nxt is None or nxt.key != succ:
                 body.append(f'goto {label(i.next_addr, post)};')
@@ -392,7 +404,8 @@ def emit_prototypes(reg: funcs.Registry, metas: list[funcs.FuncMeta]) -> tuple[s
           '    void (*fn)(CPU *);', '} ct_func;', '',
           'extern const ct_func ct_funcs[];', 'extern const unsigned ct_func_count;', '',
           '/* call boundaries: target -> runtime hook */',
-          'typedef struct {', '    uint32_t addr;', '    int is_long;', '    void (*hook)(CPU *);',
+          'typedef struct {', '    uint32_t addr;', '    int kind;           /* 0 JSR, 1 JSL, 2 JML */',
+          '    void (*hook)(CPU *);',
           '} ct_extern;', '', 'extern const ct_extern ct_externs[];',
           'extern const unsigned ct_extern_count;', '',
           '/* (abs,X) jump table bounds from funcs.toml */',
@@ -406,7 +419,8 @@ def emit_prototypes(reg: funcs.Registry, metas: list[funcs.FuncMeta]) -> tuple[s
         h.insert(h.index('#include "cpu.h"') + 2,
                  f'void ct_hook_{e.hook}(CPU *cpu);  /* extern {e.name} ${e.addr:06X} ({e.kind}) */')
     c += ['const ct_extern ct_externs[] = {']
-    c += [f'    {{0x{e.addr:06X}, {int(e.kind == "JSL")}, ct_hook_{e.hook}}},' for e in ex] or \
+    kinds = {'JSR': 0, 'JSL': 1, 'JML': 2}
+    c += [f'    {{0x{e.addr:06X}, {kinds[e.kind]}, ct_hook_{e.hook}}},' for e in ex] or \
          ['    {0, 0, 0},']
     c += ['};', f'const unsigned ct_extern_count = {len(ex)};', '']
     c += ['const ct_jumptable ct_jumptables[] = {']
