@@ -1,0 +1,19 @@
+# ROMs and ROM-derived data
+*.sfc
+*.smc
+*.SFC
+*.SMC
+roms/
+
+# Build and generated output
+out/
+build/
+__pycache__/
+*.pyc
+
+# Local session files
+[C]LAUDE.md
+KICKOFF*.md
+.[c]laude/
+notes/
+SESSION*.md

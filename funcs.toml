@@ -1,0 +1,3 @@
+# Function metadata. Names from ChronoRET labels.
+# addr: 24-bit SNES address. states: entry M/X per variant, e.g. "m1x0".
+# e: entry emulation flag. db/dp: entry DB/DP when known.
