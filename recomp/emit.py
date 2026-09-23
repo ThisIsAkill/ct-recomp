@@ -108,6 +108,14 @@ TEMPLATES = {
     (0xE9, '16'): lambda i: [f'sbc16(cpu, {_imm(i)}, {_at(i)});'],                         # SBC #
     (0xF0, ''):   _branch('cpu->z'),                                                       # BEQ
     (0xFA, '16'): lambda i: ['cpu->X = pull16(cpu);', 'set_nz16(cpu, cpu->X);'],           # PLX
+    (0x99, '8'):  lambda i: [f'write8(ea_abs_y(cpu, {_abs(i)}), a8(cpu));'],               # STA abs,Y
+    (0xA6, '16'): lambda i: [f'ldx16(cpu, read16_dp(cpu, {_dp(i)}));'],                    # LDX dp
+    (0xA8, '16'): lambda i: ['tay16(cpu);'],                                               # TAY
+    (0xBF, '16'): lambda i: [f'lda16(cpu, read16(ea_long_x(cpu, {_long(i)})));'],          # LDA long,X
+    (0xC6, '8'):  lambda i: [f'uint32_t ea = ea_dp(cpu, {_dp(i)});',                       # DEC dp
+                             'write8(ea, dec8(cpu, read8(ea)));'],
+    (0xC8, '16'): lambda i: ['iny16(cpu);'],                                               # INY
+    (0xE5, '8'):  lambda i: [f'sbc8(cpu, read8(ea_dp(cpu, {_dp(i)})), {_at(i)});'],        # SBC dp
 }
 
 NO_FALLTHROUGH = {'RTS', 'RTL', 'RTI', 'BRA', 'BRL', 'JMP', 'JML', 'STP'}

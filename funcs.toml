@@ -129,3 +129,15 @@ states = ["m1x0"]
 e = 0
 dp = 0x0000
 module = "c1_text"
+
+# ---- Bank $C1 status-bar UI ($C1:06F0-$C1:095C) ----
+
+# Calls ShiftLeft7 (m0), Divide (m1), ShiftRight3 (m0). DB=$7E for $99DD/$9F22.
+[[func]]
+name = "BattleUI_DrawSlotGaugeBar"
+addr = 0xC106F0
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
