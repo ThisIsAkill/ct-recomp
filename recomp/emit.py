@@ -206,13 +206,30 @@ def emit_module(reg: funcs.Registry, metas: list[funcs.FuncMeta], module: str) -
     return '\n'.join(c), '\n'.join(h)
 
 
-def emit_prototypes(metas: list[funcs.FuncMeta]) -> str:
-    out = [HEADER, '#ifndef CT_OUT_FUNCS_H', '#define CT_OUT_FUNCS_H', '', '#include "cpu.h"', '']
+def emit_prototypes(reg: funcs.Registry, metas: list[funcs.FuncMeta]) -> tuple[str, str]:
+    """ct_funcs.h (all prototypes, table type) and ct_funcs.c (table)."""
+    h = [HEADER, '#ifndef CT_OUT_FUNCS_H', '#define CT_OUT_FUNCS_H', '', '#include <stdint.h>', '',
+         '#include "cpu.h"', '']
+    c = [HEADER, '#include "ct_funcs.h"', '', 'const ct_func ct_funcs[] = {']
+    n = 0
     for fm in metas:
         for st in fm.entry_states():
-            out.append(f'void {c_name(fm.addr, st)}(CPU *cpu);  /* {fm.name} */')
-    out += ['', '#endif', '']
-    return '\n'.join(out)
+            name = c_name(fm.addr, st)
+            fn = reg.function(fm.addr, st)
+            h.append(f'void {name}(CPU *cpu);  /* {fm.name} */')
+            db = fm.db if fm.db is not None else -1
+            dp = fm.dp if fm.dp is not None else -1
+            c.append(f'    {{"{fm.name}", 0x{fm.addr:06X}, {int(st.m)}, {int(st.x)}, {fn.size}, '
+                     f'{db}, {dp}, {name}}},')
+            n += 1
+    h += ['', 'typedef struct {', '    const char *name;', '    uint32_t addr;',
+          '    uint8_t m, x;', '    uint16_t size;',
+          '    int db, dp;         /* entry DB/DP from funcs.toml, -1 if unknown */',
+          '    void (*fn)(CPU *);', '} ct_func;', '',
+          'extern const ct_func ct_funcs[];', 'extern const unsigned ct_func_count;', '',
+          '#endif', '']
+    c += ['};', f'const unsigned ct_func_count = {n};', '']
+    return '\n'.join(h), '\n'.join(c)
 
 
 def modules(metas: list[funcs.FuncMeta]) -> list[str]:
@@ -246,7 +263,9 @@ def main(argv: list[str]) -> int:
         src, hdr = emit_module(reg, metas, mod)
         write_if_changed(os.path.join(a.out, f'{mod}.c'), src)
         write_if_changed(os.path.join(a.out, f'{mod}.h'), hdr)
-    write_if_changed(os.path.join(a.out, 'ct_funcs.h'), emit_prototypes(metas))
+    hdr, tab = emit_prototypes(reg, metas)
+    write_if_changed(os.path.join(a.out, 'ct_funcs.h'), hdr)
+    write_if_changed(os.path.join(a.out, 'ct_funcs.c'), tab)
     return 0
 
 

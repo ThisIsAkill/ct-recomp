@@ -40,8 +40,8 @@ execute_process(
 if(NOT ct_list_ok EQUAL 0)
     message(FATAL_ERROR "emit.py --list-modules failed")
 endif()
-set(CT_GEN_OUTPUTS ${CT_OUT}/ct_funcs.h)
-set(CT_GEN_SOURCES)
+set(CT_GEN_OUTPUTS ${CT_OUT}/ct_funcs.h ${CT_OUT}/ct_funcs.c)
+set(CT_GEN_SOURCES ${CT_OUT}/ct_funcs.c)
 foreach(m ${CT_MODULES})
     list(APPEND CT_GEN_OUTPUTS ${CT_OUT}/${m}.c ${CT_OUT}/${m}.h)
     list(APPEND CT_GEN_SOURCES ${CT_OUT}/${m}.c)
@@ -59,8 +59,14 @@ target_link_libraries(ct_gen PUBLIC ct_runtime)
 target_compile_options(ct_gen PRIVATE ${CT_WARN} -Wno-unused-label)
 
 # ---- tests ----
+
+add_library(ct_interp STATIC test/interp.c)
+target_include_directories(ct_interp PUBLIC test)
+target_link_libraries(ct_interp PUBLIC ct_runtime)
+target_compile_options(ct_interp PRIVATE ${CT_WARN})
+
 add_executable(test_runtime test/test_runtime.c)
-target_link_libraries(test_runtime ct_runtime)
+target_link_libraries(test_runtime ct_gen ct_interp)
 target_compile_options(test_runtime PRIVATE ${CT_WARN})
 add_test(NAME runtime COMMAND test_runtime)
 foreach(f open_bus rom_write unhooked decimal entry)
@@ -73,17 +79,19 @@ set_tests_properties(runtime_fatal_decimal PROPERTIES PASS_REGULAR_EXPRESSION "c
 set_tests_properties(runtime_fatal_entry PROPERTIES PASS_REGULAR_EXPRESSION "ct: \\$C10089: entry state m0 x0 e0, expected m1 x0")
 
 add_executable(test_c1_math test/test_c1_math.c)
-target_link_libraries(test_c1_math ct_gen)
+target_link_libraries(test_c1_math ct_gen ct_interp)
 target_compile_options(test_c1_math PRIVATE ${CT_WARN})
 foreach(t mul8 mulaccum divide shifts)
     add_test(NAME c1_math_${t} COMMAND test_c1_math ${t})
+    add_test(NAME interp_c1_math_${t} COMMAND test_c1_math ${t} interp)
 endforeach()
 
 add_executable(test_c1_text test/test_c1_text.c)
-target_link_libraries(test_c1_text ct_gen)
+target_link_libraries(test_c1_text ct_gen ct_interp)
 target_compile_options(test_c1_text PRIVATE ${CT_WARN})
 foreach(t format divten reencode)
     add_test(NAME c1_text_${t} COMMAND test_c1_text ${t})
+    add_test(NAME interp_c1_text_${t} COMMAND test_c1_text ${t} interp)
 endforeach()
 
 # ---- test environment (keep last) ----
