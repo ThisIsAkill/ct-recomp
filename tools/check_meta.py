@@ -27,6 +27,7 @@ BLOCK_RE = re.compile(r'^;.*\((\d+) bytes, \$([0-9A-F]{4})[–-]\$([0-9A-F]{4})\
 ORG_RE = re.compile(r'^org \$([0-9A-F]{6})', re.I)
 LABEL_RE = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*):')
 INSN_RE = re.compile(r'^\s+([A-Za-z]{3})(?:\.[lwb])?\b')
+DB_RE = re.compile(r'^\s+db\s+\$([0-9A-F]{2})', re.I)
 
 
 class Block:
@@ -67,6 +68,11 @@ def parse_chronoret(path: str, bank: int) -> list[Block]:
                 if not code.strip():
                     continue
                 code = ' ' + code
+            m = DB_RE.match(code)
+            if m:
+                # Hand-encoded instruction: first byte is the opcode.
+                cur.mnemonics.append(decode.OPCODES[int(m.group(1), 16)][0])
+                continue
             m = INSN_RE.match(code)
             if m:
                 cur.mnemonics.append(m.group(1).upper())
@@ -120,7 +126,7 @@ def main() -> int:
             by_bank[bank] = parse_chronoret(path, bank)
 
     covered: dict[int, set[int]] = {}
-    print(f'{"name":<22} {"addr":>7} {"state":>5} {"size":>4}  {"block":>13} {"blk_size":>8}  result')
+    print(f'{"name":<30} {"addr":>7} {"state":>5} {"size":>4}  {"block":>13} {"blk_size":>8}  result')
     for fm in metas:
         blocks = [b for b in by_bank[fm.addr >> 16] if fm.name in b.labels]
         if len(blocks) != 1:
@@ -147,7 +153,7 @@ def main() -> int:
                 res.append('function runs past block end')
             covered.setdefault(blk.org, set()).update(fn.byte_set())
             tag = f'${blk.start:04X}-${blk.end:04X}'
-            print(f'{fm.name:<22} ${fm.addr:06X} {st.tag():>5} {fn.size:>4}  {tag:>13} {blk.size:>8}  '
+            print(f'{fm.name:<30} ${fm.addr:06X} {st.tag():>5} {fn.size:>4}  {tag:>13} {blk.size:>8}  '
                   + ('ok' if not res else 'FAIL'))
             errors += [f'{fm.name} {st.tag()}: {r}' for r in res]
 

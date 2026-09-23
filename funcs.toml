@@ -99,3 +99,33 @@ states = ["m1x0", "m0x0"]
 e = 0
 dp = 0x0000
 module = "c1_math"
+
+# ---- Bank $C1 number/text cluster ($C1:011F-$C1:01F8) ----
+
+# Callers REP #$20 before JSR; both exit with M=1.
+[[func]]
+name = "BattleMsg_FormatNumberDigits"
+addr = 0xC1011F
+states = ["m0x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_text"
+
+[[func]]
+name = "Battle_DivTen9499"
+addr = 0xC10174
+states = ["m0x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_text"
+
+# MVN sets DB=$7E before any DB-relative access.
+[[func]]
+name = "BattleMsg_ReencodeTextBuffer"
+addr = 0xC101A9
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+module = "c1_text"

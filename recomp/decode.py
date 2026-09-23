@@ -431,7 +431,7 @@ class Insn:
 _M_OPS = {'ADC', 'AND', 'BIT', 'CMP', 'EOR', 'LDA', 'ORA', 'SBC', 'STA', 'STZ',
           'ASL', 'LSR', 'ROL', 'ROR', 'INC', 'DEC', 'TSB', 'TRB', 'PHA', 'PLA'}
 _X_OPS = {'CPX', 'CPY', 'LDX', 'LDY', 'STX', 'STY', 'INX', 'INY', 'DEX', 'DEY',
-          'PHX', 'PHY', 'PLX', 'PLY'}
+          'PHX', 'PHY', 'PLX', 'PLY', 'MVN', 'MVP'}
 
 
 def width_dependency(mnemonic: str, mode: str) -> str | None:
