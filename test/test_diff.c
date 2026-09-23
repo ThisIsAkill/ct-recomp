@@ -88,7 +88,7 @@ static void fill(uint8_t *p, unsigned n)
 static void diff_func(const ct_func *f, int trials)
 {
     static const char tag[] = "diff";
-    long fatal_both = 0, fails0 = th_fails;
+    long fatal_both = 0, faulted_checked = 0, fails0 = th_fails;
     Result ra, rb;
     int t;
     for (t = 0; t < trials && th_fails - fails0 < 3; t++) {
@@ -118,16 +118,42 @@ static void diff_func(const ct_func *f, int trials)
         in.c = r >> 4 & 1;
         uint32_t alu = rnd32();
 
+        ct_budget = 100000;
         run(f, &in, alu, 0, &ra);
         memcpy(wa, bus_wram(), CT_WRAM_SIZE);
         memcpy(sa, bus_sram(), CT_SRAM_SIZE);
+        memcpy(sa, bus_sram(), CT_SRAM_SIZE);
+        ct_budget = 0;
         run(f, &in, alu, 1, &rb);
 
+        if (ra.fatal && rb.fatal && strstr(ra.msg, "budget exhausted") &&
+            strstr(rb.msg, "budget exhausted")) {
+            fatal_both++;   /* both ran away; the two count different units */
+            continue;
+        }
         if (ra.fatal || rb.fatal) {
             CHECK(ra.fatal == rb.fatal && !strcmp(ra.msg, rb.msg),
                   "%s %s m%dx%d trial %d: fatal mismatch: gen '%s' interp '%s'", tag, f->name,
                   f->m, f->x, t, ra.fatal ? ra.msg : "-", rb.fatal ? rb.msg : "-");
             fatal_both += ra.fatal && rb.fatal;
+            if (ra.fatal && rb.fatal && !strcmp(ra.msg, rb.msg)) {
+                /* Same fault: state up to it must match (PC/PB are only
+                   maintained by generated code at returns). */
+                CPU ga = ra.cpu, gb = rb.cpu;
+                ga.PC = gb.PC = 0;
+                ga.PB = gb.PB = 0;
+                int ok = cpu_equal(&ga, &gb);
+                CHECK(ok, "%s %s m%dx%d trial %d: CPU differs at fault '%s'", tag, f->name, f->m,
+                      f->x, t, ra.msg);
+                if (!ok) {
+                    dump("gen   ", &ra.cpu);
+                    dump("interp", &rb.cpu);
+                }
+                CHECK(!memcmp(wa, bus_wram(), CT_WRAM_SIZE),
+                      "%s %s m%dx%d trial %d: WRAM differs at fault '%s'", tag, f->name, f->m, f->x,
+                      t, ra.msg);
+                faulted_checked++;
+            }
             if (getenv("CT_DIFF_VERBOSE") && ra.fatal && rb.fatal && fatal_both <= 3)
                 fprintf(stderr, "  fatal in both: %s\n", ra.msg);
             continue;
@@ -149,8 +175,8 @@ static void diff_func(const ct_func *f, int trials)
         CHECK(!memcmp(sa, bus_sram(), CT_SRAM_SIZE), "%s %s: SRAM differs", tag, f->name);
         CHECK(!memcmp(ra.alu, rb.alu, 4), "%s %s: math registers differ", tag, f->name);
     }
-    printf("  %-30s $%06X m%dx%d  %d trials, %ld fatal in both\n", f->name, f->addr, f->m, f->x,
-           t, fatal_both);
+    printf("  %-30s $%06X m%dx%d  %d trials, %ld fatal in both (%ld compared at the fault)\n",
+           f->name, f->addr, f->m, f->x, t, fatal_both, faulted_checked);
 }
 
 int main(int argc, char **argv)
