@@ -155,10 +155,18 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
             t = lambda i: [f'push16(cpu, 0x{ret:04X});',
                            f'{c_name(target, cst)}(cpu);',
                            f'cpu_check_return(cpu, 0x{i.addr:06X}, 0x{(ret + 1) & 0xFFFF:04X});']
+        if i.opcode == 0x4C:
+            if i.addr in fn.tails:
+                target, cst = fn.tails[i.addr]
+                t = lambda i: [f'{c_name(target, cst)}(cpu);', 'return;']
+            else:
+                t = lambda i: [f'goto L_{(i.addr & 0xFF0000) | i.operand:06X};']
         if t is None:
             raise EmitError(f'${i.addr:06X}: {i.text()} (opcode ${i.opcode:02X}, '
                             f'width {w or "-"}) not implemented')
         tgt = i.branch_target()
+        if i.opcode == 0x4C and i.addr not in fn.tails:
+            tgt = (i.addr & 0xFF0000) | i.operand
         if tgt is not None and tgt not in addrs:
             raise EmitError(f'${i.addr:06X}: branch target ${tgt:06X} not in function')
         body = t(i)

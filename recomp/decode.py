@@ -562,6 +562,7 @@ class Function:
     insns: list[Insn] = field(default_factory=list)
     exit_states: set = field(default_factory=set)
     calls: dict = field(default_factory=dict)   # call-site addr -> (target, entry State)
+    tails: dict = field(default_factory=dict)   # JMP addr -> (target, entry State)
 
     @property
     def size(self) -> int:
@@ -582,7 +583,9 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
     """Decode all instructions reachable from entry without leaving the
     function. In-bank branches are followed. JSR abs requires resolve:
     resolve(site, target, state) -> (m, x) exit state of the callee.
-    Other calls and far jumps are rejected."""
+    JMP abs to a registered entry (resolve.tail) is a tail call; any other
+    JMP abs is followed as an in-function jump. Other calls and far jumps
+    are rejected."""
     fn = Function(entry, st)
     seen: dict[int, tuple] = {}
     work = [(entry, st)]
@@ -606,6 +609,16 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
                 work.append((i.branch_target(), nxt))
             elif mn in ('BRA', 'BRL'):
                 addr, cur = i.branch_target(), nxt
+                continue
+            elif mn == 'JMP' and i.mode == 'abs':
+                target = (addr & 0xFF0000) | i.operand
+                cst = State(nxt.m, nxt.x, nxt.e)
+                exits = resolve.tail(addr, target, cst) if resolve is not None else None
+                if exits is not None:
+                    fn.tails[addr] = (target, cst)
+                    fn.exit_states |= exits
+                    break
+                addr, cur = target, nxt
                 continue
             elif mn == 'JSR' and i.mode == 'abs':
                 if resolve is None:
