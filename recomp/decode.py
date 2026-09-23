@@ -342,9 +342,12 @@ class State:
     m: bool | None
     x: bool | None
     e: bool = False
-    # Pushes since entry: (mnemonic, size, (m, x) for PHP else None).
+    # Bytes pushed since entry, oldest first: ('P', m, x) for a PHP byte,
+    # None for any other byte.
     stack: tuple = ()
     stack_lost: bool = False
+    # Carry known from the immediately preceding CLC/SEC (for XCE); not part of key().
+    ck: bool | None = None
 
     def tag(self) -> str:
         return f"m{_bit(self.m)}x{_bit(self.x)}"
@@ -525,28 +528,43 @@ def _stack_size(kind, st: State, addr: int, mnemonic: str) -> int:
 
 
 def next_state(i: Insn, st: State) -> State:
+    nxt = _next_state(i, st)
+    ck = {'CLC': False, 'SEC': True}.get(i.mnemonic)
+    return State(nxt.m, nxt.x, nxt.e, nxt.stack, nxt.stack_lost, ck)
+
+
+def _next_state(i: Insn, st: State) -> State:
     mn = i.mnemonic
     if mn == 'REP':
         return rep(st, i.operand)
     if mn == 'SEP':
         return sep(st, i.operand)
     if mn == 'XCE':
-        raise DecodeError(f'${i.addr:06X}: XCE not supported (carry not tracked)')
+        if st.ck is None:
+            raise DecodeError(f'${i.addr:06X}: XCE with carry not known from CLC/SEC')
+        if st.ck:
+            raise DecodeError(f'${i.addr:06X}: XCE into emulation mode not supported')
+        m, x = (True, True) if st.e else (st.m, st.x)
+        return State(m, x, False, st.stack, st.stack_lost)
     if mn in _PUSH:
         size = _stack_size(_PUSH[mn], st, i.addr, mn)
-        saved = (st.m, st.x) if mn == 'PHP' else None
-        return State(st.m, st.x, st.e, st.stack + ((mn, size, saved),), st.stack_lost)
+        if mn == 'PHP':
+            item = ('P', st.m, st.x)
+        else:
+            item = None
+        return State(st.m, st.x, st.e, st.stack + (item,) * size, st.stack_lost)
     if mn in _PULL:
         size = _stack_size(_PULL[mn], st, i.addr, mn)
         stack, lost = st.stack, st.stack_lost
-        top = stack[-1] if stack else None
-        if top is not None:
-            stack = stack[:-1]
-            if top[1] != size:
-                stack, lost = (), True
+        popped = stack[-size:] if len(stack) >= size else None
+        if popped is None:
+            stack, lost = (), True     # pulling bytes pushed before entry
+        else:
+            stack = stack[:-size]
         if mn == 'PLP':
-            if top is not None and top[0] == 'PHP' and not lost:
-                m, x = top[2]
+            top = popped[0] if popped else None
+            if top is not None and not lost:
+                m, x = top[1], top[2]
             else:
                 m, x = None, None
             if st.e:
@@ -570,6 +588,7 @@ class Function:
     tails: dict = field(default_factory=dict)   # JMP abs tail call -> (target, entry State)
     tables: dict = field(default_factory=dict)  # (abs,X) -> ([targets], entry State)
     post: dict = field(default_factory=dict)    # (addr, m, x, e) -> (m, x, e) after the insn
+    call_exits: dict = field(default_factory=dict)  # call key -> [(m, x, e)] when several
 
     @property
     def size(self) -> int:
@@ -585,6 +604,20 @@ class Function:
         for i in self.insns:
             out.update(range(i.addr, i.addr + i.size))
         return out
+
+
+def _continue(fn: Function, ikey: tuple, i: Insn, nxt: State, exits: set, work: list) -> State:
+    """State after a call; extra exit states continue as separate paths."""
+    states = [State(m, x, nxt.e, nxt.stack, nxt.stack_lost) for m, x in sorted(exits)]
+    if not states:
+        fn.call_exits[ikey] = []   # callee never returns
+        return None
+    if len(states) > 1:
+        fn.call_exits[ikey] = [s.key() for s in states]
+        for s in states[1:]:
+            work.append((i.next_addr, s))
+    fn.post[ikey] = states[0].key()
+    return states[0]
 
 
 def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function:
@@ -617,6 +650,13 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
             elif mn in ('BRA', 'BRL'):
                 addr, cur = i.branch_target(), nxt
                 continue
+            elif mn == 'JML' and i.mode == 'long':
+                if resolve is None:
+                    raise DecodeError(f'${addr:06X}: {i.text()}: no call resolver')
+                cst = State(nxt.m, nxt.x, nxt.e)
+                fn.tails[ikey] = (i.operand, cst)
+                fn.exit_states |= resolve.tail_required(addr, i.operand, cst)
+                break
             elif mn == 'JMP' and i.mode == 'abs':
                 target = (addr & 0xFF0000) | i.operand
                 cst = State(nxt.m, nxt.x, nxt.e)
@@ -631,29 +671,30 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
                 if resolve is None:
                     raise DecodeError(f'${addr:06X}: {i.text()}: no call resolver')
                 target = (addr & 0xFF0000) | i.operand if mn == 'JSR' else i.operand
-                m, x = resolve(addr, target, State(nxt.m, nxt.x, nxt.e), mn)
+                exits = resolve(addr, target, State(nxt.m, nxt.x, nxt.e), mn)
                 fn.calls[ikey] = (target, State(nxt.m, nxt.x, nxt.e))
-                nxt = State(m, x, nxt.e, nxt.stack, nxt.stack_lost)
-                fn.post[ikey] = nxt.key()
+                nxt = _continue(fn, ikey, i, nxt, exits, work)
+                if nxt is None:
+                    break
             elif mn in ('JSR', 'JMP') and i.mode == 'abs_x_ind':
                 if resolve is None:
                     raise DecodeError(f'${addr:06X}: {i.text()}: no call resolver')
                 cst = State(nxt.m, nxt.x, nxt.e)
-                if cst.x is not False:
-                    raise DecodeError(f'${addr:06X}: {i.text()}: jump table needs 16-bit X')
+                if cst.x is None:
+                    raise DecodeError(f'${addr:06X}: {i.text()}: X width unknown')
                 targets = resolve.table_targets(i)
                 fn.tables[ikey] = (targets, cst)
                 if mn == 'JMP':
                     for tg in dict.fromkeys(targets):
                         fn.exit_states |= resolve.tail_required(addr, tg, cst)
                     break
-                exits = {resolve(addr, tg, cst, 'JSR') for tg in dict.fromkeys(targets)}
-                if len(exits) != 1:
-                    raise DecodeError(f'${addr:06X}: jump table targets exit with {sorted(exits, key=str)}')
-                m, x = exits.pop()
-                nxt = State(m, x, nxt.e, nxt.stack, nxt.stack_lost)
-                fn.post[ikey] = nxt.key()
-            elif mn in ('JSR', 'JSL', 'JMP', 'JML', 'BRK', 'COP', 'STP', 'WAI', 'XCE'):
+                exits = set()
+                for tg in dict.fromkeys(targets):
+                    exits |= resolve(addr, tg, cst, 'JSR')
+                nxt = _continue(fn, ikey, i, nxt, exits, work)
+                if nxt is None:
+                    break
+            elif mn in ('JSR', 'JSL', 'JMP', 'JML', 'BRK', 'COP', 'STP', 'WAI'):
                 raise DecodeError(f'${addr:06X}: {i.text()} not supported by decoder yet')
             addr, cur = i.next_addr, nxt
     fn.insns.sort(key=lambda i: (i.addr, str(i.m), str(i.x), i.e))

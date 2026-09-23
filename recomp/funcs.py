@@ -30,8 +30,9 @@ class Extern:
     """Call boundary: target handled by a runtime hook, not recompiled."""
     name: str
     addr: int
-    kind: str      # 'JSR' or 'JSL': the return the hook performs
+    kind: str      # 'JSR', 'JSL' or 'JML': how it is entered
     hook: str      # C function ct_hook_<hook>(CPU *)
+    noreturn: bool = False   # hook never returns (v0 boundary)
 
 
 def load_externs(path: str | None = None) -> dict[int, Extern]:
@@ -45,9 +46,11 @@ def load_externs(path: str | None = None) -> dict[int, Extern]:
         for k in ('name', 'addr', 'kind', 'hook'):
             if k not in t:
                 raise DecodeError(f'funcs.toml: extern {t}: missing {k}')
-        if t['kind'] not in ('JSR', 'JSL'):
+        if t['kind'] not in ('JSR', 'JSL', 'JML'):
             raise DecodeError(f'funcs.toml: extern {t["name"]}: bad kind')
-        out[t['addr']] = Extern(t['name'], t['addr'], t['kind'], t['hook'])
+        if t['kind'] == 'JML' and not t.get('noreturn'):
+            raise DecodeError(f'funcs.toml: extern {t["name"]}: JML boundary must be noreturn')
+        out[t['addr']] = Extern(t['name'], t['addr'], t['kind'], t['hook'], bool(t.get('noreturn')))
     return out
 
 
@@ -132,35 +135,22 @@ class Registry:
         return fn
 
     def _fixpoint(self, key: tuple, addr: int, st: State) -> decode.Function:
-        """Recursive routine: accept the unique exit state that reproduces itself."""
-        found = []
-        errors: list[DecodeError] = []
-        for m, x in ((True, False), (False, False), (True, True), (False, True)):
-            before = set(self.cache)
-            self.assume[key] = (m, x)
-            try:
+        """Recursive routine: least fixpoint of its exit states. Start by
+        assuming the recursive call never returns, then feed the computed
+        exits back until they stop changing."""
+        self.assume[key] = set()
+        try:
+            for _ in range(16):
+                before = set(self.cache)
                 fn = decode.decode_function(self.rom, addr, st, self)
-                exits = {(em, ex) for _, em, ex in fn.exit_states}
-                if exits == {(m, x)}:
-                    found.append((fn, set(self.cache) - before))
-                    continue
-            except (MissingTarget, NeedAssumption):
+                if fn.exit_states == self.assume[key]:
+                    return fn
+                self.assume[key] = set(fn.exit_states)
                 for k in set(self.cache) - before:
                     del self.cache[k]
-                raise
-            except DecodeError as ex:
-                errors.append(ex)
-            finally:
-                del self.assume[key]
-            for k in set(self.cache) - before:
-                del self.cache[k]
-        if not found and len(errors) == 4 and len({str(e) for e in errors}) == 1:
-            raise errors[0]   # same failure under every assumption: report it
-        if len(found) != 1:
-            why = '; '.join(sorted({str(e) for e in errors}))
-            raise DecodeError(f'${addr:06X}: recursive routine has {len(found)} consistent exit states'
-                              + (f' ({why})' if why else ''))
-        return found[0][0]
+            raise DecodeError(f'${addr:06X}: recursive routine exit states do not converge')
+        finally:
+            del self.assume[key]
 
     def table_targets(self, i) -> list[int]:
         """Targets of a (abs,X) jump table, one per even index."""
@@ -186,39 +176,42 @@ class Registry:
 
     def tail(self, site: int, target: int, st: State) -> set | None:
         """Exit states of a JMP target if it is a registered entry for st."""
+        ext = self.externs.get(target)
+        if ext is not None:
+            if ext.kind != 'JML' or not ext.noreturn:
+                raise DecodeError(f'${site:06X}: jump to extern {ext.name} declared {ext.kind}')
+            return set()
         fm = self.by_addr.get(target)
         if fm is None or st.tag() not in fm.states:
             return None
         key = (target, st.m, st.x, st.e)
         if key in self.assume:
-            m, x = self.assume[key]
-            return {('RTS', m, x)} if fm is not None else None
+            return set(self.assume[key])
         return set(self.function(target, st).exit_states)
 
     def __call__(self, site: int, target: int, st: State, kind: str = 'JSR') -> tuple:
         return self.resolve(site, target, st, kind)
 
-    def resolve(self, site: int, target: int, st: State, kind: str = 'JSR') -> tuple:
-        """Exit (m, x) of a JSR/JSL callee; it must return only via RTS/RTL."""
+    def resolve(self, site: int, target: int, st: State, kind: str = 'JSR') -> set:
+        """Exit {(m, x)} of a JSR/JSL callee; it must return only via RTS/RTL."""
         ext = self.externs.get(target)
         if ext is not None:
             if ext.kind != kind:
                 raise DecodeError(f'${site:06X}: {kind} to extern {ext.name} declared {ext.kind}')
-            return st.m, st.x
+            return set() if ext.noreturn else {(st.m, st.x)}
         fm = self.by_addr.get(target)
         if fm is None:
             raise MissingTarget(site, target, st, kind)
         if st.tag() not in fm.states:
             raise MissingTarget(site, target, st, kind, fm.name)
         key = (target, st.m, st.x, st.e)
-        if key in self.assume:
-            return self.assume[key]
-        fn = self.function(target, st)
         ret = 'RTS' if kind == 'JSR' else 'RTL'
-        exits = {(m, x) for mn, m, x in fn.exit_states if mn == ret}
-        if {mn for mn, _, _ in fn.exit_states} != {ret} or len(exits) != 1:
-            raise DecodeError(f'${site:06X}: {kind} {fm.name}: exits {sorted(fn.exit_states)}')
-        m, x = exits.pop()
-        if m is None or x is None:
-            raise DecodeError(f'${site:06X}: JSR {fm.name}: exit M/X unknown')
-        return m, x
+        exit_states = self.assume[key] if key in self.assume else self.function(target, st).exit_states
+        exits = {(m, x) for mn, m, x in exit_states if mn == ret}
+        if not exit_states:
+            return set()   # never returns
+        if {mn for mn, _, _ in exit_states} != {ret}:
+            raise DecodeError(f'${site:06X}: {kind} {fm.name}: exits {sorted(exit_states, key=str)}')
+        if any(m is None or x is None for m, x in exits):
+            raise DecodeError(f'${site:06X}: {kind} {fm.name}: exit M/X unknown')
+        return exits
