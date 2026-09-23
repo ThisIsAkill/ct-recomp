@@ -47,6 +47,7 @@ function(ct_module name)
     target_compile_options(ct_${name} PRIVATE ${CT_WARN} -Wno-unused-label)
 endfunction()
 ct_module(c1_math)
+ct_module(c1_text)
 
 # ---- tests ----
 add_executable(test_runtime test/test_runtime.c)

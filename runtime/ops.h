@@ -61,6 +61,14 @@ static inline void cpu_check_mx(const CPU *c, uint32_t at, int m, int x)
 static inline uint32_t ea_dp(const CPU *c, uint8_t d)  { return (uint16_t)(c->DP + d); }
 static inline uint32_t ea_abs(const CPU *c, uint16_t a) { return (uint32_t)c->DB << 16 | a; }
 
+/* Indexed absolute/long addresses carry into the next bank. */
+static inline uint32_t ea_abs_x(const CPU *c, uint16_t a)
+{
+    return (((uint32_t)c->DB << 16 | a) + c->X) & 0xFFFFFF;
+}
+
+static inline uint32_t ea_long_x(const CPU *c, uint32_t a) { return (a + c->X) & 0xFFFFFF; }
+
 /* Direct-page 16-bit access wraps within bank 0. */
 static inline uint16_t read16_dp(const CPU *c, uint8_t d)
 {
@@ -110,6 +118,26 @@ static inline void set_a8(CPU *c, uint8_t v) { c->A = (uint16_t)((c->A & 0xFF00)
 static inline void lda8(CPU *c, uint8_t v)   { set_a8(c, v); set_nz8(c, v); }
 static inline void lda16(CPU *c, uint16_t v) { c->A = v; set_nz16(c, v); }
 static inline void ldx16(CPU *c, uint16_t v) { c->X = v; set_nz16(c, v); }
+static inline void ldy16(CPU *c, uint16_t v) { c->Y = v; set_nz16(c, v); }
+
+/* ---- index registers (16-bit forms; x=0) ---- */
+
+static inline void tax16(CPU *c) { c->X = c->A; set_nz16(c, c->X); }
+static inline void inx16(CPU *c) { c->X = (uint16_t)(c->X + 1); set_nz16(c, c->X); }
+static inline void dex16(CPU *c) { c->X = (uint16_t)(c->X - 1); set_nz16(c, c->X); }
+
+/* MVN with 16-bit index registers: copy C+1 bytes src:X -> dst:Y ascending.
+   Ends with A=$FFFF, DB=dst. */
+static inline void mvn16(CPU *c, uint8_t dst, uint8_t src)
+{
+    c->DB = dst;
+    do {
+        write8((uint32_t)dst << 16 | c->Y, read8((uint32_t)src << 16 | c->X));
+        c->X = (uint16_t)(c->X + 1);
+        c->Y = (uint16_t)(c->Y + 1);
+        c->A = (uint16_t)(c->A - 1);
+    } while (c->A != 0xFFFF);
+}
 
 static inline void op_tdc(CPU *c) { c->A = c->DP; set_nz16(c, c->A); }
 
