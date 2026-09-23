@@ -94,6 +94,12 @@ foreach(t format divten reencode)
     add_test(NAME interp_c1_text_${t} COMMAND test_c1_text ${t} interp)
 endforeach()
 
+add_executable(test_c1_ui test/test_c1_ui.c)
+target_link_libraries(test_c1_ui ct_gen ct_interp)
+target_compile_options(test_c1_ui PRIVATE ${CT_WARN})
+add_test(NAME c1_ui_gauge COMMAND test_c1_ui)
+add_test(NAME interp_c1_ui_gauge COMMAND test_c1_ui interp)
+
 add_executable(test_diff test/test_diff.c)
 target_link_libraries(test_diff ct_gen ct_interp)
 target_compile_options(test_diff PRIVATE ${CT_WARN})
