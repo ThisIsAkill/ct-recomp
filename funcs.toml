@@ -1670,3 +1670,149 @@ addr = 0xD1ECF3
 states = ["m1x0"]
 e = 0
 module = "bankd1"
+
+# ---- Engine roots ----
+
+# Reset ($C0FF00) does SEI/CLC/XCE and JML here: native, M=1 X=1
+# (ChronoRET bankFD.asm "On entry"). Tail-jumps (JML) to GameLoop $C0000E.
+[[func]]
+name = "MainInit"
+addr = 0xFDC000
+states = ["m1x1"]
+e = 0
+module = "bankfd"
+
+# ---- call boundaries, continued ----
+
+# Self-modifying RAM stub: callers store "MVN $7E,bank ; RTL" at $7E9690-$9693
+# (e.g. $C28635-$C2863E) and JSL to it. The hook checks those bytes at run
+# time and executes them; exit M/X = entry M/X.
+[[extern]]
+name = "Wram_MvnStub"
+addr = 0x7E9690
+kind = "JSL"
+hook = "wram_mvn_stub"
+
+# Boot program decompressed from ROM into WRAM, entered by JML at $C30073.
+[[extern]]
+name = "Wram_BootProgram"
+addr = 0x7E3000
+kind = "JML"
+hook = "wram_boot_program"
+noreturn = true
+
+# ---- (abs,X) jump tables: engine ----
+
+# PartyOp_JumpTable: op in A, not bounded in code (8-bit X). Entry 0 targets
+# $C28C75 = table + 13 words, so 13 entries.
+[[jumptable]]
+site = 0xC28C4A
+count = 13
+
+# $C223DB: 10 pointers listed, first target after table at +10 words, code at +10 words
+[[jumptable]]
+site = 0xC223D8
+count = 10
+
+# EventScript_CommandTable $C05D6E: index = command byte (AND #$00FF), 256
+# words, code resumes at $C05F6E (also the lowest target)
+[[jumptable]]
+site = 0xC05910
+count = 256
+
+# Same table ($C05D6E) as site $C05910.
+[[jumptable]]
+site = 0xC05977
+count = 256
+
+# Event operator table (8-bit ops): 8 pointers at $C06467, followed directly
+# by the 16-bit operator table at $C06477 (site $C0633D).
+[[jumptable]]
+site = 0xC06307
+count = 8
+
+# Event operator table (16-bit ops): 8 words at $C06477, code at $C06487.
+[[jumptable]]
+site = 0xC0633D
+count = 8
+
+# Same 8-pointer operator table as $C06307 ($C06467).
+[[jumptable]]
+site = 0xC06398
+count = 8
+
+# Same 8-word operator table as $C0633D ($C06477).
+[[jumptable]]
+site = 0xC063D7
+count = 8
+
+# Same table ($C06467) as site $C06307.
+[[jumptable]]
+site = 0xC06433
+count = 8
+
+# $C05BF2: first target after table at +4 words, code at +4 words
+[[jumptable]]
+site = 0xC05BE6
+count = 4
+
+# $C09FF7: 65 pointers listed, first target after table at +65 words, code at +65 words
+[[jumptable]]
+site = 0xC09FCF
+count = 65
+
+# Same table ($C09FF7) as site $C09FCF.
+[[jumptable]]
+site = 0xC09F6B
+count = 65
+
+# Same table ($C09FF7) as site $C09FCF.
+[[jumptable]]
+site = 0xC09F1C
+count = 65
+
+# Same table ($C09FF7) as site $C09FCF.
+[[jumptable]]
+site = 0xC09ECD
+count = 65
+
+# $C1D126: 6 pointers listed, code at +6 words (first target at +20)
+[[jumptable]]
+site = 0xC1CFE1
+count = 6
+
+# $C08902: first target after table at +17 words, code at +17 words
+[[jumptable]]
+site = 0xC088FC
+count = 17
+
+# Sprite anim step table at $C2F6D8: 4 pointers into $C2F6CE-$C2F6D4 (handlers
+# just before the table); the 5th word is instruction bytes (A5 11 = LDA $11).
+[[jumptable]]
+site = 0xC2F6AF
+count = 4
+
+# $C0400E: 20 pointers listed, first target after table at +20 words, code at +20 words
+[[jumptable]]
+site = 0xC04009
+count = 20
+
+# $C07181: first target after table at +12 words, code at +12 words
+[[jumptable]]
+site = 0xC0717D
+count = 12
+
+# $C06FA7: 9 pointers (to $C06FB9 RTS / $C06FBA), code at $C06FB9
+[[jumptable]]
+site = 0xC06FA3
+count = 9
+
+# $C2926E: first target after table at +4 words, code at +4 words
+[[jumptable]]
+site = 0xC29269
+count = 4
+
+# $C291DB: first target after table at +8 words, code at +8 words
+[[jumptable]]
+site = 0xC291B4
+count = 8
