@@ -401,6 +401,10 @@ class Insn:
     e: bool
 
     @property
+    def key(self) -> tuple:
+        return (self.addr, self.m, self.x, self.e)
+
+    @property
     def next_addr(self) -> int:
         return (self.addr & 0xFF0000) | ((self.addr + self.size) & 0xFFFF)
 
@@ -561,12 +565,16 @@ class Function:
     state: State
     insns: list[Insn] = field(default_factory=list)
     exit_states: set = field(default_factory=set)
-    calls: dict = field(default_factory=dict)   # call-site addr -> (target, entry State)
-    tails: dict = field(default_factory=dict)   # JMP addr -> (target, entry State)
+    # keyed by instruction key (addr, m, x, e)
+    calls: dict = field(default_factory=dict)   # JSR/JSL -> (target, entry State)
+    tails: dict = field(default_factory=dict)   # JMP abs tail call -> (target, entry State)
+    tables: dict = field(default_factory=dict)  # (abs,X) -> ([targets], entry State)
+    post: dict = field(default_factory=dict)    # (addr, m, x, e) -> (m, x, e) after the insn
 
     @property
     def size(self) -> int:
-        return sum(i.size for i in self.insns)
+        """Distinct ROM bytes (an address decoded in two states counts once)."""
+        return len(self.byte_set())
 
     def extent(self) -> tuple[int, int]:
         """(first, last) byte address covered."""
@@ -587,20 +595,19 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
     JMP abs is followed as an in-function jump. Other calls and far jumps
     are rejected."""
     fn = Function(entry, st)
-    seen: dict[int, tuple] = {}
+    seen: set[tuple] = set()
     work = [(entry, st)]
     while work:
         addr, cur = work.pop()
         while True:
-            if addr in seen:
-                if seen[addr] != cur.key():
-                    raise DecodeError(
-                        f'${addr:06X}: reached with {State(*seen[addr]).tag()} and {cur.tag()}')
+            if (addr,) + cur.key() in seen:
                 break
             i = decode_insn(rom, addr, cur)
-            seen[addr] = cur.key()
+            ikey = (addr,) + cur.key()
+            seen.add(ikey)
             fn.insns.append(i)
             nxt = next_state(i, cur)
+            fn.post[ikey] = nxt.key()
             mn = i.mnemonic
             if mn in RETURNS:
                 fn.exit_states.add((mn, nxt.m, nxt.x))
@@ -615,7 +622,7 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
                 cst = State(nxt.m, nxt.x, nxt.e)
                 exits = resolve.tail(addr, target, cst) if resolve is not None else None
                 if exits is not None:
-                    fn.tails[addr] = (target, cst)
+                    fn.tails[ikey] = (target, cst)
                     fn.exit_states |= exits
                     break
                 addr, cur = target, nxt
@@ -625,12 +632,31 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
                     raise DecodeError(f'${addr:06X}: {i.text()}: no call resolver')
                 target = (addr & 0xFF0000) | i.operand if mn == 'JSR' else i.operand
                 m, x = resolve(addr, target, State(nxt.m, nxt.x, nxt.e), mn)
-                fn.calls[addr] = (target, State(nxt.m, nxt.x, nxt.e))
+                fn.calls[ikey] = (target, State(nxt.m, nxt.x, nxt.e))
                 nxt = State(m, x, nxt.e, nxt.stack, nxt.stack_lost)
+                fn.post[ikey] = nxt.key()
+            elif mn in ('JSR', 'JMP') and i.mode == 'abs_x_ind':
+                if resolve is None:
+                    raise DecodeError(f'${addr:06X}: {i.text()}: no call resolver')
+                cst = State(nxt.m, nxt.x, nxt.e)
+                if cst.x is not False:
+                    raise DecodeError(f'${addr:06X}: {i.text()}: jump table needs 16-bit X')
+                targets = resolve.table_targets(i)
+                fn.tables[ikey] = (targets, cst)
+                if mn == 'JMP':
+                    for tg in dict.fromkeys(targets):
+                        fn.exit_states |= resolve.tail_required(addr, tg, cst)
+                    break
+                exits = {resolve(addr, tg, cst, 'JSR') for tg in dict.fromkeys(targets)}
+                if len(exits) != 1:
+                    raise DecodeError(f'${addr:06X}: jump table targets exit with {sorted(exits, key=str)}')
+                m, x = exits.pop()
+                nxt = State(m, x, nxt.e, nxt.stack, nxt.stack_lost)
+                fn.post[ikey] = nxt.key()
             elif mn in ('JSR', 'JSL', 'JMP', 'JML', 'BRK', 'COP', 'STP', 'WAI', 'XCE'):
                 raise DecodeError(f'${addr:06X}: {i.text()} not supported by decoder yet')
             addr, cur = i.next_addr, nxt
-    fn.insns.sort(key=lambda i: i.addr)
+    fn.insns.sort(key=lambda i: (i.addr, str(i.m), str(i.x), i.e))
     return fn
 
 

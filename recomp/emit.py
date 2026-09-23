@@ -212,15 +212,23 @@ def _build_templates() -> dict:
 
 TEMPLATES = _build_templates()
 
-NO_FALLTHROUGH = {'RTS', 'RTL', 'RTI', 'BRA', 'BRL', 'JMP', 'JML', 'STP'}
+NO_FALLTHROUGH = {'RTS', 'RTL', 'RTI', 'BRA', 'BRL', 'JMP', 'JML', 'STP'}  # JMP includes (abs,X)
 
 
 def implemented_opcodes() -> set[int]:
-    return {op for op, _ in TEMPLATES} | {0x20, 0x22, 0x4C}   # JSR/JSL/JMP: emit_function
+    return {op for op, _ in TEMPLATES} | {0x20, 0x22, 0x4C, 0x7C, 0xFC}   # calls/jumps: emit_function
 
 
 def c_name(addr: int, st: decode.State) -> str:
     return f'f_{addr:06X}_{st.tag()}'
+
+
+_EXTERNS: dict = {}
+
+
+def callee(target: int, st: decode.State) -> str:
+    ext = _EXTERNS.get(target)
+    return f'ct_hook_{ext.hook}' if ext else c_name(target, st)
 
 
 def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
@@ -231,54 +239,96 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
         '{',
         f'    cpu_enter(cpu, 0x{fm.addr:06X}, {int(st.m)}, {int(st.x)});',
     ]
-    if fn.insns[0].addr != fm.addr:
-        raise EmitError(f'${fm.addr:06X}: entry is not the lowest decoded address')
-    addrs = {i.addr for i in fn.insns}
+    keys = {i.key for i in fn.insns}
+    per_addr: dict[int, int] = {}
+    for i in fn.insns:
+        per_addr[i.addr] = per_addr.get(i.addr, 0) + 1
+
+    def label(addr: int, key: tuple) -> str:
+        if (addr,) + key not in keys:
+            raise EmitError(f'${addr:06X} ({decode.State(*key).tag()}): jump target not decoded')
+        if per_addr[addr] == 1:
+            return f'L_{addr:06X}'
+        return f'L_{addr:06X}_{decode.State(*key).tag()}'
+
+    entry = (fm.addr,) + st.key()
+    if fn.insns[0].key != entry:
+        lines.append(f'    goto {label(fm.addr, st.key())};')
+
     for k, i in enumerate(fn.insns):
         nxt = fn.insns[k + 1] if k + 1 < len(fn.insns) else None
-        if i.mnemonic not in NO_FALLTHROUGH and (nxt is None or nxt.addr != i.next_addr):
-            raise EmitError(f'${i.addr:06X}: fall-through to ${i.next_addr:06X} not contiguous')
+        post = fn.post[i.key]
         try:
             w = i.width()
         except DecodeError as ex:
             raise EmitError(str(ex)) from None
         t = TEMPLATES.get((i.opcode, w))
-        if i.opcode == 0x20 and i.addr in fn.calls:
-            target, cst = fn.calls[i.addr]
+
+        if i.opcode == 0x20 and i.key in fn.calls:
+            target, cst = fn.calls[i.key]
             ret = (i.addr + 2) & 0xFFFF
-            t = lambda i: [f'push16(cpu, 0x{ret:04X});',
-                           f'{c_name(target, cst)}(cpu);',
-                           f'cpu_check_return(cpu, 0x{i.addr:06X}, 0x{(ret + 1) & 0xFFFF:04X});']
-        if i.opcode == 0x22 and i.addr in fn.calls:
-            target, cst = fn.calls[i.addr]
+            t = lambda i, target=target, cst=cst, ret=ret: [
+                f'push16(cpu, 0x{ret:04X});',
+                f'{callee(target, cst)}(cpu);',
+                f'cpu_check_return(cpu, 0x{i.addr:06X}, 0x{(ret + 1) & 0xFFFF:04X});']
+        elif i.opcode == 0x22 and i.key in fn.calls:
+            target, cst = fn.calls[i.key]
             ret = (i.addr + 3) & 0xFFFF
             bank = i.addr >> 16
-            t = lambda i: [f'push8(cpu, 0x{bank:02X});',
-                           f'push16(cpu, 0x{ret:04X});',
-                           f'cpu->PB = 0x{target >> 16:02X};',
-                           f'{c_name(target, cst)}(cpu);',
-                           f'cpu_check_return_long(cpu, 0x{i.addr:06X}, '
-                           f'0x{bank:02X}{(ret + 1) & 0xFFFF:04X});']
-        if i.opcode == 0x4C:
-            if i.addr in fn.tails:
-                target, cst = fn.tails[i.addr]
-                t = lambda i: [f'{c_name(target, cst)}(cpu);', 'return;']
+            t = lambda i, target=target, cst=cst, ret=ret, bank=bank: [
+                f'push8(cpu, 0x{bank:02X});',
+                f'push16(cpu, 0x{ret:04X});',
+                f'cpu->PB = 0x{target >> 16:02X};',
+                f'{callee(target, cst)}(cpu);',
+                f'cpu_check_return_long(cpu, 0x{i.addr:06X}, 0x{bank:02X}{(ret + 1) & 0xFFFF:04X});']
+        elif i.opcode in (0x7C, 0xFC) and i.key in fn.tables:
+            targets, cst = fn.tables[i.key]
+            is_call = i.opcode == 0xFC
+            ret = (i.addr + 2) & 0xFFFF
+
+            def t(i, targets=targets, cst=cst, is_call=is_call, ret=ret):
+                body = [f'push16(cpu, 0x{ret:04X});'] if is_call else []
+                body.append('switch (cpu->X) {')
+                after = 'break;' if is_call else 'return;'
+                for n, tg in enumerate(targets):
+                    body.append(f'case 0x{2 * n:04X}: {callee(tg, cst)}(cpu); {after}')
+                body.append(f'default: ct_fatal("${i.addr:06X}: jump table index $%04X out of range", '
+                            'cpu->X);')
+                body.append('}')
+                if is_call:
+                    body.append(f'cpu_check_return(cpu, 0x{i.addr:06X}, 0x{(ret + 1) & 0xFFFF:04X});')
+                return body
+        elif i.opcode == 0x4C:
+            if i.key in fn.tails:
+                target, cst = fn.tails[i.key]
+                t = lambda i, target=target, cst=cst: [f'{callee(target, cst)}(cpu);', 'return;']
             else:
-                t = lambda i: [f'goto L_{(i.addr & 0xFF0000) | i.operand:06X};']
+                tgt = (i.addr & 0xFF0000) | i.operand
+                dest = label(tgt, post)
+                tick = f'ct_loop(0x{i.addr:06X}); ' if tgt <= i.addr else ''
+                t = lambda i, dest=dest, tick=tick: [f'{tick}goto {dest};']
+        elif i.mnemonic in _BRANCH:
+            tgt = i.branch_target()
+            dest = label(tgt, post)
+            cond = _BRANCH[i.mnemonic]
+            tick = f'ct_loop(0x{i.addr:06X}); ' if tgt <= i.addr else ''
+            if cond:
+                t = lambda i, dest=dest, cond=cond, tick=tick: [f'if ({cond}) {{ {tick}goto {dest}; }}']
+            else:
+                t = lambda i, dest=dest, tick=tick: [f'{tick}goto {dest};']
         if t is None:
             raise EmitError(f'${i.addr:06X}: {i.text()} (opcode ${i.opcode:02X}, '
                             f'width {w or "-"}) not implemented')
-        tgt = i.branch_target()
-        if i.opcode == 0x4C and i.addr not in fn.tails:
-            tgt = (i.addr & 0xFF0000) | i.operand
-        if tgt is not None and tgt not in addrs:
-            raise EmitError(f'${i.addr:06X}: branch target ${tgt:06X} not in function')
         body = t(i)
         if i.mnemonic == 'PLP':
-            if nxt is None or nxt.m is None or nxt.x is None:
+            if post[0] is None or post[1] is None:
                 raise EmitError(f'${i.addr:06X}: PLP restores unknown M/X')
-            body.append(f'cpu_check_mx(cpu, 0x{i.addr:06X}, {int(nxt.m)}, {int(nxt.x)});')
-        lines.append(f'L_{i.addr:06X}: /* {i.text()} */')
+            body.append(f'cpu_check_mx(cpu, 0x{i.addr:06X}, {int(post[0])}, {int(post[1])});')
+        if i.mnemonic not in NO_FALLTHROUGH:
+            succ = (i.next_addr,) + post
+            if nxt is None or nxt.key != succ:
+                body.append(f'goto {label(i.next_addr, post)};')
+        lines.append(f'{label(i.addr, i.key[1:])}: /* {i.text()} */')
         if len(body) == 1:
             lines.append(f'    {{ {body[0]} }}')
         else:
@@ -290,6 +340,8 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
 
 
 def emit_module(reg: funcs.Registry, metas: list[funcs.FuncMeta], module: str) -> tuple[str, str]:
+    _EXTERNS.clear()
+    _EXTERNS.update(reg.externs)
     sel = [fm for fm in metas if fm.module == module]
     if not sel:
         raise EmitError(f'no functions in module {module!r}')
@@ -339,8 +391,27 @@ def emit_prototypes(reg: funcs.Registry, metas: list[funcs.FuncMeta]) -> tuple[s
           '    int db, dp;         /* entry DB/DP from funcs.toml, -1 if unknown */',
           '    void (*fn)(CPU *);', '} ct_func;', '',
           'extern const ct_func ct_funcs[];', 'extern const unsigned ct_func_count;', '',
+          '/* call boundaries: target -> runtime hook */',
+          'typedef struct {', '    uint32_t addr;', '    int is_long;', '    void (*hook)(CPU *);',
+          '} ct_extern;', '', 'extern const ct_extern ct_externs[];',
+          'extern const unsigned ct_extern_count;', '',
+          '/* (abs,X) jump table bounds from funcs.toml */',
+          'typedef struct {', '    uint32_t site;', '    uint16_t count;', '} ct_jumptable;', '',
+          'extern const ct_jumptable ct_jumptables[];', 'extern const unsigned ct_jumptable_count;', '',
           '#endif', '']
     c += ['};', f'const unsigned ct_func_count = {n};', '']
+    jt = sorted(reg.jumptables.items())
+    ex = sorted(reg.externs.values(), key=lambda e: e.addr)
+    for e in ex:
+        h.insert(h.index('#include "cpu.h"') + 2,
+                 f'void ct_hook_{e.hook}(CPU *cpu);  /* extern {e.name} ${e.addr:06X} ({e.kind}) */')
+    c += ['const ct_extern ct_externs[] = {']
+    c += [f'    {{0x{e.addr:06X}, {int(e.kind == "JSL")}, ct_hook_{e.hook}}},' for e in ex] or \
+         ['    {0, 0, 0},']
+    c += ['};', f'const unsigned ct_extern_count = {len(ex)};', '']
+    c += ['const ct_jumptable ct_jumptables[] = {']
+    c += [f'    {{0x{site:06X}, {count}}},' for site, count in jt] or ['    {0, 0},']
+    c += ['};', f'const unsigned ct_jumptable_count = {len(jt)};', '']
     return '\n'.join(h), '\n'.join(c)
 
 
