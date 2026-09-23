@@ -29,6 +29,25 @@ add_library(ct_runtime STATIC runtime/cpu.c runtime/bus.c)
 target_include_directories(ct_runtime PUBLIC runtime)
 target_compile_options(ct_runtime PRIVATE ${CT_WARN})
 
+# ---- generated code ----
+set(CT_OUT ${CMAKE_SOURCE_DIR}/out)
+file(GLOB CT_RECOMP_PY ${CMAKE_SOURCE_DIR}/recomp/*.py)
+function(ct_module name)
+    add_custom_command(
+        OUTPUT ${CT_OUT}/${name}.c ${CT_OUT}/${name}.h
+        COMMAND ${CMAKE_COMMAND} -E env CT_ROM=${CT_ROM}
+                ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/recomp/emit.py
+                --module ${name} --out ${CT_OUT}
+        DEPENDS ${CT_RECOMP_PY} ${CMAKE_SOURCE_DIR}/funcs.toml
+        COMMENT "emit ${name}"
+        VERBATIM)
+    add_library(ct_${name} STATIC ${CT_OUT}/${name}.c)
+    target_include_directories(ct_${name} PUBLIC ${CT_OUT})
+    target_link_libraries(ct_${name} PUBLIC ct_runtime)
+    target_compile_options(ct_${name} PRIVATE ${CT_WARN} -Wno-unused-label)
+endfunction()
+ct_module(c1_math)
+
 # ---- tests ----
 add_executable(test_runtime test/test_runtime.c)
 target_link_libraries(test_runtime ct_runtime)
