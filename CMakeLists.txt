@@ -70,6 +70,13 @@ foreach(t mul8 mulaccum divide shifts)
     add_test(NAME c1_math_${t} COMMAND test_c1_math ${t})
 endforeach()
 
+add_executable(test_c1_text test/test_c1_text.c)
+target_link_libraries(test_c1_text ct_c1_text)
+target_compile_options(test_c1_text PRIVATE ${CT_WARN})
+foreach(t format divten reencode)
+    add_test(NAME c1_text_${t} COMMAND test_c1_text ${t})
+endforeach()
+
 # ---- test environment (keep last) ----
 get_property(ct_tests DIRECTORY PROPERTY TESTS)
 set_tests_properties(${ct_tests} PROPERTIES ENVIRONMENT "CT_ROM=${CT_ROM}")

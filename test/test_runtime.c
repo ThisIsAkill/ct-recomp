@@ -66,6 +66,31 @@ static void test_stack(void)
     CHECK(pull8(&c) == 0x99 && c.S == 0x0100, "emulation pull wraps");
 }
 
+static void test_index_ops(void)
+{
+    CPU c;
+    cpu_init(&c);
+    c.DB = 0x7E;
+    c.X = 0x0010;
+    CHECK(ea_abs_x(&c, 0xFFF8) == 0x7F0008, "abs,X carries into next bank");
+    CHECK(ea_long_x(&c, 0xCCFFF8) == 0xCD0008, "long,X carries into next bank");
+    c.X = 0xFFFF;
+    inx16(&c);
+    CHECK(c.X == 0 && c.z == 1, "INX wraps");
+    dex16(&c);
+    CHECK(c.X == 0xFFFF && c.n == 1, "DEX wraps");
+
+    for (unsigned k = 0; k < 8; k++)
+        write8(0x7E3000 + k, (uint8_t)(0xA0 + k));
+    c.X = 0x3000;
+    c.Y = 0x3100;
+    c.A = 7;
+    c.DB = 0x00;
+    mvn16(&c, 0x7F, 0x7E);
+    CHECK(c.A == 0xFFFF && c.X == 0x3008 && c.Y == 0x3108 && c.DB == 0x7F, "MVN regs");
+    CHECK(read8(0x7F3100) == 0xA0 && read8(0x7F3107) == 0xA7, "MVN data");
+}
+
 static void test_p(void)
 {
     CPU c;
@@ -156,6 +181,7 @@ int main(int argc, char **argv)
     test_math_unit();
     bus_reset();
     test_stack();
+    test_index_ops();
     test_p();
     test_arith();
     return th_report("runtime");
