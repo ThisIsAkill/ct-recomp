@@ -56,6 +56,13 @@ static inline void cpu_check_mx(const CPU *c, uint32_t at, int m, int x)
                  at, c->m, c->x, m, x);
 }
 
+/* After a JSR'd callee returns: it must have returned to the JSR site + 3. */
+static inline void cpu_check_return(const CPU *c, uint32_t site, uint16_t expect)
+{
+    if (c->PC != expect)
+        ct_fatal("$%06X: callee returned to $%04X, expected $%04X", site, c->PC, expect);
+}
+
 /* ---- effective addresses ---- */
 
 static inline uint32_t ea_dp(const CPU *c, uint8_t d)  { return (uint16_t)(c->DP + d); }

@@ -5,6 +5,7 @@ import os
 import tomllib
 from dataclasses import dataclass
 
+import decode
 from decode import DecodeError, State, parse_state
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -42,3 +43,43 @@ def load(path: str | None = None) -> list[FuncMeta]:
         out.append(FuncMeta(t['name'], t['addr'], tuple(t['states']), t['e'],
                             t.get('dp'), t.get('db'), t['module']))
     return out
+
+
+class Registry:
+    """Decodes funcs.toml entries on demand and resolves JSR targets."""
+
+    def __init__(self, rom: bytes, metas: list[FuncMeta]):
+        self.rom = rom
+        self.by_addr = {fm.addr: fm for fm in metas}
+        self.cache: dict[tuple, decode.Function] = {}
+        self.active: set[tuple] = set()
+
+    def function(self, addr: int, st: State) -> decode.Function:
+        key = (addr, st.m, st.x, st.e)
+        if key in self.cache:
+            return self.cache[key]
+        if key in self.active:
+            raise DecodeError(f'${addr:06X}: recursive call chain')
+        self.active.add(key)
+        try:
+            fn = decode.decode_function(self.rom, addr, st, self.resolve)
+        finally:
+            self.active.discard(key)
+        self.cache[key] = fn
+        return fn
+
+    def resolve(self, site: int, target: int, st: State) -> tuple:
+        fm = self.by_addr.get(target)
+        if fm is None:
+            raise DecodeError(f'${site:06X}: JSR ${target:06X}: target not in funcs.toml')
+        if st.tag() not in fm.states:
+            raise DecodeError(f'${site:06X}: JSR {fm.name} with {st.tag()}, '
+                              f'funcs.toml lists {", ".join(fm.states)}')
+        fn = self.function(target, st)
+        exits = {(m, x) for mn, m, x in fn.exit_states if mn == 'RTS'}
+        if {mn for mn, _, _ in fn.exit_states} != {'RTS'} or len(exits) != 1:
+            raise DecodeError(f'${site:06X}: JSR {fm.name}: exits {sorted(fn.exit_states)}')
+        m, x = exits.pop()
+        if m is None or x is None:
+            raise DecodeError(f'${site:06X}: JSR {fm.name}: exit M/X unknown')
+        return m, x

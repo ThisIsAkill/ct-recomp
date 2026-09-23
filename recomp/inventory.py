@@ -11,10 +11,11 @@ import funcs
 
 
 def collect(rom: bytes, metas) -> Counter:
+    reg = funcs.Registry(rom, metas)
     c: Counter = Counter()
     for fm in metas:
         for st in fm.entry_states():
-            fn = decode.decode_function(rom, fm.addr, st)
+            fn = reg.function(fm.addr, st)
             for i in fn.insns:
                 c[(i.opcode, i.mnemonic, i.mode, i.width())] += 1
     return c

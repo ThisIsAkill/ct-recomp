@@ -32,22 +32,31 @@ target_compile_options(ct_runtime PRIVATE ${CT_WARN})
 # ---- generated code ----
 set(CT_OUT ${CMAKE_SOURCE_DIR}/out)
 file(GLOB CT_RECOMP_PY ${CMAKE_SOURCE_DIR}/recomp/*.py)
-function(ct_module name)
-    add_custom_command(
-        OUTPUT ${CT_OUT}/${name}.c ${CT_OUT}/${name}.h
-        COMMAND ${CMAKE_COMMAND} -E env CT_ROM=${CT_ROM}
-                ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/recomp/emit.py
-                --module ${name} --out ${CT_OUT}
-        DEPENDS ${CT_RECOMP_PY} ${CMAKE_SOURCE_DIR}/funcs.toml
-        COMMENT "emit ${name}"
-        VERBATIM)
-    add_library(ct_${name} STATIC ${CT_OUT}/${name}.c)
-    target_include_directories(ct_${name} PUBLIC ${CT_OUT})
-    target_link_libraries(ct_${name} PUBLIC ct_runtime)
-    target_compile_options(ct_${name} PRIVATE ${CT_WARN} -Wno-unused-label)
-endfunction()
-ct_module(c1_math)
-ct_module(c1_text)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/funcs.toml)
+execute_process(
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/recomp/emit.py --list-modules
+    OUTPUT_VARIABLE CT_MODULES OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE ct_list_ok)
+if(NOT ct_list_ok EQUAL 0)
+    message(FATAL_ERROR "emit.py --list-modules failed")
+endif()
+set(CT_GEN_OUTPUTS ${CT_OUT}/ct_funcs.h)
+set(CT_GEN_SOURCES)
+foreach(m ${CT_MODULES})
+    list(APPEND CT_GEN_OUTPUTS ${CT_OUT}/${m}.c ${CT_OUT}/${m}.h)
+    list(APPEND CT_GEN_SOURCES ${CT_OUT}/${m}.c)
+endforeach()
+add_custom_command(
+    OUTPUT ${CT_GEN_OUTPUTS}
+    COMMAND ${CMAKE_COMMAND} -E env CT_ROM=${CT_ROM}
+            ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/recomp/emit.py --out ${CT_OUT}
+    DEPENDS ${CT_RECOMP_PY} ${CMAKE_SOURCE_DIR}/funcs.toml
+    COMMENT "emit ${CT_MODULES}"
+    VERBATIM)
+add_library(ct_gen STATIC ${CT_GEN_SOURCES})
+target_include_directories(ct_gen PUBLIC ${CT_OUT})
+target_link_libraries(ct_gen PUBLIC ct_runtime)
+target_compile_options(ct_gen PRIVATE ${CT_WARN} -Wno-unused-label)
 
 # ---- tests ----
 add_executable(test_runtime test/test_runtime.c)
@@ -64,14 +73,14 @@ set_tests_properties(runtime_fatal_decimal PROPERTIES PASS_REGULAR_EXPRESSION "c
 set_tests_properties(runtime_fatal_entry PROPERTIES PASS_REGULAR_EXPRESSION "ct: \\$C10089: entry state m0 x0 e0, expected m1 x0")
 
 add_executable(test_c1_math test/test_c1_math.c)
-target_link_libraries(test_c1_math ct_c1_math)
+target_link_libraries(test_c1_math ct_gen)
 target_compile_options(test_c1_math PRIVATE ${CT_WARN})
 foreach(t mul8 mulaccum divide shifts)
     add_test(NAME c1_math_${t} COMMAND test_c1_math ${t})
 endforeach()
 
 add_executable(test_c1_text test/test_c1_text.c)
-target_link_libraries(test_c1_text ct_c1_text)
+target_link_libraries(test_c1_text ct_gen)
 target_compile_options(test_c1_text PRIVATE ${CT_WARN})
 foreach(t format divten reencode)
     add_test(NAME c1_text_${t} COMMAND test_c1_text ${t})

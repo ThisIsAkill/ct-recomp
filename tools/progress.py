@@ -32,15 +32,16 @@ def main() -> int:
     build = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'build')
     rom = decode.load_rom()
     metas = funcs.load()
+    reg = funcs.Registry(rom, metas)
 
     rows, covered, variants = [], set(), 0
-    modules = sorted({fm.module for fm in metas})
+    modules = emit.modules(metas)
     for mod in modules:
-        emit.emit_module(rom, metas, mod)   # raises if anything is unimplemented
+        emit.emit_module(reg, metas, mod)   # raises if anything is unimplemented
     for fm in metas:
         sizes = []
         for st in fm.entry_states():
-            fn = decode.decode_function(rom, fm.addr, st)
+            fn = reg.function(fm.addr, st)
             covered |= fn.byte_set()
             sizes.append(fn.size)
             variants += 1
