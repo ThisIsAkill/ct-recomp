@@ -25,7 +25,7 @@ set(CT_WARN -Wall -Wextra -Wpedantic)
 enable_testing()
 
 # ---- runtime ----
-add_library(ct_runtime STATIC runtime/cpu.c runtime/bus.c)
+add_library(ct_runtime STATIC runtime/cpu.c runtime/bus.c runtime/hooks.c)
 target_include_directories(ct_runtime PUBLIC runtime)
 target_compile_options(ct_runtime PRIVATE ${CT_WARN})
 
@@ -62,7 +62,7 @@ target_compile_options(ct_gen PRIVATE ${CT_WARN} -Wno-unused-label)
 
 add_library(ct_interp STATIC test/interp.c)
 target_include_directories(ct_interp PUBLIC test)
-target_link_libraries(ct_interp PUBLIC ct_runtime)
+target_link_libraries(ct_interp PUBLIC ct_gen)
 target_compile_options(ct_interp PRIVATE ${CT_WARN})
 
 add_executable(test_runtime test/test_runtime.c)

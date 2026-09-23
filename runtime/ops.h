@@ -40,6 +40,14 @@ static inline void set_p(CPU *c, uint8_t p)
 static inline void op_rep(CPU *c, uint8_t v) { set_p(c, get_p(c) & (uint8_t)~v); }
 static inline void op_sep(CPU *c, uint8_t v) { set_p(c, get_p(c) | v); }
 
+/* ---- loop budget ----
+   Charged on every backward branch/jump in generated code. 0 = unlimited. */
+static inline void ct_loop(uint32_t at)
+{
+    if (ct_budget && --ct_budget == 0)
+        ct_fatal("$%06X: step budget exhausted", at);
+}
+
 /* ---- mode checks ---- */
 
 static inline void cpu_enter(const CPU *c, uint32_t at, int m, int x)
