@@ -1,3 +1,101 @@
-# Function metadata. Names from ChronoRET labels.
-# addr: 24-bit SNES address. states: entry M/X per variant, e.g. "m1x0".
-# e: entry emulation flag. db/dp: entry DB/DP when known.
+# Function metadata. Names from ChronoRET labels (asm/bankC1/bankC1.asm).
+#   addr    24-bit SNES address
+#   states  entry M/X per emitted variant, e.g. "m1x0"
+#   e       entry emulation flag
+#   dp, db  entry DP / DB when known
+#   module  output unit (out/<module>.c)
+# Sizes are not stored here; tools/check_meta.py derives them from ChronoRET.
+
+# ---- Bank $C1 math cluster ($C1:0089-$C1:011E) ----
+
+[[func]]
+name = "Battle_Mul8"
+addr = 0xC10089
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+module = "c1_math"
+
+[[func]]
+name = "Battle_MulAccum"
+addr = 0xC100A7
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+module = "c1_math"
+
+# INC/STZ $A029 is DB-relative; callers run with DB=$7E.
+[[func]]
+name = "Battle_Divide"
+addr = 0xC100D7
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_math"
+
+# Shift entries: called with both M=1 and M=0 (e.g. JSR $010D at $C10715
+# and JSR $0116 at $C12D73 run with M=0).
+[[func]]
+name = "Battle_ShiftLeft7"
+addr = 0xC1010D
+states = ["m1x0", "m0x0"]
+e = 0
+dp = 0x0000
+module = "c1_math"
+
+[[func]]
+name = "Battle_ShiftLeft4"
+addr = 0xC10111
+states = ["m1x0", "m0x0"]
+e = 0
+dp = 0x0000
+module = "c1_math"
+
+[[func]]
+name = "Battle_ShiftLeft3"
+addr = 0xC10112
+states = ["m1x0", "m0x0"]
+e = 0
+dp = 0x0000
+module = "c1_math"
+
+[[func]]
+name = "Loc_C10116"
+addr = 0xC10116
+states = ["m1x0", "m0x0"]
+e = 0
+dp = 0x0000
+module = "c1_math"
+
+[[func]]
+name = "Battle_ShiftRight6"
+addr = 0xC10118
+states = ["m1x0", "m0x0"]
+e = 0
+dp = 0x0000
+module = "c1_math"
+
+[[func]]
+name = "Battle_ShiftRight5"
+addr = 0xC10119
+states = ["m1x0", "m0x0"]
+e = 0
+dp = 0x0000
+module = "c1_math"
+
+[[func]]
+name = "Battle_ShiftRight4"
+addr = 0xC1011A
+states = ["m1x0", "m0x0"]
+e = 0
+dp = 0x0000
+module = "c1_math"
+
+[[func]]
+name = "Battle_ShiftRight3"
+addr = 0xC1011B
+states = ["m1x0", "m0x0"]
+e = 0
+dp = 0x0000
+module = "c1_math"
