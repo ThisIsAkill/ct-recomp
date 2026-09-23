@@ -56,6 +56,14 @@ static uint32_t rd_bank0_24(uint16_t a)
     return rd_bank0_16(a) | (uint32_t)read8((uint16_t)(a + 2)) << 16;
 }
 
+/* Shadow call stack: generated code requires every JSR'd callee to return
+   to its call site + 3, so the interpreter enforces the same. */
+static struct {
+    uint32_t site;
+    uint16_t ret;
+} shadow[256];
+static int depth;
+
 /* ---- flags / stack ---- */
 
 static void nz(CPU *c, uint16_t v, int wide)
@@ -480,7 +488,16 @@ static void step(CPU *c, uint32_t at, uint8_t op)
         break;
     }
     case 0xDC: { uint32_t t = rd_bank0_24(fetch16(c)); c->PB = (uint8_t)(t >> 16); c->PC = (uint16_t)t; break; }
-    case 0x20: { uint16_t t = fetch16(c); pushw(c, (uint16_t)(c->PC - 1)); c->PC = t; break; }
+    case 0x20: {
+        uint16_t t = fetch16(c);
+        pushw(c, (uint16_t)(c->PC - 1));
+        if (depth == 256)
+            ct_fatal("interp $%06X: call depth", at);
+        shadow[depth].site = at;
+        shadow[depth++].ret = c->PC;
+        c->PC = t;
+        break;
+    }
     case 0xFC: {
         uint16_t p = (uint16_t)(fetch16(c) + c->X);
         pushw(c, (uint16_t)(c->PC - 1));
@@ -496,7 +513,15 @@ static void step(CPU *c, uint32_t at, uint8_t op)
         c->PC = (uint16_t)t;
         break;
     }
-    case 0x60: c->PC = (uint16_t)(pullw(c) + 1); break;
+    case 0x60:
+        c->PC = (uint16_t)(pullw(c) + 1);
+        if (depth > 0) {
+            depth--;
+            if (c->PC != shadow[depth].ret)
+                ct_fatal("$%06X: callee returned to $%04X, expected $%04X", shadow[depth].site,
+                         c->PC, shadow[depth].ret);
+        }
+        break;
     case 0x6B: c->PC = (uint16_t)(pullw(c) + 1); c->PB = pull(c); break;
 
     /* block move */
@@ -516,6 +541,7 @@ void interp_call(CPU *c, uint32_t entry)
     if (c->e)
         ct_fatal("interp: emulation mode not supported");
     uint16_t s0 = c->S;
+    depth = 0;
     c->PB = (uint8_t)(entry >> 16);
     c->PC = (uint16_t)entry;
     for (long n = 0;; n++) {
