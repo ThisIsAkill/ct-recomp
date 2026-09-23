@@ -45,6 +45,15 @@ def load(path: str | None = None) -> list[FuncMeta]:
     return out
 
 
+class MissingTarget(DecodeError):
+    """Call target (or its entry state) not registered in funcs.toml."""
+
+    def __init__(self, site: int, target: int, st: State, kind: str, name: str | None = None):
+        self.site, self.target, self.state, self.kind, self.name = site, target, st, kind, name
+        what = f'{name} has no {st.tag()} entry' if name else 'target not in funcs.toml'
+        super().__init__(f'${site:06X}: {kind} ${target:06X} ({st.tag()}): {what}')
+
+
 class Registry:
     """Decodes funcs.toml entries on demand and resolves JSR targets."""
 
@@ -75,20 +84,21 @@ class Registry:
             return None
         return set(self.function(target, st).exit_states)
 
-    def __call__(self, site: int, target: int, st: State) -> tuple:
-        return self.resolve(site, target, st)
+    def __call__(self, site: int, target: int, st: State, kind: str = 'JSR') -> tuple:
+        return self.resolve(site, target, st, kind)
 
-    def resolve(self, site: int, target: int, st: State) -> tuple:
+    def resolve(self, site: int, target: int, st: State, kind: str = 'JSR') -> tuple:
+        """Exit (m, x) of a JSR/JSL callee; it must return only via RTS/RTL."""
         fm = self.by_addr.get(target)
         if fm is None:
-            raise DecodeError(f'${site:06X}: JSR ${target:06X}: target not in funcs.toml')
+            raise MissingTarget(site, target, st, kind)
         if st.tag() not in fm.states:
-            raise DecodeError(f'${site:06X}: JSR {fm.name} with {st.tag()}, '
-                              f'funcs.toml lists {", ".join(fm.states)}')
+            raise MissingTarget(site, target, st, kind, fm.name)
         fn = self.function(target, st)
-        exits = {(m, x) for mn, m, x in fn.exit_states if mn == 'RTS'}
-        if {mn for mn, _, _ in fn.exit_states} != {'RTS'} or len(exits) != 1:
-            raise DecodeError(f'${site:06X}: JSR {fm.name}: exits {sorted(fn.exit_states)}')
+        ret = 'RTS' if kind == 'JSR' else 'RTL'
+        exits = {(m, x) for mn, m, x in fn.exit_states if mn == ret}
+        if {mn for mn, _, _ in fn.exit_states} != {ret} or len(exits) != 1:
+            raise DecodeError(f'${site:06X}: {kind} {fm.name}: exits {sorted(fn.exit_states)}')
         m, x = exits.pop()
         if m is None or x is None:
             raise DecodeError(f'${site:06X}: JSR {fm.name}: exit M/X unknown')

@@ -620,11 +620,11 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
                     break
                 addr, cur = target, nxt
                 continue
-            elif mn == 'JSR' and i.mode == 'abs':
+            elif (mn == 'JSR' and i.mode == 'abs') or (mn == 'JSL' and i.mode == 'long'):
                 if resolve is None:
                     raise DecodeError(f'${addr:06X}: {i.text()}: no call resolver')
-                target = (addr & 0xFF0000) | i.operand
-                m, x = resolve(addr, target, State(nxt.m, nxt.x, nxt.e))
+                target = (addr & 0xFF0000) | i.operand if mn == 'JSR' else i.operand
+                m, x = resolve(addr, target, State(nxt.m, nxt.x, nxt.e), mn)
                 fn.calls[addr] = (target, State(nxt.m, nxt.x, nxt.e))
                 nxt = State(m, x, nxt.e, nxt.stack, nxt.stack_lost)
             elif mn in ('JSR', 'JSL', 'JMP', 'JML', 'BRK', 'COP', 'STP', 'WAI', 'XCE'):

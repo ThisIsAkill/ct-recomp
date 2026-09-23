@@ -173,6 +173,7 @@ _SPECIAL = {
     (0x08, ''):   lambda i: ['push8(cpu, get_p(cpu));'],                                   # PHP
     (0x28, ''):   lambda i: ['set_p(cpu, pull8(cpu));'],                                   # PLP
     (0x60, ''):   lambda i: ['op_rts(cpu);', 'return;'],                                   # RTS
+    (0x6B, ''):   lambda i: ['op_rtl(cpu);', 'return;'],                                   # RTL
     (0x7B, ''):   lambda i: ['op_tdc(cpu);'],                                              # TDC
     (0x5B, ''):   lambda i: ['cpu->DP = cpu->A;', 'set_nz16(cpu, cpu->DP);'],              # TCD
     (0x1B, ''):   lambda i: ['cpu->S = cpu->A;'],                                          # TCS
@@ -215,7 +216,7 @@ NO_FALLTHROUGH = {'RTS', 'RTL', 'RTI', 'BRA', 'BRL', 'JMP', 'JML', 'STP'}
 
 
 def implemented_opcodes() -> set[int]:
-    return {op for op, _ in TEMPLATES} | {0x20, 0x4C}   # JSR/JMP abs: emit_function
+    return {op for op, _ in TEMPLATES} | {0x20, 0x22, 0x4C}   # JSR/JSL/JMP: emit_function
 
 
 def c_name(addr: int, st: decode.State) -> str:
@@ -248,6 +249,16 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
             t = lambda i: [f'push16(cpu, 0x{ret:04X});',
                            f'{c_name(target, cst)}(cpu);',
                            f'cpu_check_return(cpu, 0x{i.addr:06X}, 0x{(ret + 1) & 0xFFFF:04X});']
+        if i.opcode == 0x22 and i.addr in fn.calls:
+            target, cst = fn.calls[i.addr]
+            ret = (i.addr + 3) & 0xFFFF
+            bank = i.addr >> 16
+            t = lambda i: [f'push8(cpu, 0x{bank:02X});',
+                           f'push16(cpu, 0x{ret:04X});',
+                           f'cpu->PB = 0x{target >> 16:02X};',
+                           f'{c_name(target, cst)}(cpu);',
+                           f'cpu_check_return_long(cpu, 0x{i.addr:06X}, '
+                           f'0x{bank:02X}{(ret + 1) & 0xFFFF:04X});']
         if i.opcode == 0x4C:
             if i.addr in fn.tails:
                 target, cst = fn.tails[i.addr]

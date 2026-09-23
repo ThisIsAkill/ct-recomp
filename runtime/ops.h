@@ -63,6 +63,14 @@ static inline void cpu_check_return(const CPU *c, uint32_t site, uint16_t expect
         ct_fatal("$%06X: callee returned to $%04X, expected $%04X", site, c->PC, expect);
 }
 
+/* After a JSL'd callee returns: PB:PC must be the JSL site + 4. */
+static inline void cpu_check_return_long(CPU *c, uint32_t site, uint32_t expect)
+{
+    if (c->PC != (uint16_t)expect || c->PB != (uint8_t)(expect >> 16))
+        ct_fatal("$%06X: callee returned to $%02X%04X, expected $%06X", site, c->PB, c->PC,
+                 expect);
+}
+
 /* ---- effective addresses ---- */
 
 static inline uint32_t ea_dp(const CPU *c, uint8_t d)  { return (uint16_t)(c->DP + d); }
@@ -167,8 +175,14 @@ static inline uint16_t pull16(CPU *c)
     return (uint16_t)(lo | pull8(c) << 8);
 }
 
-/* RTS: pull return address - 1. */
+/* RTS: pull return address - 1. RTL: also pull the bank. */
 static inline void op_rts(CPU *c) { c->PC = (uint16_t)(pull16(c) + 1); }
+
+static inline void op_rtl(CPU *c)
+{
+    c->PC = (uint16_t)(pull16(c) + 1);
+    c->PB = pull8(c);
+}
 
 /* ---- accumulator ---- */
 
