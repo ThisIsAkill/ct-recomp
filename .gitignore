@@ -12,7 +12,7 @@ __pycache__/
 *.pyc
 
 # Local session files
-[C]LAUDE.md
+?LAUDE.md
 KICKOFF*.md
 .[c]laude/
 notes/
