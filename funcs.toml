@@ -1672,15 +1672,8 @@ e = 0
 module = "bankd1"
 
 # ---- Engine roots ----
-
-# Reset ($C0FF00) does SEI/CLC/XCE and JML here: native, M=1 X=1
-# (ChronoRET bankFD.asm "On entry"). Tail-jumps (JML) to GameLoop $C0000E.
-[[func]]
-name = "MainInit"
-addr = 0xFDC000
-states = ["m1x1"]
-e = 0
-module = "bankfd"
+# MainInit ($FDC000, m1x1) is the discovery root; registered once the jump
+# tables its call graph reaches are all recorded.
 
 # ---- call boundaries, continued ----
 
@@ -1952,3 +1945,8 @@ count = 13
 [[jumptable]]
 site = 0xC1C732
 count = 7
+
+# Same table ($C1B80D) as site $C1B006.
+[[jumptable]]
+site = 0xC1B021
+count = 41
