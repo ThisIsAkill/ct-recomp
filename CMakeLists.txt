@@ -47,6 +47,7 @@ function(ct_module name)
     target_compile_options(ct_${name} PRIVATE ${CT_WARN} -Wno-unused-label)
 endfunction()
 ct_module(c1_math)
+ct_module(c1_text)
 
 # ---- tests ----
 add_executable(test_runtime test/test_runtime.c)
@@ -67,6 +68,13 @@ target_link_libraries(test_c1_math ct_c1_math)
 target_compile_options(test_c1_math PRIVATE ${CT_WARN})
 foreach(t mul8 mulaccum divide shifts)
     add_test(NAME c1_math_${t} COMMAND test_c1_math ${t})
+endforeach()
+
+add_executable(test_c1_text test/test_c1_text.c)
+target_link_libraries(test_c1_text ct_c1_text)
+target_compile_options(test_c1_text PRIVATE ${CT_WARN})
+foreach(t format divten reencode)
+    add_test(NAME c1_text_${t} COMMAND test_c1_text ${t})
 endforeach()
 
 # ---- test environment (keep last) ----

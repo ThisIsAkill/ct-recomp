@@ -34,6 +34,21 @@ def _long(i: Insn) -> str:
     return f'0x{i.operand:06X}'
 
 
+def _imm(i: Insn) -> str:
+    return f'0x{i.operand:0{2 if i.size == 2 else 4}X}'
+
+
+def _at(i: Insn) -> str:
+    return f'0x{i.addr:06X}'
+
+
+def _branch(cond: str):
+    def f(i: Insn) -> list[str]:
+        tgt = f'goto L_{i.branch_target():06X};'
+        return [tgt] if not cond else [f'if ({cond}) {tgt}']
+    return f
+
+
 # (opcode, width) -> body lines. width: '8'/'16' for M/X-sized ops, '' otherwise.
 TEMPLATES = {
     (0x08, ''):   lambda i: ['push8(cpu, get_p(cpu));'],                                   # PHP
@@ -64,6 +79,35 @@ TEMPLATES = {
     (0xEA, ''):   lambda i: [';'],                                                         # NOP
     (0xEE, '8'):  lambda i: [f'uint32_t ea = ea_abs(cpu, {_abs(i)});',                     # INC abs
                              'write8(ea, inc8(cpu, read8(ea)));'],
+    (0x10, ''):   _branch('!cpu->n'),                                                      # BPL
+    (0x18, ''):   lambda i: ['cpu->c = 0;'],                                               # CLC
+    (0x38, ''):   lambda i: ['cpu->c = 1;'],                                               # SEC
+    (0x54, '16'): lambda i: [f'mvn16(cpu, 0x{i.operand & 0xFF:02X}, 0x{i.operand >> 8:02X});'],  # MVN
+    (0x69, '8'):  lambda i: [f'adc8(cpu, {_imm(i)}, {_at(i)});'],                          # ADC #
+    (0x69, '16'): lambda i: [f'adc16(cpu, {_imm(i)}, {_at(i)});'],
+    (0x80, ''):   _branch(''),                                                             # BRA
+    (0x8D, '16'): lambda i: [f'write16(ea_abs(cpu, {_abs(i)}), cpu->A);'],                 # STA abs
+    (0x90, ''):   _branch('!cpu->c'),                                                      # BCC
+    (0x9D, '8'):  lambda i: [f'write8(ea_abs_x(cpu, {_abs(i)}), a8(cpu));'],               # STA abs,X
+    (0x9D, '16'): lambda i: [f'write16(ea_abs_x(cpu, {_abs(i)}), cpu->A);'],
+    (0xA0, '16'): lambda i: [f'ldy16(cpu, {_imm(i)});'],                                   # LDY #
+    (0xA2, '16'): lambda i: [f'ldx16(cpu, {_imm(i)});'],                                   # LDX #
+    (0xA9, '8'):  lambda i: [f'lda8(cpu, {_imm(i)});'],                                    # LDA #
+    (0xA9, '16'): lambda i: [f'lda16(cpu, {_imm(i)});'],
+    (0xAA, '16'): lambda i: ['tax16(cpu);'],                                               # TAX
+    (0xAD, '16'): lambda i: [f'lda16(cpu, read16(ea_abs(cpu, {_abs(i)})));'],              # LDA abs
+    (0xB0, ''):   _branch('cpu->c'),                                                       # BCS
+    (0xBD, '8'):  lambda i: [f'lda8(cpu, read8(ea_abs_x(cpu, {_abs(i)})));'],              # LDA abs,X
+    (0xBF, '8'):  lambda i: [f'lda8(cpu, read8(ea_long_x(cpu, {_long(i)})));'],            # LDA long,X
+    (0xC9, '8'):  lambda i: [f'cmp8(cpu, a8(cpu), {_imm(i)});'],                           # CMP #
+    (0xCA, '16'): lambda i: ['dex16(cpu);'],                                               # DEX
+    (0xD0, ''):   _branch('!cpu->z'),                                                      # BNE
+    (0xDA, '16'): lambda i: ['push16(cpu, cpu->X);'],                                      # PHX
+    (0xE0, '16'): lambda i: [f'cmp16(cpu, cpu->X, {_imm(i)});'],                           # CPX #
+    (0xE8, '16'): lambda i: ['inx16(cpu);'],                                               # INX
+    (0xE9, '16'): lambda i: [f'sbc16(cpu, {_imm(i)}, {_at(i)});'],                         # SBC #
+    (0xF0, ''):   _branch('cpu->z'),                                                       # BEQ
+    (0xFA, '16'): lambda i: ['cpu->X = pull16(cpu);', 'set_nz16(cpu, cpu->X);'],           # PLX
 }
 
 NO_FALLTHROUGH = {'RTS', 'RTL', 'RTI', 'BRA', 'BRL', 'JMP', 'JML', 'STP'}
@@ -87,6 +131,7 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
     ]
     if fn.insns[0].addr != fm.addr:
         raise EmitError(f'${fm.addr:06X}: entry is not the lowest decoded address')
+    addrs = {i.addr for i in fn.insns}
     for k, i in enumerate(fn.insns):
         nxt = fn.insns[k + 1] if k + 1 < len(fn.insns) else None
         if i.mnemonic not in NO_FALLTHROUGH and (nxt is None or nxt.addr != i.next_addr):
@@ -99,6 +144,9 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
         if t is None:
             raise EmitError(f'${i.addr:06X}: {i.text()} (opcode ${i.opcode:02X}, '
                             f'width {w or "-"}) not implemented')
+        tgt = i.branch_target()
+        if tgt is not None and tgt not in addrs:
+            raise EmitError(f'${i.addr:06X}: branch target ${tgt:06X} not in function')
         body = t(i)
         if i.mnemonic == 'PLP':
             if nxt is None or nxt.m is None or nxt.x is None:
