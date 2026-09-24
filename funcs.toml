@@ -1901,3 +1901,8 @@ count = 219
 [[jumptable]]
 site = 0xC175D1
 count = 25
+
+# index not bounded in code; first target after $D1F686 is at +6 words (agrees with second disassembly)
+[[jumptable]]
+site = 0xD1F682
+count = 6
