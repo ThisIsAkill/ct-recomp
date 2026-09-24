@@ -1934,3 +1934,15 @@ count = 41
 [[jumptable]]
 site = 0xC18CE7
 count = 46
+
+# Enemy script target table: 57 words at $C1B8BB ($C1A3F6-$C1ABC9, ascending),
+# ending where the jump table $C1B92D (site $C18333) begins.
+[[jumptable]]
+site = 0xC1AC2E
+count = 57
+
+# $C1B92D: 13 words ($C18876-$C18461 range), ending where data table
+# $C1B947 (read by LDA.L at $C182C5) begins.
+[[jumptable]]
+site = 0xC18333
+count = 13
