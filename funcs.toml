@@ -1895,3 +1895,9 @@ count = 72
 [[jumptable]]
 site = 0xC14CD4
 count = 219
+
+# BAnim_DispatchSubOp: 25 words at $C179A1 (handlers $C175D7-$C17612), ending
+# where the $C179D3 table (site $C17633) begins.
+[[jumptable]]
+site = 0xC175D1
+count = 25
