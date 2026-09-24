@@ -561,6 +561,7 @@ class Function:
     state: State
     insns: list[Insn] = field(default_factory=list)
     exit_states: set = field(default_factory=set)
+    calls: dict = field(default_factory=dict)   # call-site addr -> (target, entry State)
 
     @property
     def size(self) -> int:
@@ -577,9 +578,11 @@ class Function:
         return out
 
 
-def decode_function(rom: bytes, entry: int, st: State) -> Function:
+def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function:
     """Decode all instructions reachable from entry without leaving the
-    function (in-bank branches followed; calls and far jumps rejected)."""
+    function. In-bank branches are followed. JSR abs requires resolve:
+    resolve(site, target, state) -> (m, x) exit state of the callee.
+    Other calls and far jumps are rejected."""
     fn = Function(entry, st)
     seen: dict[int, tuple] = {}
     work = [(entry, st)]
@@ -604,6 +607,13 @@ def decode_function(rom: bytes, entry: int, st: State) -> Function:
             elif mn in ('BRA', 'BRL'):
                 addr, cur = i.branch_target(), nxt
                 continue
+            elif mn == 'JSR' and i.mode == 'abs':
+                if resolve is None:
+                    raise DecodeError(f'${addr:06X}: {i.text()}: no call resolver')
+                target = (addr & 0xFF0000) | i.operand
+                m, x = resolve(addr, target, State(nxt.m, nxt.x, nxt.e))
+                fn.calls[addr] = (target, State(nxt.m, nxt.x, nxt.e))
+                nxt = State(m, x, nxt.e, nxt.stack, nxt.stack_lost)
             elif mn in ('JSR', 'JSL', 'JMP', 'JML', 'BRK', 'COP', 'STP', 'WAI', 'XCE'):
                 raise DecodeError(f'${addr:06X}: {i.text()} not supported by decoder yet')
             addr, cur = i.next_addr, nxt

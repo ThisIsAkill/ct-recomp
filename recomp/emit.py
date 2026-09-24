@@ -108,6 +108,14 @@ TEMPLATES = {
     (0xE9, '16'): lambda i: [f'sbc16(cpu, {_imm(i)}, {_at(i)});'],                         # SBC #
     (0xF0, ''):   _branch('cpu->z'),                                                       # BEQ
     (0xFA, '16'): lambda i: ['cpu->X = pull16(cpu);', 'set_nz16(cpu, cpu->X);'],           # PLX
+    (0x99, '8'):  lambda i: [f'write8(ea_abs_y(cpu, {_abs(i)}), a8(cpu));'],               # STA abs,Y
+    (0xA6, '16'): lambda i: [f'ldx16(cpu, read16_dp(cpu, {_dp(i)}));'],                    # LDX dp
+    (0xA8, '16'): lambda i: ['tay16(cpu);'],                                               # TAY
+    (0xBF, '16'): lambda i: [f'lda16(cpu, read16(ea_long_x(cpu, {_long(i)})));'],          # LDA long,X
+    (0xC6, '8'):  lambda i: [f'uint32_t ea = ea_dp(cpu, {_dp(i)});',                       # DEC dp
+                             'write8(ea, dec8(cpu, read8(ea)));'],
+    (0xC8, '16'): lambda i: ['iny16(cpu);'],                                               # INY
+    (0xE5, '8'):  lambda i: [f'sbc8(cpu, read8(ea_dp(cpu, {_dp(i)})), {_at(i)});'],        # SBC dp
 }
 
 NO_FALLTHROUGH = {'RTS', 'RTL', 'RTI', 'BRA', 'BRL', 'JMP', 'JML', 'STP'}
@@ -141,6 +149,12 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
         except DecodeError as ex:
             raise EmitError(str(ex)) from None
         t = TEMPLATES.get((i.opcode, w))
+        if i.opcode == 0x20 and i.addr in fn.calls:
+            target, cst = fn.calls[i.addr]
+            ret = (i.addr + 2) & 0xFFFF
+            t = lambda i: [f'push16(cpu, 0x{ret:04X});',
+                           f'{c_name(target, cst)}(cpu);',
+                           f'cpu_check_return(cpu, 0x{i.addr:06X}, 0x{(ret + 1) & 0xFFFF:04X});']
         if t is None:
             raise EmitError(f'${i.addr:06X}: {i.text()} (opcode ${i.opcode:02X}, '
                             f'width {w or "-"}) not implemented')
@@ -163,19 +177,19 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
     return lines
 
 
-def emit_module(rom: bytes, metas: list[funcs.FuncMeta], module: str) -> tuple[str, str]:
+def emit_module(reg: funcs.Registry, metas: list[funcs.FuncMeta], module: str) -> tuple[str, str]:
     sel = [fm for fm in metas if fm.module == module]
     if not sel:
         raise EmitError(f'no functions in module {module!r}')
     guard = f'CT_OUT_{module.upper()}_H'
-    c = [HEADER, '#include "ops.h"', f'#include "{module}.h"', '']
+    c = [HEADER, '#include "ops.h"', '#include "ct_funcs.h"', f'#include "{module}.h"', '']
     h = [HEADER, f'#ifndef {guard}', f'#define {guard}', '', '#include <stdint.h>', '',
          '#include "cpu.h"', '']
     table = []
     for fm in sel:
         for st in fm.entry_states():
             try:
-                fn = decode.decode_function(rom, fm.addr, st)
+                fn = reg.function(fm.addr, st)
             except DecodeError as ex:
                 raise EmitError(f'{fm.name}: {ex}') from None
             c += emit_function(fm, fn) + ['']
@@ -192,6 +206,36 @@ def emit_module(rom: bytes, metas: list[funcs.FuncMeta], module: str) -> tuple[s
     return '\n'.join(c), '\n'.join(h)
 
 
+def emit_prototypes(reg: funcs.Registry, metas: list[funcs.FuncMeta]) -> tuple[str, str]:
+    """ct_funcs.h (all prototypes, table type) and ct_funcs.c (table)."""
+    h = [HEADER, '#ifndef CT_OUT_FUNCS_H', '#define CT_OUT_FUNCS_H', '', '#include <stdint.h>', '',
+         '#include "cpu.h"', '']
+    c = [HEADER, '#include "ct_funcs.h"', '', 'const ct_func ct_funcs[] = {']
+    n = 0
+    for fm in metas:
+        for st in fm.entry_states():
+            name = c_name(fm.addr, st)
+            fn = reg.function(fm.addr, st)
+            h.append(f'void {name}(CPU *cpu);  /* {fm.name} */')
+            db = fm.db if fm.db is not None else -1
+            dp = fm.dp if fm.dp is not None else -1
+            c.append(f'    {{"{fm.name}", 0x{fm.addr:06X}, {int(st.m)}, {int(st.x)}, {fn.size}, '
+                     f'{db}, {dp}, {name}}},')
+            n += 1
+    h += ['', 'typedef struct {', '    const char *name;', '    uint32_t addr;',
+          '    uint8_t m, x;', '    uint16_t size;',
+          '    int db, dp;         /* entry DB/DP from funcs.toml, -1 if unknown */',
+          '    void (*fn)(CPU *);', '} ct_func;', '',
+          'extern const ct_func ct_funcs[];', 'extern const unsigned ct_func_count;', '',
+          '#endif', '']
+    c += ['};', f'const unsigned ct_func_count = {n};', '']
+    return '\n'.join(h), '\n'.join(c)
+
+
+def modules(metas: list[funcs.FuncMeta]) -> list[str]:
+    return sorted({fm.module for fm in metas})
+
+
 def write_if_changed(path: str, text: str) -> None:
     if os.path.isfile(path):
         with open(path) as f:
@@ -203,16 +247,25 @@ def write_if_changed(path: str, text: str) -> None:
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument('--module', required=True)
+    ap.add_argument('--module', help='emit one module (default: all)')
+    ap.add_argument('--list-modules', action='store_true')
     ap.add_argument('--out', default=os.path.join(funcs.ROOT, 'out'))
     ap.add_argument('--rom')
     ap.add_argument('--funcs')
     a = ap.parse_args(argv)
-    rom = decode.load_rom(a.rom)
-    src, hdr = emit_module(rom, funcs.load(a.funcs), a.module)
+    metas = funcs.load(a.funcs)
+    if a.list_modules:
+        print(';'.join(modules(metas)))
+        return 0
+    reg = funcs.Registry(decode.load_rom(a.rom), metas)
     os.makedirs(a.out, exist_ok=True)
-    write_if_changed(os.path.join(a.out, f'{a.module}.c'), src)
-    write_if_changed(os.path.join(a.out, f'{a.module}.h'), hdr)
+    for mod in [a.module] if a.module else modules(metas):
+        src, hdr = emit_module(reg, metas, mod)
+        write_if_changed(os.path.join(a.out, f'{mod}.c'), src)
+        write_if_changed(os.path.join(a.out, f'{mod}.h'), hdr)
+    hdr, tab = emit_prototypes(reg, metas)
+    write_if_changed(os.path.join(a.out, 'ct_funcs.h'), hdr)
+    write_if_changed(os.path.join(a.out, 'ct_funcs.c'), tab)
     return 0
 
 

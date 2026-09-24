@@ -116,6 +116,7 @@ def main() -> int:
     second = os.environ.get('CT_DISASM', os.path.join(here, '..', 'ct_disassembly'))
     rom = decode.load_rom()
     metas = funcs.load()
+    reg = funcs.Registry(rom, metas)
     errors = []
 
     by_bank: dict[int, list[Block]] = {}
@@ -143,7 +144,7 @@ def main() -> int:
                 res.append(f'block sweep {sum(i.size for i in sw)} bytes != {blk.size}')
             if sw[k].addr != fm.addr:
                 res.append(f'label at ${sw[k].addr:06X} in source, ${fm.addr:06X} in funcs.toml')
-            fn = decode.decode_function(rom, fm.addr, st)
+            fn = reg.function(fm.addr, st)
             src = blk.mnemonics[k:]
             ret = next(j for j, mn in enumerate(src) if mn in decode.RETURNS)
             if [i.mnemonic for i in fn.insns] != src[:ret + 1]:

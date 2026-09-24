@@ -279,6 +279,7 @@ static void test_shifts(void)
 int main(int argc, char **argv)
 {
     const char *which = argc > 1 ? argv[1] : "all";
+    th_args(argc, argv);
     int all = !strcmp(which, "all");
     bus_init(NULL);
     fill_wram();
@@ -290,5 +291,5 @@ int main(int argc, char **argv)
         test_divide();
     if (all || !strcmp(which, "shifts"))
         test_shifts();
-    return th_report(which);
+    return th_report(th_interp ? "interp" : which);
 }

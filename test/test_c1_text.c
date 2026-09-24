@@ -211,6 +211,7 @@ static void test_reencode(void)
 int main(int argc, char **argv)
 {
     const char *which = argc > 1 ? argv[1] : "all";
+    th_args(argc, argv);
     int all = !strcmp(which, "all");
     bus_init(NULL);
     for (unsigned k = 0; k < CT_WRAM_SIZE; k++)
@@ -221,5 +222,5 @@ int main(int argc, char **argv)
         test_digits(0);
     if (all || !strcmp(which, "reencode"))
         test_reencode();
-    return th_report(which);
+    return th_report(th_interp ? "interp" : which);
 }

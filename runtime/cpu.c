@@ -15,14 +15,18 @@ void cpu_init(CPU *cpu)
     cpu->i = 1;
 }
 
+void (*ct_fatal_hook)(const char *msg);
+
 void ct_fatal(const char *fmt, ...)
 {
+    char buf[256];
     va_list ap;
-    fflush(stdout);
-    fputs("ct: ", stderr);
     va_start(ap, fmt);
-    vfprintf(stderr, fmt, ap);
+    vsnprintf(buf, sizeof buf, fmt, ap);
     va_end(ap);
-    fputc('\n', stderr);
+    if (ct_fatal_hook)
+        ct_fatal_hook(buf);
+    fflush(stdout);
+    fprintf(stderr, "ct: %s\n", buf);
     exit(3);
 }

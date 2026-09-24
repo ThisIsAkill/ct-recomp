@@ -56,6 +56,13 @@ static inline void cpu_check_mx(const CPU *c, uint32_t at, int m, int x)
                  at, c->m, c->x, m, x);
 }
 
+/* After a JSR'd callee returns: it must have returned to the JSR site + 3. */
+static inline void cpu_check_return(const CPU *c, uint32_t site, uint16_t expect)
+{
+    if (c->PC != expect)
+        ct_fatal("$%06X: callee returned to $%04X, expected $%04X", site, c->PC, expect);
+}
+
 /* ---- effective addresses ---- */
 
 static inline uint32_t ea_dp(const CPU *c, uint8_t d)  { return (uint16_t)(c->DP + d); }
@@ -65,6 +72,11 @@ static inline uint32_t ea_abs(const CPU *c, uint16_t a) { return (uint32_t)c->DB
 static inline uint32_t ea_abs_x(const CPU *c, uint16_t a)
 {
     return (((uint32_t)c->DB << 16 | a) + c->X) & 0xFFFFFF;
+}
+
+static inline uint32_t ea_abs_y(const CPU *c, uint16_t a)
+{
+    return (((uint32_t)c->DB << 16 | a) + c->Y) & 0xFFFFFF;
 }
 
 static inline uint32_t ea_long_x(const CPU *c, uint32_t a) { return (a + c->X) & 0xFFFFFF; }
@@ -123,6 +135,8 @@ static inline void ldy16(CPU *c, uint16_t v) { c->Y = v; set_nz16(c, v); }
 /* ---- index registers (16-bit forms; x=0) ---- */
 
 static inline void tax16(CPU *c) { c->X = c->A; set_nz16(c, c->X); }
+static inline void tay16(CPU *c) { c->Y = c->A; set_nz16(c, c->Y); }
+static inline void iny16(CPU *c) { c->Y = (uint16_t)(c->Y + 1); set_nz16(c, c->Y); }
 static inline void inx16(CPU *c) { c->X = (uint16_t)(c->X + 1); set_nz16(c, c->X); }
 static inline void dex16(CPU *c) { c->X = (uint16_t)(c->X - 1); set_nz16(c, c->X); }
 
@@ -174,6 +188,7 @@ static inline void lsr_a16(CPU *c)
 }
 
 static inline uint8_t inc8(CPU *c, uint8_t v) { v = (uint8_t)(v + 1); set_nz8(c, v); return v; }
+static inline uint8_t dec8(CPU *c, uint8_t v) { v = (uint8_t)(v - 1); set_nz8(c, v); return v; }
 
 /* ---- arithmetic (binary only; decimal mode is fatal in v0) ---- */
 

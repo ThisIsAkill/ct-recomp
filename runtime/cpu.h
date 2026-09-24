@@ -25,7 +25,9 @@ void cpu_init(CPU *cpu);
 #define CT_PRINTF(a, b)
 #endif
 
-/* Print "ct: <msg>" to stderr and exit(3). */
+/* Print "ct: <msg>" to stderr and exit(3). If ct_fatal_hook is set it is
+   called with the message instead and must not return (test use). */
 CT_NORETURN void ct_fatal(const char *fmt, ...) CT_PRINTF(1, 2);
+extern void (*ct_fatal_hook)(const char *msg);
 
 #endif
