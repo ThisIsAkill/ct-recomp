@@ -1928,3 +1928,9 @@ count = 41
 [[jumptable]]
 site = 0xC18769
 count = 41
+
+# Enemy script action table: 46 words at $C1B85F, ending where the sibling
+# target table $C1B8BB begins.
+[[jumptable]]
+site = 0xC18CE7
+count = 46
