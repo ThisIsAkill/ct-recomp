@@ -1911,3 +1911,20 @@ count = 6
 [[jumptable]]
 site = 0xC129AE
 count = 15
+
+# EnemyAI_CondOpTable: 41 words at $C1B80D, ending where the sibling action
+# table $C1B85F begins (sibling tables $C1B80D/$C1B85F/$C1B8BB per the
+# second disassembly).
+[[jumptable]]
+site = 0xC1B006
+count = 41
+
+# Same table ($C1B80D) as site $C1B006.
+[[jumptable]]
+site = 0xC1874E
+count = 41
+
+# Same table ($C1B80D) as site $C1B006.
+[[jumptable]]
+site = 0xC18769
+count = 41
