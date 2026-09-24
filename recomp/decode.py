@@ -694,7 +694,9 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
                 nxt = _continue(fn, ikey, i, nxt, exits, work)
                 if nxt is None:
                     break
-            elif mn in ('JSR', 'JSL', 'JMP', 'JML', 'BRK', 'COP', 'STP', 'WAI'):
+            elif mn in ('BRK', 'COP', 'STP', 'WAI'):
+                break   # translated as a run-time fatal error
+            elif mn in ('JSR', 'JSL', 'JMP', 'JML'):
                 raise DecodeError(f'${addr:06X}: {i.text()} not supported by decoder yet')
             addr, cur = i.next_addr, nxt
     fn.insns.sort(key=lambda i: (i.addr, str(i.m), str(i.x), i.e))

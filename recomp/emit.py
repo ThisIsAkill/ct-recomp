@@ -193,6 +193,11 @@ _SPECIAL = {
     (0xE2, ''):   lambda i: [f'op_sep(cpu, 0x{i.operand:02X});'],                          # SEP
     (0xEA, ''):   lambda i: [';'],                                                         # NOP
     (0xFB, ''):   lambda i: ['op_xce(cpu);'],                                              # XCE
+    # Crash traps / interrupt waits: no model in v0, fail at the address.
+    (0x00, ''):   lambda i: [f'ct_fatal("${i.addr:06X}: BRK executed");'],
+    (0x02, ''):   lambda i: [f'ct_fatal("${i.addr:06X}: COP executed");'],
+    (0xDB, ''):   lambda i: [f'ct_fatal("${i.addr:06X}: STP executed");'],
+    (0xCB, ''):   lambda i: [f'ct_fatal("${i.addr:06X}: WAI executed");'],
     (0x54, '16'): lambda i: [f'mvn16(cpu, 0x{i.operand & 0xFF:02X}, 0x{i.operand >> 8:02X});'],  # MVN
 }
 
@@ -213,7 +218,7 @@ def _build_templates() -> dict:
 
 TEMPLATES = _build_templates()
 
-NO_FALLTHROUGH = {'RTS', 'RTL', 'RTI', 'BRA', 'BRL', 'JMP', 'JML', 'STP'}  # JMP includes (abs,X)
+NO_FALLTHROUGH = {'RTS', 'RTL', 'RTI', 'BRA', 'BRL', 'JMP', 'JML', 'STP', 'BRK', 'COP', 'WAI'}  # JMP includes (abs,X)
 
 
 def implemented_opcodes() -> set[int]:

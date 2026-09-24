@@ -599,6 +599,10 @@ static void step(CPU *c, uint32_t at, uint8_t op)
     case 0x54: block_move(c, 1); break;
     case 0x44: block_move(c, -1); break;
 
+    case 0x00: ct_fatal("$%06X: BRK executed", at);
+    case 0x02: ct_fatal("$%06X: COP executed", at);
+    case 0xDB: ct_fatal("$%06X: STP executed", at);
+    case 0xCB: ct_fatal("$%06X: WAI executed", at);
     case 0xEA: break;
     case 0x42: fetch8(c); break;
 
