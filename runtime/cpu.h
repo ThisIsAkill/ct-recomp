@@ -30,4 +30,7 @@ void cpu_init(CPU *cpu);
 CT_NORETURN void ct_fatal(const char *fmt, ...) CT_PRINTF(1, 2);
 extern void (*ct_fatal_hook)(const char *msg);
 
+/* Remaining backward-branch budget for generated code (0 = unlimited). */
+extern uint64_t ct_budget;
+
 #endif

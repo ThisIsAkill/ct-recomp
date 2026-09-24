@@ -25,6 +25,45 @@ class FuncMeta:
         return [parse_state(s, e=bool(self.e)) for s in self.states]
 
 
+@dataclass(frozen=True)
+class Extern:
+    """Call boundary: target handled by a runtime hook, not recompiled."""
+    name: str
+    addr: int
+    kind: str      # 'JSR' or 'JSL': the return the hook performs
+    hook: str      # C function ct_hook_<hook>(CPU *)
+
+
+def load_externs(path: str | None = None) -> dict[int, Extern]:
+    """Exit M/X of an extern equals its entry M/X (checked from the code
+    when the entry is declared; see funcs.toml)."""
+    path = path or os.path.join(ROOT, 'funcs.toml')
+    with open(path, 'rb') as f:
+        data = tomllib.load(f)
+    out = {}
+    for t in data.get('extern', []):
+        for k in ('name', 'addr', 'kind', 'hook'):
+            if k not in t:
+                raise DecodeError(f'funcs.toml: extern {t}: missing {k}')
+        if t['kind'] not in ('JSR', 'JSL'):
+            raise DecodeError(f'funcs.toml: extern {t["name"]}: bad kind')
+        out[t['addr']] = Extern(t['name'], t['addr'], t['kind'], t['hook'])
+    return out
+
+
+def load_jumptables(path: str | None = None) -> dict[int, int]:
+    """site (24-bit address of JMP/JSR (abs,X)) -> entry count."""
+    path = path or os.path.join(ROOT, 'funcs.toml')
+    with open(path, 'rb') as f:
+        data = tomllib.load(f)
+    out = {}
+    for t in data.get('jumptable', []):
+        if 'site' not in t or 'count' not in t or t['count'] < 1:
+            raise DecodeError(f'funcs.toml: bad jumptable {t}')
+        out[t['site']] = t['count']
+    return out
+
+
 def load(path: str | None = None) -> list[FuncMeta]:
     path = path or os.path.join(ROOT, 'funcs.toml')
     with open(path, 'rb') as f:
@@ -54,34 +93,106 @@ class MissingTarget(DecodeError):
         super().__init__(f'${site:06X}: {kind} ${target:06X} ({st.tag()}): {what}')
 
 
+class NeedAssumption(DecodeError):
+    """Recursive call reached a routine whose exit state is being computed."""
+
+    def __init__(self, key: tuple):
+        self.key = key
+        super().__init__(f'${key[0]:06X}: recursive call chain')
+
+
 class Registry:
     """Decodes funcs.toml entries on demand and resolves JSR targets."""
 
-    def __init__(self, rom: bytes, metas: list[FuncMeta]):
+    def __init__(self, rom: bytes, metas: list[FuncMeta], jumptables: dict[int, int] | None = None):
         self.rom = rom
         self.by_addr = {fm.addr: fm for fm in metas}
+        self.jumptables = load_jumptables() if jumptables is None else jumptables
+        self.externs = load_externs()
         self.cache: dict[tuple, decode.Function] = {}
         self.active: set[tuple] = set()
+        self.assume: dict[tuple, tuple] = {}   # recursive key -> assumed exit (m, x)
 
     def function(self, addr: int, st: State) -> decode.Function:
         key = (addr, st.m, st.x, st.e)
         if key in self.cache:
             return self.cache[key]
         if key in self.active:
-            raise DecodeError(f'${addr:06X}: recursive call chain')
+            raise NeedAssumption(key)
         self.active.add(key)
         try:
             fn = decode.decode_function(self.rom, addr, st, self)
+        except NeedAssumption as ex:
+            if ex.key != key:
+                raise
+            fn = self._fixpoint(key, addr, st)
         finally:
             self.active.discard(key)
         self.cache[key] = fn
         return fn
+
+    def _fixpoint(self, key: tuple, addr: int, st: State) -> decode.Function:
+        """Recursive routine: accept the unique exit state that reproduces itself."""
+        found = []
+        errors: list[DecodeError] = []
+        for m, x in ((True, False), (False, False), (True, True), (False, True)):
+            before = set(self.cache)
+            self.assume[key] = (m, x)
+            try:
+                fn = decode.decode_function(self.rom, addr, st, self)
+                exits = {(em, ex) for _, em, ex in fn.exit_states}
+                if exits == {(m, x)}:
+                    found.append((fn, set(self.cache) - before))
+                    continue
+            except (MissingTarget, NeedAssumption):
+                for k in set(self.cache) - before:
+                    del self.cache[k]
+                raise
+            except DecodeError as ex:
+                errors.append(ex)
+            finally:
+                del self.assume[key]
+            for k in set(self.cache) - before:
+                del self.cache[k]
+        if not found and len(errors) == 4 and len({str(e) for e in errors}) == 1:
+            raise errors[0]   # same failure under every assumption: report it
+        if len(found) != 1:
+            why = '; '.join(sorted({str(e) for e in errors}))
+            raise DecodeError(f'${addr:06X}: recursive routine has {len(found)} consistent exit states'
+                              + (f' ({why})' if why else ''))
+        return found[0][0]
+
+    def table_targets(self, i) -> list[int]:
+        """Targets of a (abs,X) jump table, one per even index."""
+        count = self.jumptables.get(i.addr)
+        if count is None:
+            raise DecodeError(f'${i.addr:06X}: {i.text()}: no jumptable entry in funcs.toml')
+        bank = i.addr & 0xFF0000
+        out = []
+        for k in range(count):
+            lo = decode.snes_to_file(bank | ((i.operand + 2 * k) & 0xFFFF))
+            hi = decode.snes_to_file(bank | ((i.operand + 2 * k + 1) & 0xFFFF))
+            if lo is None or hi is None:
+                raise DecodeError(f'${i.addr:06X}: jump table not in ROM')
+            out.append(bank | self.rom[lo] | self.rom[hi] << 8)
+        return out
+
+    def tail_required(self, site: int, target: int, st: State) -> set:
+        exits = self.tail(site, target, st)
+        if exits is None:
+            fm = self.by_addr.get(target)
+            raise MissingTarget(site, target, st, 'JMP', fm.name if fm else None)
+        return exits
 
     def tail(self, site: int, target: int, st: State) -> set | None:
         """Exit states of a JMP target if it is a registered entry for st."""
         fm = self.by_addr.get(target)
         if fm is None or st.tag() not in fm.states:
             return None
+        key = (target, st.m, st.x, st.e)
+        if key in self.assume:
+            m, x = self.assume[key]
+            return {('RTS', m, x)} if fm is not None else None
         return set(self.function(target, st).exit_states)
 
     def __call__(self, site: int, target: int, st: State, kind: str = 'JSR') -> tuple:
@@ -89,11 +200,19 @@ class Registry:
 
     def resolve(self, site: int, target: int, st: State, kind: str = 'JSR') -> tuple:
         """Exit (m, x) of a JSR/JSL callee; it must return only via RTS/RTL."""
+        ext = self.externs.get(target)
+        if ext is not None:
+            if ext.kind != kind:
+                raise DecodeError(f'${site:06X}: {kind} to extern {ext.name} declared {ext.kind}')
+            return st.m, st.x
         fm = self.by_addr.get(target)
         if fm is None:
             raise MissingTarget(site, target, st, kind)
         if st.tag() not in fm.states:
             raise MissingTarget(site, target, st, kind, fm.name)
+        key = (target, st.m, st.x, st.e)
+        if key in self.assume:
+            return self.assume[key]
         fn = self.function(target, st)
         ret = 'RTS' if kind == 'JSR' else 'RTL'
         exits = {(m, x) for mn, m, x in fn.exit_states if mn == ret}

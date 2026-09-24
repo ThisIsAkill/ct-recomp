@@ -1,6 +1,7 @@
 #include "interp.h"
 
 #include "bus.h"
+#include "ct_funcs.h"
 
 typedef struct {
     uint32_t a;
@@ -64,6 +65,30 @@ static struct {
     int is_long;
 } shadow[256];
 static int depth;
+
+/* Extern hook for a call target, or NULL. */
+static void (*extern_hook(uint32_t addr, int is_long))(CPU *)
+{
+    for (unsigned k = 0; k < ct_extern_count; k++)
+        if (ct_externs[k].addr == addr) {
+            if (ct_externs[k].is_long != is_long)
+                ct_fatal("interp: extern $%06X called with wrong return kind", addr);
+            return ct_externs[k].hook;
+        }
+    return 0;
+}
+
+/* Jump-table bounds from funcs.toml; same failure as generated code. */
+static void table_index(const CPU *c, uint32_t at)
+{
+    for (unsigned k = 0; k < ct_jumptable_count; k++)
+        if (ct_jumptables[k].site == at) {
+            if ((c->X & 1) || c->X >= 2u * ct_jumptables[k].count)
+                ct_fatal("$%06X: jump table index $%04X out of range", at, c->X);
+            return;
+        }
+    ct_fatal("interp $%06X: no jumptable entry in funcs.toml", at);
+}
 
 /* ---- flags / stack ---- */
 
@@ -483,6 +508,7 @@ static void step(CPU *c, uint32_t at, uint8_t op)
     case 0x5C: { uint32_t t = fetch24(c); c->PB = (uint8_t)(t >> 16); c->PC = (uint16_t)t; break; }
     case 0x6C: c->PC = rd_bank0_16(fetch16(c)); break;
     case 0x7C: {
+        table_index(c, at);
         uint16_t p = (uint16_t)(fetch16(c) + c->X);
         c->PC = (uint16_t)(read8((uint32_t)c->PB << 16 | p) |
                            read8((uint32_t)c->PB << 16 | (uint16_t)(p + 1)) << 8);
@@ -492,6 +518,11 @@ static void step(CPU *c, uint32_t at, uint8_t op)
     case 0x20: {
         uint16_t t = fetch16(c);
         pushw(c, (uint16_t)(c->PC - 1));
+        void (*hook)(CPU *) = extern_hook((uint32_t)c->PB << 16 | t, 0);
+        if (hook) {
+            hook(c);
+            break;
+        }
         if (depth == 256)
             ct_fatal("interp $%06X: call depth", at);
         shadow[depth].site = at;
@@ -503,6 +534,12 @@ static void step(CPU *c, uint32_t at, uint8_t op)
     case 0xFC: {
         uint16_t p = (uint16_t)(fetch16(c) + c->X);
         pushw(c, (uint16_t)(c->PC - 1));
+        table_index(c, at);
+        if (depth == 256)
+            ct_fatal("interp $%06X: call depth", at);
+        shadow[depth].site = at;
+        shadow[depth].is_long = 0;
+        shadow[depth++].ret = (uint32_t)c->PB << 16 | c->PC;
         c->PC = (uint16_t)(read8((uint32_t)c->PB << 16 | p) |
                            read8((uint32_t)c->PB << 16 | (uint16_t)(p + 1)) << 8);
         break;
@@ -511,6 +548,12 @@ static void step(CPU *c, uint32_t at, uint8_t op)
         uint32_t t = fetch24(c);
         push(c, c->PB);
         pushw(c, (uint16_t)(c->PC - 1));
+        void (*hook)(CPU *) = extern_hook(t, 1);
+        if (hook) {
+            c->PB = (uint8_t)(t >> 16);
+            hook(c);
+            break;
+        }
         if (depth == 256)
             ct_fatal("interp $%06X: call depth", at);
         shadow[depth].site = at;
@@ -565,8 +608,8 @@ void interp_call(CPU *c, uint32_t entry)
     c->PB = (uint8_t)(entry >> 16);
     c->PC = (uint16_t)entry;
     for (long n = 0;; n++) {
-        if (n > 50000000)
-            ct_fatal("interp: step limit from $%06X", entry);
+        if (n > 3000000)
+            ct_fatal("$%06X: step budget exhausted", (uint32_t)c->PB << 16 | c->PC);
         uint32_t at = (uint32_t)c->PB << 16 | c->PC;
         uint8_t op = fetch8(c);
         step(c, at, op);

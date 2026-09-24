@@ -16,6 +16,7 @@ void cpu_init(CPU *cpu)
 }
 
 void (*ct_fatal_hook)(const char *msg);
+uint64_t ct_budget;
 
 void ct_fatal(const char *fmt, ...)
 {
