@@ -1816,3 +1816,82 @@ count = 4
 [[jumptable]]
 site = 0xC291B4
 count = 8
+
+# Menu/overlay system entry. Runs a cooperative task scheduler that switches
+# S per task (TCS at $C281FA) and resumes tasks via JMP ($0000) at $C28203;
+# not expressible as nested C calls yet. v0 boundary: hook is fatal, so code
+# after calls to it is not translated.
+[[extern]]
+name = "MenuOverlay_Launch"
+addr = 0xC28000
+kind = "JSL"
+hook = "menu_overlay"
+noreturn = true
+
+# FdCore_FrameTick mode tables, index $26: 3 pointers at $FDC2DF, directly
+# followed by 3 pointers at $FDC2E5, then code at $FDC2EB.
+[[jumptable]]
+site = 0xFDC2D7
+count = 3
+
+[[jumptable]]
+site = 0xFDC2CB
+count = 3
+
+# Same table ($C05D6E) as site $C05910.
+[[jumptable]]
+site = 0xC05AB1
+count = 256
+
+# BattleSys_ServiceDispatch: 10 words at $C10051 (all bank $C1 code
+# addresses), code resumes at $C10065.
+[[jumptable]]
+site = 0xC1004A
+count = 10
+
+# $C1006B: one word ($01A9 -> BattleMsg_ReencodeTextBuffer); the next word
+# is instruction bytes (JSL at $C1006D).
+[[jumptable]]
+site = 0xC10067
+count = 1
+
+# $C13216: 15 words pointing into $C130B6-$C131F4, code at $C13234.
+[[jumptable]]
+site = 0xC130B2
+count = 15
+
+# index not bounded in code; first target after $C13760 is at +9 words (agrees with second disassembly)
+[[jumptable]]
+site = 0xC1375C
+count = 9
+
+# BattleAnim_ActionTypeTable: $AE92 < 4 (CMP #$04 / BCC, else TDC -> 0), 4 entries.
+[[jumptable]]
+site = 0xC14328
+count = 4
+
+# index not bounded in code; first target after $CD13D4 is at +4 words (agrees with second disassembly)
+[[jumptable]]
+site = 0xCD13D1
+count = 4
+
+# index not bounded in code; first target after $CD13E6 is at +4 words (agrees with second disassembly)
+[[jumptable]]
+site = 0xCD13B9
+count = 4
+
+# index not bounded in code; first target after $CD1219 is at +4 words (agrees with second disassembly)
+[[jumptable]]
+site = 0xCD120A
+count = 4
+
+# Dispatch_BankC1_ViaTable: 72 words at $C179D3, all into the handler range
+# $C17639-$C17920, ending where BattleAnim_ActionTypeTable ($C17A63) begins.
+[[jumptable]]
+site = 0xC17633
+count = 72
+
+# Battle_AnimScriptCmdTable: cmd < $DB (CMP #$DB / BCS at $C14CC9), 219 entries.
+[[jumptable]]
+site = 0xC14CD4
+count = 219
