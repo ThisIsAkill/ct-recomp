@@ -516,3 +516,159 @@ e = 0
 dp = 0x0000
 db = 0x7E
 module = "c1_ui"
+
+# ---- discovered by tools/discover.py (entry state from call sites) ----
+
+[[func]]
+name = "BattleUI_ClearActivePanelColumn"
+addr = 0xC10872
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "BattleMenu_UpdateWindows"
+addr = 0xC10C2D
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "BattleMenu_ClearTechCursorTiles"
+addr = 0xC10EBA
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "BattleMenu_UpdateTechMpAvail"
+addr = 0xC10EE1
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "BattleSys_SlotMenuReadyPredicate"
+addr = 0xC1103E
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "BattleMenu_OpenItemList"
+addr = 0xC112ED
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "BattleMenu_ItemListPageDown"
+addr = 0xC1151C
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "BattleMenu_ItemListPageUp"
+addr = 0xC11537
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Loc_C117B3"
+addr = 0xC117B3
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Loc_C117D1"
+addr = 0xC117D1
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "BattleMenu_UpdateCursorOverlay"
+addr = 0xC117DD
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Text_RenderStringVec"
+addr = 0xC20003
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+
+[[func]]
+name = "BattleMsg_ShowFromTableCC3A09Vec"
+addr = 0xCD0027
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+
+[[func]]
+name = "BattleMsg_ShowMsg0BIfKeyChangedVec"
+addr = 0xCD002D
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+
+[[func]]
+name = "BattleMsg_ShowMsg0CIfKeyChangedVec"
+addr = 0xCD0030
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+
+[[func]]
+name = "BattleMsg_ClearTextBuffer"
+addr = 0xCD0239
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+
+[[func]]
+name = "BattleMsg_RenderString"
+addr = 0xCD025E
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+
+[[func]]
+name = "Battle_MergePendingEntries1580"
+addr = 0xCFFAE2
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+
+[[func]]
+name = "Battle_QueueVramUpload_0CC0"
+addr = 0xCFFD02
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+
+[[func]]
+name = "Battle_QueueVramUpload_A6E1"
+addr = 0xCFFD36
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+
+[[func]]
+name = "Battle_QueueVramUpload_0E80"
+addr = 0xCFFD6A
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+
+[[func]]
+name = "BattleFx_SetPtrA2FromTable"
+addr = 0xCFFD9E
+states = ["m1x0"]
+e = 0
+module = "bankcf"

@@ -60,7 +60,8 @@ static uint32_t rd_bank0_24(uint16_t a)
    to its call site + 3, so the interpreter enforces the same. */
 static struct {
     uint32_t site;
-    uint16_t ret;
+    uint32_t ret;   /* PB:PC expected after return */
+    int is_long;
 } shadow[256];
 static int depth;
 
@@ -494,7 +495,8 @@ static void step(CPU *c, uint32_t at, uint8_t op)
         if (depth == 256)
             ct_fatal("interp $%06X: call depth", at);
         shadow[depth].site = at;
-        shadow[depth++].ret = c->PC;
+        shadow[depth].is_long = 0;
+        shadow[depth++].ret = (uint32_t)c->PB << 16 | c->PC;
         c->PC = t;
         break;
     }
@@ -509,6 +511,11 @@ static void step(CPU *c, uint32_t at, uint8_t op)
         uint32_t t = fetch24(c);
         push(c, c->PB);
         pushw(c, (uint16_t)(c->PC - 1));
+        if (depth == 256)
+            ct_fatal("interp $%06X: call depth", at);
+        shadow[depth].site = at;
+        shadow[depth].is_long = 1;
+        shadow[depth++].ret = (uint32_t)c->PB << 16 | c->PC;
         c->PB = (uint8_t)(t >> 16);
         c->PC = (uint16_t)t;
         break;
@@ -517,12 +524,25 @@ static void step(CPU *c, uint32_t at, uint8_t op)
         c->PC = (uint16_t)(pullw(c) + 1);
         if (depth > 0) {
             depth--;
-            if (c->PC != shadow[depth].ret)
+            if (shadow[depth].is_long)
+                ct_fatal("interp $%06X: RTS returns from a JSL", at);
+            if (c->PC != (uint16_t)shadow[depth].ret)
                 ct_fatal("$%06X: callee returned to $%04X, expected $%04X", shadow[depth].site,
-                         c->PC, shadow[depth].ret);
+                         c->PC, (uint16_t)shadow[depth].ret);
         }
         break;
-    case 0x6B: c->PC = (uint16_t)(pullw(c) + 1); c->PB = pull(c); break;
+    case 0x6B:
+        c->PC = (uint16_t)(pullw(c) + 1);
+        c->PB = pull(c);
+        if (depth > 0) {
+            depth--;
+            if (!shadow[depth].is_long)
+                ct_fatal("interp $%06X: RTL returns from a JSR", at);
+            if (((uint32_t)c->PB << 16 | c->PC) != shadow[depth].ret)
+                ct_fatal("$%06X: callee returned to $%02X%04X, expected $%06X",
+                         shadow[depth].site, c->PB, c->PC, shadow[depth].ret);
+        }
+        break;
 
     /* block move */
     case 0x54: block_move(c, 1); break;

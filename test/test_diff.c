@@ -128,6 +128,8 @@ static void diff_func(const ct_func *f, int trials)
                   "%s %s m%dx%d trial %d: fatal mismatch: gen '%s' interp '%s'", tag, f->name,
                   f->m, f->x, t, ra.fatal ? ra.msg : "-", rb.fatal ? rb.msg : "-");
             fatal_both += ra.fatal && rb.fatal;
+            if (getenv("CT_DIFF_VERBOSE") && ra.fatal && rb.fatal && fatal_both <= 3)
+                fprintf(stderr, "  fatal in both: %s\n", ra.msg);
             continue;
         }
         int ok_cpu = cpu_equal(&ra.cpu, &rb.cpu);

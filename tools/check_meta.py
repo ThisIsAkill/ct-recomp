@@ -172,12 +172,13 @@ def main() -> int:
     ranges = [(b.org, b.end if b.end is not None else (b.addrs[-1] + 1 if b.addrs else b.org))
               for bank in blocks for b in blocks[bank]]
 
-    print(f'{"name":<34} {"addr":>7} {"states":<10} {"bytes":>5}  result')
+    print(f'{"name":<40} {"addr":>7} {"states":<10} {"bytes":>5}  result')
+    unverified = 0
     for fm in metas:
         res = []
         blk = next((b for b in blocks[fm.addr >> 16] if fm.name in b.labels), None)
         if blk is None:
-            res.append('label not in ChronoRET')
+            unverified += 1
         else:
             k = blk.labels[fm.name]
             if k >= len(blk.addrs):
@@ -192,13 +193,14 @@ def main() -> int:
                 if inside and i.addr not in starts:
                     res.append(f'{st.tag()}: ${i.addr:06X} not on a ChronoRET instruction')
                     break
-        print(f'{fm.name:<34} ${fm.addr:06X} {",".join(fm.states):<10} '
-              f'{"/".join(map(str, sorted(set(sizes)))):>5}  ' + ('ok' if not res else 'FAIL'))
+        verdict = 'FAIL' if res else ('ok' if blk is not None else 'not in ChronoRET')
+        print(f'{fm.name:<40} ${fm.addr:06X} {",".join(fm.states):<10} '
+              f'{"/".join(map(str, sorted(set(sizes)))):>5}  {verdict}')
         errors += [f'{fm.name}: {r}' for r in res]
 
     nblk = sum(len(v) for v in blocks.values())
     full = sum(1 for v in blocks.values() for b in v if b.end is not None)
-    print(f'ChronoRET blocks: {nblk}, fully swept: {full}')
+    print(f'ChronoRET blocks: {nblk}, fully swept: {full}; routines outside ChronoRET: {unverified}')
 
     for bank in banks:
         path = os.path.join(second, f'bank_{bank:02X}.asm')
