@@ -46,11 +46,13 @@ def main() -> int:
         a = table + 2 * k
         if bound is not None and a + 1 >= bound:
             break
+        if bound is None and k >= 1 and a >= table + 512:
+            break
         lo = decode.snes_to_file(bank | (a & 0xFFFF))
         hi = decode.snes_to_file(bank | ((a + 1) & 0xFFFF))
         tgt = bank | rom[lo] | rom[hi] << 8
-        if tgt > table and (bound is None or tgt < bound):
-            bound = tgt
+        if tgt > table and tgt >= a + 2 and (bound is None or tgt < bound):
+            bound = tgt   # only targets beyond the words already read
         k += 1
     if bound is not None:
         print(f'first target after table: ${bound:06X} -> at most {(bound - table) // 2} entries')

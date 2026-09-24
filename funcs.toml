@@ -1906,3 +1906,8 @@ count = 25
 [[jumptable]]
 site = 0xD1F682
 count = 6
+
+# $C12D81: 15 words into $C129B2-$C12CF3, data ends at $C12D9F.
+[[jumptable]]
+site = 0xC129AE
+count = 15
