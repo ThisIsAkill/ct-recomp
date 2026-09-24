@@ -39,6 +39,24 @@ def main() -> int:
     table = (site & 0xFF0000) | i.operand
     print(f'table: ${table:06X}')
 
+    # A table cannot run into the code of a target placed after it.
+    bank = table & 0xFF0000
+    bound, k = None, 0
+    while k < 256:
+        a = table + 2 * k
+        if bound is not None and a + 1 >= bound:
+            break
+        if bound is None and k >= 1 and a >= table + 512:
+            break
+        lo = decode.snes_to_file(bank | (a & 0xFFFF))
+        hi = decode.snes_to_file(bank | ((a + 1) & 0xFFFF))
+        tgt = bank | rom[lo] | rom[hi] << 8
+        if tgt > table and tgt >= a + 2 and (bound is None or tgt < bound):
+            bound = tgt   # only targets beyond the words already read
+        k += 1
+    if bound is not None:
+        print(f'first target after table: ${bound:06X} -> at most {(bound - table) // 2} entries')
+
     # Words listed as dw from the table's first line.
     start = next((k for k, l in enumerate(lines) if re.search(f';{table:06X}(\||\s*$)', l)), None)
     words = 0

@@ -67,11 +67,11 @@ static struct {
 static int depth;
 
 /* Extern hook for a call target, or NULL. */
-static void (*extern_hook(uint32_t addr, int is_long))(CPU *)
+static void (*extern_hook(uint32_t addr, int kind))(CPU *)
 {
     for (unsigned k = 0; k < ct_extern_count; k++)
         if (ct_externs[k].addr == addr) {
-            if (ct_externs[k].is_long != is_long)
+            if (ct_externs[k].kind != kind)
                 ct_fatal("interp: extern $%06X called with wrong return kind", addr);
             return ct_externs[k].hook;
         }
@@ -505,7 +505,15 @@ static void step(CPU *c, uint32_t at, uint8_t op)
 
     /* jumps and calls */
     case 0x4C: c->PC = fetch16(c); break;
-    case 0x5C: { uint32_t t = fetch24(c); c->PB = (uint8_t)(t >> 16); c->PC = (uint16_t)t; break; }
+    case 0x5C: {
+        uint32_t t = fetch24(c);
+        c->PB = (uint8_t)(t >> 16);
+        c->PC = (uint16_t)t;
+        void (*hook)(CPU *) = extern_hook(t, 2);
+        if (hook)
+            hook(c);
+        break;
+    }
     case 0x6C: c->PC = rd_bank0_16(fetch16(c)); break;
     case 0x7C: {
         table_index(c, at);
@@ -591,6 +599,10 @@ static void step(CPU *c, uint32_t at, uint8_t op)
     case 0x54: block_move(c, 1); break;
     case 0x44: block_move(c, -1); break;
 
+    case 0x00: ct_fatal("$%06X: BRK executed", at);
+    case 0x02: ct_fatal("$%06X: COP executed", at);
+    case 0xDB: ct_fatal("$%06X: STP executed", at);
+    case 0xCB: ct_fatal("$%06X: WAI executed", at);
     case 0xEA: break;
     case 0x42: fetch8(c); break;
 

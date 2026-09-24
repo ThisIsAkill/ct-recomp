@@ -52,9 +52,14 @@ def parse(path: str) -> list[dict]:
     return out
 
 
-def entry_state(note: str | None, bank: int) -> tuple[str, int | None, str]:
-    base = decode.default_state(bank)
-    m, x, db, src = base.m, base.x, None, 'default'
+def entry_state(note: str | None, bank: int) -> tuple[str | None, int | None, str]:
+    """(state tag, DB, source); tag None when neither documented nor defaulted."""
+    try:
+        base = decode.default_state(bank)
+        m, x, src = base.m, base.x, 'default'
+    except decode.DecodeError:
+        m, x, src = None, None, 'none'
+    db = None
     if note:
         mm = re.search(r'\bM\s*=\s*([01])', note)
         mx = re.search(r'\bX\s*=\s*([01])', note)
@@ -65,6 +70,8 @@ def entry_state(note: str | None, bank: int) -> tuple[str, int | None, str]:
             x = mx.group(1) == '1'
         if md:
             db = int(md.group(1), 16)
+    if m is None or x is None:
+        return None, db, src
     return f"m{int(m)}x{int(x)}", db, src
 
 
@@ -86,8 +93,8 @@ def main() -> int:
     extra = []
     for c in cands:
         st, db, src = entry_state(c['entry'], bank)
-        c.update(state=st, db=db, src=src)
-        if c['addr'] not in known:
+        c.update(state=st or '-', db=db, src=src)
+        if st is not None and c['addr'] not in known:
             extra.append(funcs.FuncMeta(c['name'], c['addr'], (st,), 0, 0, db, module))
 
     # Fixpoint: drop candidates that fail, since callers may depend on them.

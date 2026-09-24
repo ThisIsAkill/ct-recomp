@@ -66,6 +66,7 @@ def main() -> int:
     cands: dict[int, funcs.FuncMeta] = {}
     add_states: dict[str, set] = {}
     failures: dict[tuple, str] = {}
+    skipped: list[str] = []
     if '--chronoret' in args:
         bank = int(args[args.index('--chronoret') + 1], 16)
         cret = os.environ.get('CHRONORET', os.path.join(ROOT, '..', 'ChronoRET'))
@@ -75,6 +76,9 @@ def main() -> int:
             if c['addr'] >> 16 != bank or c['addr'] in known:
                 continue
             tag, db, _ = import_chronoret.entry_state(c['entry'], bank)
+            if tag is None:
+                skipped.append(c['name'])
+                continue
             cands[c['addr']] = funcs.FuncMeta(c['name'], c['addr'], (tag,), 0, 0, db,
                                               f'bank{bank:02x}')
             used_names.add(c['name'])
@@ -95,6 +99,9 @@ def main() -> int:
         for target, tag, known in sorted(missing):
             if known and target not in cands:
                 add_states.setdefault(known, set()).add(tag)
+                metas = [funcs.FuncMeta(m.name, m.addr, m.states + (tag,), m.e, m.dp, m.db, m.module)
+                         if m.name == known and tag not in m.states else m for m in metas]
+                new += 1
                 continue
             if target in cands:
                 fm = cands[target]
@@ -130,9 +137,24 @@ def main() -> int:
     for (name, tag), err in sorted(failures.items()):
         print(f'fail  {name} {tag}: {err}')
     for name, tags in sorted(add_states.items()):
-        print(f'state {name}: add {", ".join(sorted(tags))} to funcs.toml')
+        print(f'state {name}: add {", ".join(sorted(tags))}')
+    if skipped:
+        print(f'# skipped (no documented entry state): {", ".join(skipped)}', file=sys.stderr)
     print(f'# {len(ok)} decodable candidates of {len(cands)}', file=sys.stderr)
 
+    if '--write' in args and add_states:
+        path = os.path.join(ROOT, 'funcs.toml')
+        text = open(path).read()
+        for name, tags in add_states.items():
+            m = re.search(rf'name = "{re.escape(name)}"\naddr = [^\n]*\nstates = \[([^\]]*)\]', text)
+            if not m:
+                print(f'error: cannot find states line for {name}', file=sys.stderr)
+                return 1
+            cur = [s.strip().strip('"') for s in m.group(1).split(',') if s.strip()]
+            cur += [s for s in sorted(tags) if s not in cur]
+            new_line = ', '.join(f'"{s}"' for s in cur)
+            text = text[:m.start(1)] + new_line + text[m.end(1):]
+        open(path, 'w').write(text)
     if '--write' in args and ok:
         with open(os.path.join(ROOT, 'funcs.toml'), 'a') as f:
             f.write('\n# ---- discovered by tools/discover.py (entry state from call sites) ----\n')
