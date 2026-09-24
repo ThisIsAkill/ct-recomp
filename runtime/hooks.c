@@ -35,3 +35,11 @@ void ct_hook_wram_boot_program(CPU *cpu)
     (void)cpu;
     ct_fatal("$7E3000: RAM-resident boot program not recompiled");
 }
+
+/* $C28000 MenuOverlay_Launch: menu task scheduler (stack-switching). */
+void ct_hook_menu_overlay(CPU *cpu);
+void ct_hook_menu_overlay(CPU *cpu)
+{
+    (void)cpu;
+    ct_fatal("$C28000: menu task scheduler not recompiled");
+}
