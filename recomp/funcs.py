@@ -62,11 +62,21 @@ class Registry:
             raise DecodeError(f'${addr:06X}: recursive call chain')
         self.active.add(key)
         try:
-            fn = decode.decode_function(self.rom, addr, st, self.resolve)
+            fn = decode.decode_function(self.rom, addr, st, self)
         finally:
             self.active.discard(key)
         self.cache[key] = fn
         return fn
+
+    def tail(self, site: int, target: int, st: State) -> set | None:
+        """Exit states of a JMP target if it is a registered entry for st."""
+        fm = self.by_addr.get(target)
+        if fm is None or st.tag() not in fm.states:
+            return None
+        return set(self.function(target, st).exit_states)
+
+    def __call__(self, site: int, target: int, st: State) -> tuple:
+        return self.resolve(site, target, st)
 
     def resolve(self, site: int, target: int, st: State) -> tuple:
         fm = self.by_addr.get(target)

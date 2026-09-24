@@ -49,80 +49,173 @@ def _branch(cond: str):
     return f
 
 
+# ---- template generation ----
 # (opcode, width) -> body lines. width: '8'/'16' for M/X-sized ops, '' otherwise.
-TEMPLATES = {
+
+# mode -> (effective-address expression, 16-bit access wraps in bank 0)
+_EA = {
+    'dp':            (lambda i: f'ea_dp(cpu, {_dp(i)})', True),
+    'dp_x':          (lambda i: f'ea_dp_x(cpu, {_dp(i)})', True),
+    'dp_y':          (lambda i: f'ea_dp_y(cpu, {_dp(i)})', True),
+    'sr':            (lambda i: f'ea_sr(cpu, {_dp(i)})', True),
+    'abs':           (lambda i: f'ea_abs(cpu, {_abs(i)})', False),
+    'abs_x':         (lambda i: f'ea_abs_x(cpu, {_abs(i)})', False),
+    'abs_y':         (lambda i: f'ea_abs_y(cpu, {_abs(i)})', False),
+    'long':          (lambda i: _long(i), False),
+    'long_x':        (lambda i: f'ea_long_x(cpu, {_long(i)})', False),
+    'dp_ind':        (lambda i: f'ea_dp_ind(cpu, {_dp(i)})', False),
+    'dp_x_ind':      (lambda i: f'ea_dp_x_ind(cpu, {_dp(i)})', False),
+    'dp_ind_y':      (lambda i: f'ea_dp_ind_y(cpu, {_dp(i)})', False),
+    'dp_ind_long':   (lambda i: f'ea_dp_ind_long(cpu, {_dp(i)})', False),
+    'dp_ind_long_y': (lambda i: f'ea_dp_ind_long_y(cpu, {_dp(i)})', False),
+    'sr_ind_y':      (lambda i: f'ea_sr_ind_y(cpu, {_dp(i)})', False),
+}
+
+
+def _rd(expr: str, w: str, b0: bool) -> str:
+    if w == '8':
+        return f'read8({expr})'
+    return f'read16_b0({expr})' if b0 else f'read16({expr})'
+
+
+def _wr(expr: str, w: str, b0: bool, val: str) -> str:
+    if w == '8':
+        return f'write8({expr}, {val});'
+    return f'write16_b0({expr}, {val});' if b0 else f'write16({expr}, {val});'
+
+
+def _reg(name: str, w: str) -> str:
+    """Register value at width w."""
+    if name == 'A':
+        return 'a8(cpu)' if w == '8' else 'cpu->A'
+    return f'(uint8_t)cpu->{name}' if w == '8' else f'cpu->{name}'
+
+
+def _value(i: Insn, w: str) -> str:
+    if i.mode in ('imm_m', 'imm_x'):
+        return _imm(i)
+    ea, b0 = _EA[i.mode]
+    return _rd(ea(i), w, b0)
+
+
+_LOADS = {'LDA': 'lda', 'LDX': 'ldx', 'LDY': 'ldy', 'ORA': 'ora', 'AND': 'and', 'EOR': 'eor'}
+_STORES = {'STA': 'cpu->A', 'STX': 'cpu->X', 'STY': 'cpu->Y', 'STZ': '0'}
+_RMW = {'INC': 'inc', 'DEC': 'dec', 'ASL': 'asl', 'LSR': 'lsr', 'ROL': 'rol', 'ROR': 'ror',
+        'TSB': 'tsb', 'TRB': 'trb'}
+_FLAGS = {'CLC': 'cpu->c = 0;', 'SEC': 'cpu->c = 1;', 'CLI': 'cpu->i = 0;', 'SEI': 'cpu->i = 1;',
+          'CLD': 'cpu->d = 0;', 'SED': 'cpu->d = 1;', 'CLV': 'cpu->v = 0;'}
+_BRANCH = {'BPL': '!cpu->n', 'BMI': 'cpu->n', 'BVC': '!cpu->v', 'BVS': 'cpu->v',
+           'BCC': '!cpu->c', 'BCS': 'cpu->c', 'BNE': '!cpu->z', 'BEQ': 'cpu->z',
+           'BRA': '', 'BRL': ''}
+# transfer -> (dest register, source expression at 16 bits, width source)
+_XFER = {'TAX': ('X', 'cpu->A'), 'TAY': ('Y', 'cpu->A'), 'TXA': ('A', 'cpu->X'),
+         'TYA': ('A', 'cpu->Y'), 'TXY': ('Y', 'cpu->X'), 'TYX': ('X', 'cpu->Y'),
+         'TSX': ('X', 'cpu->S')}
+
+
+def _set_reg(name: str, w: str, val16: str) -> list[str]:
+    if name == 'A':
+        if w == '8':
+            return [f'set_a8(cpu, (uint8_t){val16});', 'set_nz8(cpu, a8(cpu));']
+        return [f'cpu->A = {val16};', 'set_nz16(cpu, cpu->A);']
+    if w == '8':
+        return [f'cpu->{name} = (uint8_t){val16};', f'set_nz8(cpu, (uint8_t)cpu->{name});']
+    return [f'cpu->{name} = {val16};', f'set_nz16(cpu, cpu->{name});']
+
+
+def _generate(mn: str, md: str, w: str):
+    """Template for one (mnemonic, mode, width), or None."""
+    if mn in _LOADS and (md in _EA or md in ('imm_m', 'imm_x')):
+        return lambda i: [f'{_LOADS[mn]}{w}(cpu, {_value(i, w)});']
+    if mn in ('ADC', 'SBC') and (md in _EA or md == 'imm_m'):
+        return lambda i: [f'{mn.lower()}{w}(cpu, {_value(i, w)}, {_at(i)});']
+    if mn in ('CMP', 'CPX', 'CPY') and (md in _EA or md in ('imm_m', 'imm_x')):
+        reg = {'CMP': 'A', 'CPX': 'X', 'CPY': 'Y'}[mn]
+        return lambda i: [f'cmp{w}(cpu, {_reg(reg, w)}, {_value(i, w)});']
+    if mn == 'BIT' and (md in _EA or md == 'imm_m'):
+        return lambda i: [f'bit{w}(cpu, {_value(i, w)}, {int(md == "imm_m")});']
+    if mn in _STORES and md in _EA:
+        ea, b0 = _EA[md]
+        src = _STORES[mn]
+        val = src if src == '0' else _reg(src[5:], w)
+        return lambda i: [_wr(ea(i), w, b0, val)]
+    if mn in _RMW and md in _EA:
+        ea, b0 = _EA[md]
+        return lambda i: [f'uint32_t ea = {ea(i)};',
+                          _wr('ea', w, b0, f'{_RMW[mn]}{w}(cpu, {_rd("ea", w, b0)})')]
+    if mn in _RMW and md == 'A':
+        if w == '8':
+            return lambda i: [f'set_a8(cpu, {_RMW[mn]}8(cpu, a8(cpu)));']
+        return lambda i: [f'cpu->A = {_RMW[mn]}16(cpu, cpu->A);']
+    if mn in _FLAGS:
+        return lambda i: [_FLAGS[mn]]
+    if mn in _BRANCH:
+        return _branch(_BRANCH[mn])
+    if mn in _XFER:
+        dst, src = _XFER[mn]
+        return lambda i: _set_reg(dst, w, src)
+    if mn in ('INX', 'INY', 'DEX', 'DEY'):
+        reg = mn[2]
+        op = '+' if mn.startswith('IN') else '-'
+        return lambda i: _set_reg(reg, w, f'(uint16_t)(cpu->{reg} {op} 1)')
+    if mn in ('PHA', 'PHX', 'PHY'):
+        reg = mn[2]
+        if w == '8':
+            return lambda i: [f'push8(cpu, (uint8_t)cpu->{reg});']
+        return lambda i: [f'push16(cpu, cpu->{reg});']
+    if mn in ('PLA', 'PLX', 'PLY'):
+        reg = mn[2]
+        return lambda i: _set_reg(reg, w, 'pull8(cpu)' if w == '8' else 'pull16(cpu)')
+    return None
+
+
+_SPECIAL = {
     (0x08, ''):   lambda i: ['push8(cpu, get_p(cpu));'],                                   # PHP
-    (0x0A, '8'):  lambda i: ['asl_a8(cpu);'],                                              # ASL A
-    (0x0A, '16'): lambda i: ['asl_a16(cpu);'],
     (0x28, ''):   lambda i: ['set_p(cpu, pull8(cpu));'],                                   # PLP
-    (0x48, '8'):  lambda i: ['push8(cpu, a8(cpu));'],                                      # PHA
-    (0x4A, '8'):  lambda i: ['lsr_a8(cpu);'],                                              # LSR A
-    (0x4A, '16'): lambda i: ['lsr_a16(cpu);'],
     (0x60, ''):   lambda i: ['op_rts(cpu);', 'return;'],                                   # RTS
-    (0x64, '8'):  lambda i: [f'write8(ea_dp(cpu, {_dp(i)}), 0);'],                         # STZ dp
-    (0x6D, '16'): lambda i: [f'adc16(cpu, read16(ea_abs(cpu, {_abs(i)})), 0x{i.addr:06X});'],  # ADC abs
     (0x7B, ''):   lambda i: ['op_tdc(cpu);'],                                              # TDC
-    (0x85, '8'):  lambda i: [f'write8(ea_dp(cpu, {_dp(i)}), a8(cpu));'],                   # STA dp
-    (0x85, '16'): lambda i: [f'write16_dp(cpu, {_dp(i)}, cpu->A);'],
-    (0x86, '16'): lambda i: [f'write16_dp(cpu, {_dp(i)}, cpu->X);'],                       # STX dp
+    (0x5B, ''):   lambda i: ['cpu->DP = cpu->A;', 'set_nz16(cpu, cpu->DP);'],              # TCD
+    (0x1B, ''):   lambda i: ['cpu->S = cpu->A;'],                                          # TCS
+    (0x3B, ''):   lambda i: ['cpu->A = cpu->S;', 'set_nz16(cpu, cpu->A);'],                # TSC
+    (0x9A, ''):   lambda i: ['cpu->S = cpu->X;'],                                          # TXS
+    (0xEB, ''):   lambda i: ['cpu->A = (uint16_t)(cpu->A >> 8 | cpu->A << 8);',            # XBA
+                             'set_nz8(cpu, a8(cpu));'],
     (0x8B, ''):   lambda i: ['push8(cpu, cpu->DB);'],                                      # PHB
-    (0x8D, '8'):  lambda i: [f'write8(ea_abs(cpu, {_abs(i)}), a8(cpu));'],                 # STA abs
-    (0x8F, '8'):  lambda i: [f'write8({_long(i)}, a8(cpu));'],                             # STA long
-    (0x9C, '8'):  lambda i: [f'write8(ea_abs(cpu, {_abs(i)}), 0);'],                       # STZ abs
-    (0xA5, '8'):  lambda i: [f'lda8(cpu, read8(ea_dp(cpu, {_dp(i)})));'],                  # LDA dp
-    (0xA5, '16'): lambda i: [f'lda16(cpu, read16_dp(cpu, {_dp(i)}));'],
     (0xAB, ''):   lambda i: ['cpu->DB = pull8(cpu);', 'set_nz8(cpu, cpu->DB);'],           # PLB
-    (0xAE, '16'): lambda i: [f'ldx16(cpu, read16(ea_abs(cpu, {_abs(i)})));'],              # LDX abs
-    (0xAF, '16'): lambda i: [f'lda16(cpu, read16({_long(i)}));'],                          # LDA long
+    (0x0B, ''):   lambda i: ['push16(cpu, cpu->DP);'],                                     # PHD
+    (0x2B, ''):   lambda i: ['cpu->DP = pull16(cpu);', 'set_nz16(cpu, cpu->DP);'],         # PLD
+    (0x4B, ''):   lambda i: [f'push8(cpu, 0x{i.addr >> 16:02X});'],                        # PHK
+    (0xF4, ''):   lambda i: [f'push16(cpu, {_abs(i)});'],                                  # PEA
+    (0xD4, ''):   lambda i: [f'push16(cpu, read16_b0(ea_dp(cpu, {_dp(i)})));'],            # PEI
+    (0x62, ''):   lambda i: [f'push16(cpu, 0x{i.branch_target() & 0xFFFF:04X});'],        # PER
     (0xC2, ''):   lambda i: [f'op_rep(cpu, 0x{i.operand:02X});'],                          # REP
     (0xE2, ''):   lambda i: [f'op_sep(cpu, 0x{i.operand:02X});'],                          # SEP
     (0xEA, ''):   lambda i: [';'],                                                         # NOP
-    (0xEE, '8'):  lambda i: [f'uint32_t ea = ea_abs(cpu, {_abs(i)});',                     # INC abs
-                             'write8(ea, inc8(cpu, read8(ea)));'],
-    (0x10, ''):   _branch('!cpu->n'),                                                      # BPL
-    (0x18, ''):   lambda i: ['cpu->c = 0;'],                                               # CLC
-    (0x38, ''):   lambda i: ['cpu->c = 1;'],                                               # SEC
     (0x54, '16'): lambda i: [f'mvn16(cpu, 0x{i.operand & 0xFF:02X}, 0x{i.operand >> 8:02X});'],  # MVN
-    (0x69, '8'):  lambda i: [f'adc8(cpu, {_imm(i)}, {_at(i)});'],                          # ADC #
-    (0x69, '16'): lambda i: [f'adc16(cpu, {_imm(i)}, {_at(i)});'],
-    (0x80, ''):   _branch(''),                                                             # BRA
-    (0x8D, '16'): lambda i: [f'write16(ea_abs(cpu, {_abs(i)}), cpu->A);'],                 # STA abs
-    (0x90, ''):   _branch('!cpu->c'),                                                      # BCC
-    (0x9D, '8'):  lambda i: [f'write8(ea_abs_x(cpu, {_abs(i)}), a8(cpu));'],               # STA abs,X
-    (0x9D, '16'): lambda i: [f'write16(ea_abs_x(cpu, {_abs(i)}), cpu->A);'],
-    (0xA0, '16'): lambda i: [f'ldy16(cpu, {_imm(i)});'],                                   # LDY #
-    (0xA2, '16'): lambda i: [f'ldx16(cpu, {_imm(i)});'],                                   # LDX #
-    (0xA9, '8'):  lambda i: [f'lda8(cpu, {_imm(i)});'],                                    # LDA #
-    (0xA9, '16'): lambda i: [f'lda16(cpu, {_imm(i)});'],
-    (0xAA, '16'): lambda i: ['tax16(cpu);'],                                               # TAX
-    (0xAD, '16'): lambda i: [f'lda16(cpu, read16(ea_abs(cpu, {_abs(i)})));'],              # LDA abs
-    (0xB0, ''):   _branch('cpu->c'),                                                       # BCS
-    (0xBD, '8'):  lambda i: [f'lda8(cpu, read8(ea_abs_x(cpu, {_abs(i)})));'],              # LDA abs,X
-    (0xBF, '8'):  lambda i: [f'lda8(cpu, read8(ea_long_x(cpu, {_long(i)})));'],            # LDA long,X
-    (0xC9, '8'):  lambda i: [f'cmp8(cpu, a8(cpu), {_imm(i)});'],                           # CMP #
-    (0xCA, '16'): lambda i: ['dex16(cpu);'],                                               # DEX
-    (0xD0, ''):   _branch('!cpu->z'),                                                      # BNE
-    (0xDA, '16'): lambda i: ['push16(cpu, cpu->X);'],                                      # PHX
-    (0xE0, '16'): lambda i: [f'cmp16(cpu, cpu->X, {_imm(i)});'],                           # CPX #
-    (0xE8, '16'): lambda i: ['inx16(cpu);'],                                               # INX
-    (0xE9, '16'): lambda i: [f'sbc16(cpu, {_imm(i)}, {_at(i)});'],                         # SBC #
-    (0xF0, ''):   _branch('cpu->z'),                                                       # BEQ
-    (0xFA, '16'): lambda i: ['cpu->X = pull16(cpu);', 'set_nz16(cpu, cpu->X);'],           # PLX
-    (0x99, '8'):  lambda i: [f'write8(ea_abs_y(cpu, {_abs(i)}), a8(cpu));'],               # STA abs,Y
-    (0xA6, '16'): lambda i: [f'ldx16(cpu, read16_dp(cpu, {_dp(i)}));'],                    # LDX dp
-    (0xA8, '16'): lambda i: ['tay16(cpu);'],                                               # TAY
-    (0xBF, '16'): lambda i: [f'lda16(cpu, read16(ea_long_x(cpu, {_long(i)})));'],          # LDA long,X
-    (0xC6, '8'):  lambda i: [f'uint32_t ea = ea_dp(cpu, {_dp(i)});',                       # DEC dp
-                             'write8(ea, dec8(cpu, read8(ea)));'],
-    (0xC8, '16'): lambda i: ['iny16(cpu);'],                                               # INY
-    (0xE5, '8'):  lambda i: [f'sbc8(cpu, read8(ea_dp(cpu, {_dp(i)})), {_at(i)});'],        # SBC dp
 }
+
+
+def _build_templates() -> dict:
+    out = dict(_SPECIAL)
+    special_ops = {op for op, _ in _SPECIAL}
+    for op, (mn, md) in decode.OPCODES.items():
+        if op in special_ops:
+            continue
+        dep = decode.width_dependency(mn, md)
+        for w in (['8', '16'] if dep else ['']):
+            f = _generate(mn, md, w)
+            if f is not None:
+                out[(op, w)] = f
+    return out
+
+
+TEMPLATES = _build_templates()
 
 NO_FALLTHROUGH = {'RTS', 'RTL', 'RTI', 'BRA', 'BRL', 'JMP', 'JML', 'STP'}
 
 
 def implemented_opcodes() -> set[int]:
-    return {op for op, _ in TEMPLATES}
+    return {op for op, _ in TEMPLATES} | {0x20, 0x4C}   # JSR/JMP abs: emit_function
 
 
 def c_name(addr: int, st: decode.State) -> str:
@@ -155,10 +248,18 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
             t = lambda i: [f'push16(cpu, 0x{ret:04X});',
                            f'{c_name(target, cst)}(cpu);',
                            f'cpu_check_return(cpu, 0x{i.addr:06X}, 0x{(ret + 1) & 0xFFFF:04X});']
+        if i.opcode == 0x4C:
+            if i.addr in fn.tails:
+                target, cst = fn.tails[i.addr]
+                t = lambda i: [f'{c_name(target, cst)}(cpu);', 'return;']
+            else:
+                t = lambda i: [f'goto L_{(i.addr & 0xFF0000) | i.operand:06X};']
         if t is None:
             raise EmitError(f'${i.addr:06X}: {i.text()} (opcode ${i.opcode:02X}, '
                             f'width {w or "-"}) not implemented')
         tgt = i.branch_target()
+        if i.opcode == 0x4C and i.addr not in fn.tails:
+            tgt = (i.addr & 0xFF0000) | i.operand
         if tgt is not None and tgt not in addrs:
             raise EmitError(f'${i.addr:06X}: branch target ${tgt:06X} not in function')
         body = t(i)

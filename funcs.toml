@@ -141,3 +141,378 @@ e = 0
 dp = 0x0000
 db = 0x7E
 module = "c1_ui"
+
+# ---- Bank $C1 battle menu / UI (imported from ChronoRET entry notes) ----
+
+[[func]]
+name = "BattleSys_SlotPanelRefresh"
+addr = 0xC10785
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_DrawReadyWindowEdges"
+addr = 0xC1081E
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleUI_SetPanelAttrColumn"
+addr = 0xC108E8
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_DrawWindowEdgeStrip"
+addr = 0xC10929
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+module = "c1_ui"
+
+
+[[func]]
+name = "Battle_SinLookup"
+addr = 0xC101F9
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+module = "c1_ui"
+
+
+[[func]]
+name = "Calc_Delta16"
+addr = 0xC10222
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleUI_BuildStatusBarFrame"
+addr = 0xC10299
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleUI_UpdateNextPcPanel"
+addr = 0xC105A7
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_RenderItemListRows"
+addr = 0xC1095D
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_RenderItemRow"
+addr = 0xC109B0
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_RenderTechListRows"
+addr = 0xC10A88
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_BuildTechAvailFlags"
+addr = 0xC10AD3
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_RenderTechRow"
+addr = 0xC10B0B
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "CODE_JP_C10BB6"
+addr = 0xC10BB6
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_BlankMpCostDigits"
+addr = 0xC10BD3
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "CODE_JP_C10C00"
+addr = 0xC10C00
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMsg_BlankLeadingZeros"
+addr = 0xC1104E
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_LoadCommandWindowMap"
+addr = 0xC11C3A
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_DrawCursorSprites"
+addr = 0xC11115
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_CursorUp"
+addr = 0xC11250
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_CursorDown"
+addr = 0xC11264
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "Battle_ZeroResultEE"
+addr = 0xC1179C
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_OpenTechList"
+addr = 0xC112BC
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_DequeueReadyBattler"
+addr = 0xC11B67
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_RemoveBattlerFromReady"
+addr = 0xC11BAA
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_CommitAction"
+addr = 0xC1161A
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_ConsumePartnerSlot"
+addr = 0xC1174E
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_TargetNext"
+addr = 0xC1176C
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_TargetPrev"
+addr = 0xC11786
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_TechListCancel"
+addr = 0xC1138F
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_TechListPrev"
+addr = 0xC113AD
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_TechListNext"
+addr = 0xC113F4
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_ItemListCancel"
+addr = 0xC114DB
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_ItemCursorUp"
+addr = 0xC114EC
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_ItemCursorDown"
+addr = 0xC11502
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_ItemListRefresh"
+addr = 0xC1154B
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_ItemListScrollUp"
+addr = 0xC117A1
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"
+
+
+[[func]]
+name = "BattleMenu_ItemListScrollDown"
+addr = 0xC117BF
+states = ["m1x0"]
+e = 0
+dp = 0x0000
+db = 0x7E
+module = "c1_ui"

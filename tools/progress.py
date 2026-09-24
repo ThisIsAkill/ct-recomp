@@ -34,7 +34,7 @@ def main() -> int:
     metas = funcs.load()
     reg = funcs.Registry(rom, metas)
 
-    rows, covered, variants = [], set(), 0
+    rows, covered, variants, used = [], set(), 0, set()
     modules = emit.modules(metas)
     for mod in modules:
         emit.emit_module(reg, metas, mod)   # raises if anything is unimplemented
@@ -43,6 +43,7 @@ def main() -> int:
         for st in fm.entry_states():
             fn = reg.function(fm.addr, st)
             covered |= fn.byte_set()
+            used |= {i.opcode for i in fn.insns}
             sizes.append(fn.size)
             variants += 1
         rows.append((fm, sizes))
@@ -62,6 +63,7 @@ def main() -> int:
            f'| Emitted C functions (routine x entry state) | {variants} |',
            f'| ROM bytes covered | {len(covered)} |',
            f'| Opcodes implemented | {len(ops)} / 256 |',
+           f'| Opcodes used by recompiled routines | {len(used)} / 256 |',
            f'| Opcode x width combinations implemented | {combos} |',
            f'| Tests passing | {passed} / {total} |',
            f'| Test assertions checked | {checks} |',

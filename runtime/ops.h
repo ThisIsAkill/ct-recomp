@@ -81,6 +81,54 @@ static inline uint32_t ea_abs_y(const CPU *c, uint16_t a)
 
 static inline uint32_t ea_long_x(const CPU *c, uint32_t a) { return (a + c->X) & 0xFFFFFF; }
 
+/* Bank-0 wrapping forms (direct page, stack relative). */
+static inline uint32_t ea_dp_x(const CPU *c, uint8_t d) { return (uint16_t)(c->DP + d + c->X); }
+static inline uint32_t ea_dp_y(const CPU *c, uint8_t d) { return (uint16_t)(c->DP + d + c->Y); }
+static inline uint32_t ea_sr(const CPU *c, uint8_t d)   { return (uint16_t)(c->S + d); }
+
+static inline uint16_t read16_b0(uint32_t a)
+{
+    return (uint16_t)(read8(a) | read8((uint16_t)(a + 1)) << 8);
+}
+
+static inline void write16_b0(uint32_t a, uint16_t v)
+{
+    write8(a, (uint8_t)v);
+    write8((uint16_t)(a + 1), (uint8_t)(v >> 8));
+}
+
+/* Indirect forms: pointer read from bank 0. */
+static inline uint32_t ea_dp_ind(const CPU *c, uint8_t d)
+{
+    return (uint32_t)c->DB << 16 | read16_b0(ea_dp(c, d));
+}
+
+static inline uint32_t ea_dp_x_ind(const CPU *c, uint8_t d)
+{
+    return (uint32_t)c->DB << 16 | read16_b0(ea_dp_x(c, d));
+}
+
+static inline uint32_t ea_dp_ind_y(const CPU *c, uint8_t d)
+{
+    return (ea_dp_ind(c, d) + c->Y) & 0xFFFFFF;
+}
+
+static inline uint32_t ea_dp_ind_long(const CPU *c, uint8_t d)
+{
+    uint32_t p = ea_dp(c, d);
+    return read16_b0(p) | (uint32_t)read8((uint16_t)(p + 2)) << 16;
+}
+
+static inline uint32_t ea_dp_ind_long_y(const CPU *c, uint8_t d)
+{
+    return (ea_dp_ind_long(c, d) + c->Y) & 0xFFFFFF;
+}
+
+static inline uint32_t ea_sr_ind_y(const CPU *c, uint8_t d)
+{
+    return (((uint32_t)c->DB << 16 | read16_b0(ea_sr(c, d))) + c->Y) & 0xFFFFFF;
+}
+
 /* Direct-page 16-bit access wraps within bank 0. */
 static inline uint16_t read16_dp(const CPU *c, uint8_t d)
 {
@@ -131,6 +179,77 @@ static inline void lda8(CPU *c, uint8_t v)   { set_a8(c, v); set_nz8(c, v); }
 static inline void lda16(CPU *c, uint16_t v) { c->A = v; set_nz16(c, v); }
 static inline void ldx16(CPU *c, uint16_t v) { c->X = v; set_nz16(c, v); }
 static inline void ldy16(CPU *c, uint16_t v) { c->Y = v; set_nz16(c, v); }
+static inline void ldx8(CPU *c, uint8_t v)   { c->X = v; set_nz8(c, v); }
+static inline void ldy8(CPU *c, uint8_t v)   { c->Y = v; set_nz8(c, v); }
+
+static inline void ora8(CPU *c, uint8_t v)   { set_a8(c, a8(c) | v); set_nz8(c, a8(c)); }
+static inline void and8(CPU *c, uint8_t v)   { set_a8(c, a8(c) & v); set_nz8(c, a8(c)); }
+static inline void eor8(CPU *c, uint8_t v)   { set_a8(c, a8(c) ^ v); set_nz8(c, a8(c)); }
+static inline void ora16(CPU *c, uint16_t v) { c->A |= v; set_nz16(c, c->A); }
+static inline void and16(CPU *c, uint16_t v) { c->A &= v; set_nz16(c, c->A); }
+static inline void eor16(CPU *c, uint16_t v) { c->A ^= v; set_nz16(c, c->A); }
+
+/* BIT: immediate form sets Z only. */
+static inline void bit8(CPU *c, uint8_t v, int imm)
+{
+    c->z = (a8(c) & v) == 0;
+    if (!imm) {
+        c->n = v >> 7;
+        c->v = (v >> 6) & 1;
+    }
+}
+
+static inline void bit16(CPU *c, uint16_t v, int imm)
+{
+    c->z = (c->A & v) == 0;
+    if (!imm) {
+        c->n = v >> 15;
+        c->v = (v >> 14) & 1;
+    }
+}
+
+/* ---- read-modify-write values ---- */
+
+static inline uint16_t dec16(CPU *c, uint16_t v) { v = (uint16_t)(v - 1); set_nz16(c, v); return v; }
+static inline uint16_t inc16(CPU *c, uint16_t v) { v = (uint16_t)(v + 1); set_nz16(c, v); return v; }
+static inline uint8_t asl8(CPU *c, uint8_t v)  { c->c = v >> 7; v = (uint8_t)(v << 1); set_nz8(c, v); return v; }
+static inline uint8_t lsr8(CPU *c, uint8_t v)  { c->c = v & 1; v >>= 1; set_nz8(c, v); return v; }
+static inline uint8_t rol8(CPU *c, uint8_t v)
+{
+    uint8_t r = (uint8_t)(v << 1 | c->c);
+    c->c = v >> 7;
+    set_nz8(c, r);
+    return r;
+}
+static inline uint8_t ror8(CPU *c, uint8_t v)
+{
+    uint8_t r = (uint8_t)(v >> 1 | c->c << 7);
+    c->c = v & 1;
+    set_nz8(c, r);
+    return r;
+}
+static inline uint16_t asl16(CPU *c, uint16_t v) { c->c = v >> 15; v = (uint16_t)(v << 1); set_nz16(c, v); return v; }
+static inline uint16_t lsr16(CPU *c, uint16_t v) { c->c = v & 1; v >>= 1; set_nz16(c, v); return v; }
+static inline uint16_t rol16(CPU *c, uint16_t v)
+{
+    uint16_t r = (uint16_t)(v << 1 | c->c);
+    c->c = v >> 15;
+    set_nz16(c, r);
+    return r;
+}
+static inline uint16_t ror16(CPU *c, uint16_t v)
+{
+    uint16_t r = (uint16_t)(v >> 1 | c->c << 15);
+    c->c = v & 1;
+    set_nz16(c, r);
+    return r;
+}
+
+/* TSB/TRB: Z from A & mem, then set/clear A's bits in mem. */
+static inline uint8_t tsb8(CPU *c, uint8_t v)   { c->z = (a8(c) & v) == 0; return v | a8(c); }
+static inline uint8_t trb8(CPU *c, uint8_t v)   { c->z = (a8(c) & v) == 0; return (uint8_t)(v & ~a8(c)); }
+static inline uint16_t tsb16(CPU *c, uint16_t v) { c->z = (c->A & v) == 0; return v | c->A; }
+static inline uint16_t trb16(CPU *c, uint16_t v) { c->z = (c->A & v) == 0; return (uint16_t)(v & ~c->A); }
 
 /* ---- index registers (16-bit forms; x=0) ---- */
 

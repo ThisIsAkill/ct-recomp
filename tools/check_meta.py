@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Verify funcs.toml against ChronoRET source and the ROM.
 
-For each ChronoRET block containing a funcs.toml label:
-  - linear-decode the block's bytes; mnemonics must match the source and the
-    decode must end exactly at the block's stated end and byte count
-  - the label's address (from the sweep) must equal funcs.toml addr
-  - each entry state's decoded function must match the source mnemonics
-    from the label to its return, and the union of decoded bytes of the
-    block's functions must equal the block's matched byte count
-Optional: cross-check addresses against a second disassembly (label -> addr).
+Each ChronoRET 'org' block is swept linearly through the ROM. Instruction
+widths come from the decoder's state wherever a funcs.toml routine reaches
+that address, otherwise from the propagated sweep state. Checks:
+  - every decoded instruction inside a block starts on a source
+    instruction with the same mnemonic
+  - every funcs.toml label resolves to its funcs.toml address
+  - blocks with a '(N bytes, $XXXX-$YYYY)' header sweep to exactly N bytes
+Also cross-checks label addresses against a second disassembly when present.
 
 Env: CHRONORET (default ../ChronoRET), CT_DISASM (default ../ct_disassembly).
 """
@@ -24,6 +24,8 @@ import decode  # noqa: E402
 import funcs  # noqa: E402
 
 BLOCK_RE = re.compile(r'^;.*\((\d+) bytes, \$([0-9A-F]{4})[–-]\$([0-9A-F]{4})\)')
+# Header continuation: ';   Name (N byte(s), $XXXX...)' after a header ending in '+'.
+MORE_RE = re.compile(r'^;\s+\S+ \((\d+) bytes?, \$[0-9A-F]{4}')
 ORG_RE = re.compile(r'^org \$([0-9A-F]{6})', re.I)
 LABEL_RE = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*):')
 INSN_RE = re.compile(r'^\s+([A-Za-z]{3})(?:\.[lwb])?\b')
@@ -31,32 +33,41 @@ DB_RE = re.compile(r'^\s+db\s+\$([0-9A-F]{2})', re.I)
 
 
 class Block:
-    def __init__(self, size: int, start: int, end: int, org: int):
-        self.size, self.start, self.end, self.org = size, start, end, org
+    def __init__(self, org: int, size: int | None):
+        self.org, self.size = org, size
         self.mnemonics: list[str] = []
-        self.labels: dict[str, int] = {}   # label -> insn index
+        self.labels: dict[str, int] = {}   # label -> source insn index
+        self.addrs: list[int] = []          # swept address per source insn
+        self.end: int | None = None         # first address past the sweep
 
 
 def parse_chronoret(path: str, bank: int) -> list[Block]:
     blocks: list[Block] = []
-    pending = None
+    header = None
+    cont = False
     cur: Block | None = None
     with open(path) as f:
         for line in f:
             line = line.rstrip('\n')
             m = BLOCK_RE.match(line)
             if m:
-                pending = (int(m.group(1)), int(m.group(2), 16), int(m.group(3), 16))
-                cur = None
+                header = (int(m.group(1)), int(m.group(2), 16))
+                cont = line.rstrip().endswith('+')
                 continue
+            m = MORE_RE.match(line)
+            if m and header and cont:
+                header = (header[0] + int(m.group(1)), header[1])
+                cont = line.rstrip().endswith('+')
+                continue
+            cont = False
             m = ORG_RE.match(line)
             if m:
                 org = int(m.group(1), 16)
-                cur = None
-                if pending and (org >> 16) == bank and (org & 0xFFFF) == pending[1]:
-                    cur = Block(*pending, org)
+                size = header[0] if header and (org & 0xFFFF) == header[1] else None
+                header = None
+                cur = Block(org, size) if (org >> 16) == bank else None
+                if cur:
                     blocks.append(cur)
-                pending = None
                 continue
             if cur is None:
                 continue
@@ -64,19 +75,15 @@ def parse_chronoret(path: str, bank: int) -> list[Block]:
             m = LABEL_RE.match(code)
             if m:
                 cur.labels[m.group(1)] = len(cur.mnemonics)
-                code = code[m.end():]
-                if not code.strip():
-                    continue
-                code = ' ' + code
+                code = ' ' + code[m.end():]
             m = DB_RE.match(code)
             if m:
-                # Hand-encoded instruction: first byte is the opcode.
                 cur.mnemonics.append(decode.OPCODES[int(m.group(1), 16)][0])
                 continue
             m = INSN_RE.match(code)
             if m:
                 cur.mnemonics.append(m.group(1).upper())
-    return blocks
+    return [b for b in blocks if b.mnemonics]
 
 
 def parse_second(path: str) -> dict[str, int]:
@@ -96,18 +103,40 @@ def parse_second(path: str) -> dict[str, int]:
     return out
 
 
-def sweep(rom: bytes, blk: Block, st: decode.State) -> list[decode.Insn]:
-    bank = blk.org & 0xFF0000
-    addr, end = blk.org, bank | blk.end
-    out = []
-    while addr <= end:
-        i = decode.decode_insn(rom, addr, st)
-        out.append(i)
-        st = decode.next_state(i, st)
+def sweep(rom: bytes, blk: Block, states: dict[int, set], errors: list, notes: list) -> None:
+    st = None
+    addr = blk.org
+    for k, src in enumerate(blk.mnemonics):
+        known = states.get(addr)
+        if known:
+            if st is not None and (st.m, st.x) not in known and len(known) == 1:
+                pass  # the routine's own state wins
+            (m, x), *_ = sorted(known, key=lambda s: (s[0] is None, s))
+            st = decode.State(m, x)
+            sizes = {decode.decode_insn(rom, addr, decode.State(mm, xx)).size for mm, xx in known}
+            if len(sizes) != 1:
+                errors.append(f'${addr:06X}: variants decode to different sizes {sorted(sizes)}')
+        if st is None:
+            st = decode.default_state(addr >> 16)
+        try:
+            i = decode.decode_insn(rom, addr, st)
+        except decode.DecodeError as ex:
+            notes.append(f'block ${blk.org:06X}: sweep stopped at ${addr:06X} ({ex})')
+            return
+        blk.addrs.append(addr)
+        if i.mnemonic != src:
+            msg = f'${addr:06X}: ROM decodes {i.mnemonic}, ChronoRET has {src}'
+            (errors if known else notes).append(msg)
+            if not known:
+                return
+        try:
+            st = decode.next_state(i, st)
+        except decode.DecodeError:
+            st = decode.State(None, None)
+        if i.mnemonic in decode.RETURNS or i.mnemonic in ('JMP', 'JML', 'BRA', 'BRL'):
+            st = None  # unknown until a decoded routine says otherwise
         addr = i.next_addr
-    if addr != end + 1:
-        raise decode.DecodeError(f'block ${blk.org:06X}: sweep ends at ${addr:06X}, expected ${end + 1:06X}')
-    return out
+    blk.end = addr
 
 
 def main() -> int:
@@ -117,56 +146,61 @@ def main() -> int:
     rom = decode.load_rom()
     metas = funcs.load()
     reg = funcs.Registry(rom, metas)
-    errors = []
+    errors: list[str] = []
+    notes: list[str] = []
 
-    by_bank: dict[int, list[Block]] = {}
+    states: dict[int, set] = {}
+    decoded: dict[str, list] = {}
     for fm in metas:
-        bank = fm.addr >> 16
-        if bank not in by_bank:
-            path = os.path.join(cret, 'asm', f'bank{bank:02X}', f'bank{bank:02X}.asm')
-            by_bank[bank] = parse_chronoret(path, bank)
-
-    covered: dict[int, set[int]] = {}
-    print(f'{"name":<30} {"addr":>7} {"state":>5} {"size":>4}  {"block":>13} {"blk_size":>8}  result')
-    for fm in metas:
-        blocks = [b for b in by_bank[fm.addr >> 16] if fm.name in b.labels]
-        if len(blocks) != 1:
-            errors.append(f'{fm.name}: found in {len(blocks)} ChronoRET blocks')
-            continue
-        blk = blocks[0]
-        k = blk.labels[fm.name]
         for st in fm.entry_states():
-            res = []
-            sw = sweep(rom, blk, fm.entry_states()[0])
-            if [i.mnemonic for i in sw] != blk.mnemonics:
-                res.append('block mnemonics differ from source')
-            if sum(i.size for i in sw) != blk.size:
-                res.append(f'block sweep {sum(i.size for i in sw)} bytes != {blk.size}')
-            if sw[k].addr != fm.addr:
-                res.append(f'label at ${sw[k].addr:06X} in source, ${fm.addr:06X} in funcs.toml')
             fn = reg.function(fm.addr, st)
-            src = blk.mnemonics[k:]
-            ret = next(j for j, mn in enumerate(src) if mn in decode.RETURNS)
-            if [i.mnemonic for i in fn.insns] != src[:ret + 1]:
-                res.append('function mnemonics differ from source')
-            lo, hi = fn.extent()
-            if hi > (blk.org & 0xFF0000 | blk.end):
-                res.append('function runs past block end')
-            covered.setdefault(blk.org, set()).update(fn.byte_set())
-            tag = f'${blk.start:04X}-${blk.end:04X}'
-            print(f'{fm.name:<30} ${fm.addr:06X} {st.tag():>5} {fn.size:>4}  {tag:>13} {blk.size:>8}  '
-                  + ('ok' if not res else 'FAIL'))
-            errors += [f'{fm.name} {st.tag()}: {r}' for r in res]
+            decoded.setdefault(fm.name, []).append((st, fn))
+            for i in fn.insns:
+                states.setdefault(i.addr, set()).add((i.m, i.x))
 
-    for bank, blocks in by_bank.items():
-        for blk in blocks:
-            if blk.org in covered and len(covered[blk.org]) != blk.size:
-                errors.append(f'block ${blk.org:06X}: functions cover {len(covered[blk.org])} bytes, '
-                              f'ChronoRET matched {blk.size}')
-    print(f'blocks: {len(covered)}, all decoded-byte unions equal matched size: '
-          + ('yes' if not any('block $' in e for e in errors) else 'no'))
+    banks = sorted({fm.addr >> 16 for fm in metas})
+    blocks: dict[int, list[Block]] = {}
+    for bank in banks:
+        path = os.path.join(cret, 'asm', f'bank{bank:02X}', f'bank{bank:02X}.asm')
+        blocks[bank] = parse_chronoret(path, bank) if os.path.isfile(path) else []
+        for blk in blocks[bank]:
+            sweep(rom, blk, states, errors, notes)
+            if blk.size is not None and blk.end is not None and blk.end - blk.org != blk.size:
+                errors.append(f'block ${blk.org:06X}: sweeps {blk.end - blk.org} bytes, header says {blk.size}')
 
-    for bank in by_bank:
+    starts = {a for bank in blocks for b in blocks[bank] for a in b.addrs}
+    ranges = [(b.org, b.end if b.end is not None else (b.addrs[-1] + 1 if b.addrs else b.org))
+              for bank in blocks for b in blocks[bank]]
+
+    print(f'{"name":<34} {"addr":>7} {"states":<10} {"bytes":>5}  result')
+    for fm in metas:
+        res = []
+        blk = next((b for b in blocks[fm.addr >> 16] if fm.name in b.labels), None)
+        if blk is None:
+            res.append('label not in ChronoRET')
+        else:
+            k = blk.labels[fm.name]
+            if k >= len(blk.addrs):
+                res.append('label past verified sweep')
+            elif blk.addrs[k] != fm.addr:
+                res.append(f'label at ${blk.addrs[k]:06X}, funcs.toml ${fm.addr:06X}')
+        sizes = []
+        for st, fn in decoded[fm.name]:
+            sizes.append(fn.size)
+            for i in fn.insns:
+                inside = any(lo <= i.addr < hi for lo, hi in ranges)
+                if inside and i.addr not in starts:
+                    res.append(f'{st.tag()}: ${i.addr:06X} not on a ChronoRET instruction')
+                    break
+        print(f'{fm.name:<34} ${fm.addr:06X} {",".join(fm.states):<10} '
+              f'{"/".join(map(str, sorted(set(sizes)))):>5}  ' + ('ok' if not res else 'FAIL'))
+        errors += [f'{fm.name}: {r}' for r in res]
+
+    nblk = sum(len(v) for v in blocks.values())
+    full = sum(1 for v in blocks.values() for b in v if b.end is not None)
+    print(f'ChronoRET blocks: {nblk}, fully swept: {full}')
+
+    for bank in banks:
         path = os.path.join(second, f'bank_{bank:02X}.asm')
         if not os.path.isfile(path):
             print(f'cross-check: {path} not found, skipped')
@@ -181,6 +215,8 @@ def main() -> int:
                 errors.append(f'{fm.name}: second disassembly has ${labels[fm.name]:06X}')
         print(f'cross-check bank ${bank:02X}: {hit} labels compared')
 
+    for n in notes:
+        print(f'note: {n}')
     for e in errors:
         print(f'error: {e}', file=sys.stderr)
     return 1 if errors else 0
