@@ -1946,3 +1946,9 @@ count = 57
 [[jumptable]]
 site = 0xC18333
 count = 13
+
+# BattleAnim_StoreActorParamsVariant: 7 pointers at $C1C95C ($C1C78D-$C1C813);
+# the 8th word is instruction bytes (7B AA = TDC / TAX).
+[[jumptable]]
+site = 0xC1C732
+count = 7
