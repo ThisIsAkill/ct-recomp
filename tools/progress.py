@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import sys
+import tomllib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, 'recomp'))
@@ -15,17 +16,27 @@ import emit  # noqa: E402
 import funcs  # noqa: E402
 
 
+def load_unresolved() -> list[dict]:
+    path = os.path.join(ROOT, 'unresolved.toml')
+    if not os.path.isfile(path):
+        return []
+    with open(path, 'rb') as f:
+        return tomllib.load(f).get('unresolved', [])
+
+
 def run_tests(build: str) -> tuple[list[tuple[str, str]], int, int, int]:
     """Return ([(test, status)], passed, total, checks)."""
     p = subprocess.run(['ctest', '--test-dir', build, '-V'], capture_output=True, text=True)
     out = p.stdout
     results = re.findall(r'^\s*\d+/\d+ Test\s+#\d+: (\S+) \.+\s*(\*{0,3}\w+)', out, re.M)
     checks = sum(int(n) for n in re.findall(r'^\d+: \S+: (\d+) checks, 0 failed$', out, re.M))
-    m = re.search(r'(\d+)% tests passed, (\d+) tests failed out of (\d+)', out)
+    # ctest >= 4.x drops ", N tests failed" from the summary line when N is 0.
+    m = re.search(r'(\d+)% tests passed(?:, (\d+) tests failed)? out of (\d+)', out)
     if not m:
         raise SystemExit(f'progress: no ctest summary from {build}\n{out[-2000:]}{p.stderr}')
     total = int(m.group(3))
-    return results, total - int(m.group(2)), total, checks
+    failed = int(m.group(2)) if m.group(2) else 0
+    return results, total - failed, total, checks
 
 
 def main() -> int:
@@ -56,12 +67,26 @@ def main() -> int:
     for a in covered:
         banks[a >> 16] = banks.get(a >> 16, 0) + 1
 
+    unresolved = load_unresolved()
+    validated_by_bank: dict[int, int] = {}
+    for fm in metas:
+        b = fm.addr >> 16
+        validated_by_bank[b] = validated_by_bank.get(b, 0) + 1
+    unresolved_by_bank: dict[int, int] = {}
+    for u in unresolved:
+        b = u['addr'] >> 16
+        unresolved_by_bank[b] = unresolved_by_bank.get(b, 0) + 1
+    sync_banks = sorted(set(validated_by_bank) | set(unresolved_by_bank))
+
     out = ['# Progress', '',
            'Written by `tools/progress.py`. Do not edit by hand.', '',
            '| Metric | Value |', '|---|---|',
            f'| Routines recompiled | {len(metas)} |',
            f'| Emitted C functions (routine x entry state) | {variants} |',
            f'| ROM bytes covered | {len(covered)} |',
+           f'| Functions known total (validated + unresolved) | {len(metas) + len(unresolved)} |',
+           f'| Functions validated | {len(metas)} |',
+           f'| Functions unresolved (pending sync) | {len(unresolved)} |',
            f'| Opcodes implemented | {len(ops)} / 256 |',
            f'| Opcodes used by recompiled routines | {len(used)} / 256 |',
            f'| Opcode x width combinations implemented | {combos} |',
@@ -69,6 +94,10 @@ def main() -> int:
            f'| Test assertions checked | {checks} |',
            '', '## Coverage by bank', '', '| Bank | Bytes |', '|---|---|']
     out += [f'| ${b:02X} | {n} |' for b, n in sorted(banks.items())]
+    out += ['', '## Symbol sync by bank', '',
+            '| Bank | Validated | Unresolved | Known total |', '|---|---|---|---|']
+    out += [f'| ${b:02X} | {validated_by_bank.get(b, 0)} | {unresolved_by_bank.get(b, 0)} | '
+            f'{validated_by_bank.get(b, 0) + unresolved_by_bank.get(b, 0)} |' for b in sync_banks]
     out += ['', '## Routines', '', '| Routine | Address | Entry states | Bytes | Module |',
             '|---|---|---|---|---|']
     for fm, sizes in rows:
