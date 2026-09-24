@@ -1,0 +1,3838 @@
+# ==== sync_symbols: bank $C0 (auto) ====
+
+[[unresolved]]
+name = "ReentryVectors"
+addr = 0xC00000
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_EntryVec02_UpdateBgAutoScroll"
+addr = 0xC00002
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_EntryVec05_TickTwoFramesReinitHdma"
+addr = 0xC00005
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_EntryVec08_StartLocationSong"
+addr = 0xC00008
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_EntryVec0B_RestoreAudioState"
+addr = 0xC0000B
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_ColdBootInit"
+addr = 0xC0000E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_FrameUpdate"
+addr = 0xC000BF
+src = "dscotton"
+reason = "$C05AB1: JSR $C05F74 (m1x0): target not in funcs.toml"
+
+[[unresolved]]
+name = "Field_TickCoreServices"
+addr = 0xC000DE
+src = "dscotton"
+reason = "$C000E0: JSL $FDC2C1 (m1x1): target not in funcs.toml"
+
+[[unresolved]]
+name = "Field_RunMinimalFrame"
+addr = 0xC000EB
+src = "dscotton"
+reason = "$C088FC: JSR $C08924 (m1x1): target not in funcs.toml"
+
+[[unresolved]]
+name = "Field_LoadLocationResources"
+addr = 0xC000F4
+src = "dscotton"
+reason = "$C0A500: JSR $C0A521 (m1x0): target not in funcs.toml"
+
+[[unresolved]]
+name = "Sub_01A5"
+addr = 0xC001A5
+src = "chronoret"
+reason = "$C001AA: JSL $FDC2C1 (m1x1): target not in funcs.toml"
+
+[[unresolved]]
+name = "Field_PrepareBattleEntry"
+addr = 0xC0024C
+src = "dscotton"
+reason = "$C088FC: JSR $C08924 (m1x1): target not in funcs.toml"
+
+[[unresolved]]
+name = "UNREACH_C0027E"
+addr = 0xC0027E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_ResumeFromHandoff"
+addr = 0xC00283
+src = "dscotton"
+reason = "$C0A500: JSR $C0A521 (m1x0): target not in funcs.toml"
+
+[[unresolved]]
+name = "CODE_C002AF"
+addr = 0xC002AF
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_ResumeCommonReload"
+addr = 0xC00304
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Loc_C0034B"
+addr = 0xC0034B
+src = "dscotton"
+reason = "$C088FC: JSR $C08924 (m1x1): target not in funcs.toml"
+
+[[unresolved]]
+name = "Field_ExportPpuStateTo2C56"
+addr = 0xC0066D
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_RebuildMapVideoState"
+addr = 0xC00A50
+src = "dscotton"
+reason = "$C00A5D: JSL $FDC0D7 (m1x0): target not in funcs.toml"
+
+[[unresolved]]
+name = "AudioDrvSync"
+addr = 0xC00AFF
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_EnableNmiIrqAfterInit"
+addr = 0xC00B28
+src = "dscotton"
+reason = "$C00B28: JSL $FDC124 (m1x0): target not in funcs.toml"
+
+[[unresolved]]
+name = "Sub_0C76"
+addr = 0xC00C76
+src = "chronoret"
+reason = "$C0006E: JMP $C20000 (m1x0): target not in funcs.toml"
+
+[[unresolved]]
+name = "CODE_C00CCE"
+addr = 0xC00CCE
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Event_ProcessPendingMenuRequest"
+addr = 0xC00CF0
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Event_LaunchPendingMenuRequest"
+addr = 0xC00D09
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_DispatchTileSwapTrigger"
+addr = 0xC00D3E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "ModeE6_Handler"
+addr = 0xC00D78
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "ModeEC_Handler"
+addr = 0xC00E5F
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "ModeEE_Handler"
+addr = 0xC01014
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "ModeFA_Handler"
+addr = 0xC011C9
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "ModeFC_Handler"
+addr = 0xC01454
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "DefaultHandler"
+addr = 0xC016DC
+src = "chronoret"
+reason = "$C088FC: JSR $C08924 (m1x1): target not in funcs.toml"
+
+[[unresolved]]
+name = "Field_ProcessTransitionRequest"
+addr = 0xC01770
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_RedrawLayer3IfSelected"
+addr = 0xC01862
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_LaunchBattle"
+addr = 0xC0188C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C018CE"
+addr = 0xC018CE
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_18D9"
+addr = 0xC018D9
+src = "chronoret"
+reason = "$C01905: JSL $FDC2C1 (m1x1): target not in funcs.toml"
+
+[[unresolved]]
+name = "CODE_C0193E"
+addr = 0xC0193E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_1985"
+addr = 0xC01985
+src = "chronoret"
+reason = "$C019B6: JSL $FDC2C1 (m1x1): target not in funcs.toml"
+
+[[unresolved]]
+name = "CODE_C019A7"
+addr = 0xC019A7
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_19C7"
+addr = 0xC019C7
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_1A03"
+addr = 0xC01A03
+src = "chronoret"
+reason = "$C059A0: JSR ($5D6E,X): no jumptable entry in funcs.toml"
+
+[[unresolved]]
+name = "Party_ReadActiveSlots"
+addr = 0xC01A5D
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Player_TryInteract"
+addr = 0xC01AAC
+src = "dscotton"
+reason = "$C01D3E: JSR ($1D56,X): no jumptable entry in funcs.toml"
+
+[[unresolved]]
+name = "CODE_C01B22"
+addr = 0xC01B22
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C01B25"
+addr = 0xC01B25
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C01B32"
+addr = 0xC01B32
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "MusicCueDispatch"
+addr = 0xC01BAB
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "AudioFadeDispatch"
+addr = 0xC01BE6
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_RestoreMusic_PlaySong26"
+addr = 0xC01C90
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Player_FindFacingObject"
+addr = 0xC01CFC
+src = "dscotton"
+reason = "$C01D3E: JSR ($1D56,X): no jumptable entry in funcs.toml"
+
+[[unresolved]]
+name = "CODE_C01DA7"
+addr = 0xC01DA7
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Player_TryOpenTreasureChest"
+addr = 0xC01DF4
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C01E09"
+addr = 0xC01E09
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C01EDE"
+addr = 0xC01EDE
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Dialog_OpenSystemMessage"
+addr = 0xC01F0E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C02081"
+addr = 0xC02081
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0208B"
+addr = 0xC0208B
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0212B"
+addr = 0xC0212B
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C021A3"
+addr = 0xC021A3
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C021C2"
+addr = 0xC021C2
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_TickScreenEffect"
+addr = 0xC021E1
+src = "dscotton"
+reason = "$C021EA: JSR ($21EE,X): no jumptable entry in funcs.toml"
+
+[[unresolved]]
+name = "Loc_C0220E"
+addr = 0xC0220E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Loc_C02269"
+addr = 0xC02269
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Loc_C022D8"
+addr = 0xC022D8
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C02307"
+addr = 0xC02307
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Loc_C0232A"
+addr = 0xC0232A
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Loc_C0238A"
+addr = 0xC0238A
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Loc_C02409"
+addr = 0xC02409
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Loc_C02514"
+addr = 0xC02514
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Loc_C02589"
+addr = 0xC02589
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Loc_C0260E"
+addr = 0xC0260E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Loc_C0264F"
+addr = 0xC0264F
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Loc_C02725"
+addr = 0xC02725
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_ProcessDeferredTasks"
+addr = 0xC0274D
+src = "dscotton"
+reason = "$C027E4: JSR $C027EB (m1x0): target not in funcs.toml"
+
+[[unresolved]]
+name = "UNREACH_C0277E"
+addr = 0xC0277E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_2824"
+addr = 0xC02824
+src = "chronoret"
+reason = "$C00A5D: JSL $FDC0D7 (m1x0): target not in funcs.toml"
+
+[[unresolved]]
+name = "Field_RebuildScreenAndSettleFull"
+addr = 0xC02848
+src = "dscotton"
+reason = "$C00A5D: JSL $FDC0D7 (m1x0): target not in funcs.toml"
+
+[[unresolved]]
+name = "Field_RebuildScreen"
+addr = 0xC0286C
+src = "dscotton"
+reason = "$C00A5D: JSL $FDC0D7 (m1x0): target not in funcs.toml"
+
+[[unresolved]]
+name = "CODE_C028D6"
+addr = 0xC028D6
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C02918"
+addr = 0xC02918
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0291C"
+addr = 0xC0291C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C02933"
+addr = 0xC02933
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C02958"
+addr = 0xC02958
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C029BA"
+addr = 0xC029BA
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C02A32"
+addr = 0xC02A32
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C02C8C"
+addr = 0xC02C8C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C02CDA"
+addr = 0xC02CDA
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C02D0B"
+addr = 0xC02D0B
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C02DC5"
+addr = 0xC02DC5
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "LoadSavePath"
+addr = 0xC02E1E
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "ColorCrashEndsInfiniteLoop_2E65"
+addr = 0xC02E65
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_PlayAnimLoop"
+addr = 0xC02E67
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_PlayAnim0"
+addr = 0xC02E87
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_PlayAnim1"
+addr = 0xC02E8B
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_ResetAnim"
+addr = 0xC02E8F
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpAB"
+addr = 0xC02E9A
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpB7"
+addr = 0xC02F01
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetAnimFrame"
+addr = 0xC02F71
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_Wait"
+addr = 0xC02F96
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpB9"
+addr = 0xC02FC6
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpBA"
+addr = 0xC02FCA
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpBD"
+addr = 0xC02FCE
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpBC"
+addr = 0xC02FD2
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpAF"
+addr = 0xC02FFD
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_ActAsPartyMember"
+addr = 0xC03002
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_StepAlignToTileCenter"
+addr = 0xC0305D
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C030A7"
+addr = 0xC030A7
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_StepTowardTargetTile"
+addr = 0xC030B3
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_CallTouchFunction"
+addr = 0xC03154
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_TryPushBlocker"
+addr = 0xC031B1
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C031BB"
+addr = 0xC031BB
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpD9"
+addr = 0xC0326C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpDA"
+addr = 0xC0345A
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpB1"
+addr = 0xC0353F
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpB2"
+addr = 0xC03543
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpB5"
+addr = 0xC03546
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpB6"
+addr = 0xC0354F
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetDialogTable"
+addr = 0xC03557
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_TextboxAuto"
+addr = 0xC03570
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_TextboxTop"
+addr = 0xC035B5
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_TextboxBottom"
+addr = 0xC035FC
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpC0"
+addr = 0xC03643
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Dialog_OpenDecisionBox"
+addr = 0xC03674
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpC3"
+addr = 0xC036AA
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpC4"
+addr = 0xC036DD
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetPalette"
+addr = 0xC03711
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpenNameEntry"
+addr = 0xC03757
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfHasItem"
+addr = 0xC03780
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_AddItem"
+addr = 0xC037B1
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpC7"
+addr = 0xC037C7
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_RemoveItem"
+addr = 0xC037E3
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpD7"
+addr = 0xC037F9
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfGoldGte"
+addr = 0xC03827
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommandCC_3845"
+addr = 0xC03845
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_AddGold"
+addr = 0xC0385B
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_RemoveGold"
+addr = 0xC03874
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_PartyReserveCheck"
+addr = 0xC0388D
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommandCF_38A8"
+addr = 0xC038A8
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpD0"
+addr = 0xC038BE
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_PartyMarkInactive"
+addr = 0xC038D3
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfActivePartyMember"
+addr = 0xC038E8
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_AddPartyMember"
+addr = 0xC03919
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_RemovePartyMember"
+addr = 0xC0394E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommandD4_39E1"
+addr = 0xC039E1
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_CopySpritePalRow7To6"
+addr = 0xC039F4
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpD6"
+addr = 0xC03A07
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommandD6_3A4C"
+addr = 0xC03A4C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpD5"
+addr = 0xC03A68
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_StartBattle"
+addr = 0xC03A83
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_ChangeLocation"
+addr = 0xC03AB7
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpDC"
+addr = 0xC03AF1
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpDE"
+addr = 0xC03B45
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpDF"
+addr = 0xC03B98
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_ChangeLocationFromMem"
+addr = 0xC03B9E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetExploreMode"
+addr = 0xC03C05
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_PlaySound"
+addr = 0xC03C11
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_PlayMusic"
+addr = 0xC03C2F
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_VolumeFade"
+addr = 0xC03C4C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SoundCommand"
+addr = 0xC03C98
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_WaitSilence"
+addr = 0xC03CBC
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_WaitMusicEnd"
+addr = 0xC03CC5
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpF0"
+addr = 0xC03CD0
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpF2"
+addr = 0xC03CFD
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpF1"
+addr = 0xC03D07
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OpF3"
+addr = 0xC03D7A
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_ShakeScreen"
+addr = 0xC03D84
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_CopyTiles"
+addr = 0xC03D97
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_CopyTiles2"
+addr = 0xC03DC5
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_ScrollLayers"
+addr = 0xC03DF4
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_ScrollScreen"
+addr = 0xC03E30
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_PartyRefreshBoth"
+addr = 0xC03E5C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_PartyRefreshOp6"
+addr = 0xC03E6E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_PartyRefreshOp7"
+addr = 0xC03E75
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Loc_C03E7C"
+addr = 0xC03E7C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_Op29"
+addr = 0xC03E84
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_DeferTask04"
+addr = 0xC03ED6
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_DeferTask08"
+addr = 0xC03EDE
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_DeferTask10"
+addr = 0xC03EE2
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_Op2C"
+addr = 0xC03EE6
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_Op2F"
+addr = 0xC03F12
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_DrawGeometry"
+addr = 0xC03F26
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_Mode7Scene"
+addr = 0xC03FAF
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommandFF_3FFC"
+addr = 0xC03FFC
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "PointersToEv_C04036"
+addr = 0xC04036
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "PointersToEv_C04055"
+addr = 0xC04055
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "PointersToEv_C0405D"
+addr = 0xC0405D
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "SubroutinesEventCommandFF_40B3"
+addr = 0xC040B3
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "PointersToEv_C040EF"
+addr = 0xC040EF
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "SubroutinesEventCommandFF_4145"
+addr = 0xC04145
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "SubroutinesEventCommandFF_4191"
+addr = 0xC04191
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "SubroutinesEventCommandFF_41B0"
+addr = 0xC041B0
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "SubroutinesEventCommandFF_41B4"
+addr = 0xC041B4
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "SubroutinesEventCommandFF_41B8"
+addr = 0xC041B8
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "SubroutinesEventCommandFF_41C0"
+addr = 0xC041C0
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "SubroutinesEventCommandFF_41C4"
+addr = 0xC041C4
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "SubroutinesEventCommandFF_41C8"
+addr = 0xC041C8
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "SubroutinesEventCommandFF_41DC"
+addr = 0xC041DC
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_LoadCrono"
+addr = 0xC041E4
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_LoadMarle"
+addr = 0xC041EC
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_LoadLucca"
+addr = 0xC041F4
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_LoadFrog"
+addr = 0xC041FC
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_LoadRobo"
+addr = 0xC04204
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_LoadAyla"
+addr = 0xC0420C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_LoadMagus"
+addr = 0xC04214
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_LoadPcIfInParty"
+addr = 0xC0421E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_SetupFollower1Pc"
+addr = 0xC04310
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommands575C62_438A"
+addr = 0xC0438A
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_SetupFollower2Pc"
+addr = 0xC043C3
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommands575C62_443D"
+addr = 0xC0443D
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_LoadPc"
+addr = 0xC04476
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_LoadPcSpriteRecord"
+addr = 0xC0448D
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_InitSlotFromScriptId"
+addr = 0xC04557
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_LoadNpc"
+addr = 0xC04590
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommand82PartialOverlap_464F"
+addr = 0xC0464F
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_LoadEnemy"
+addr = 0xC046DF
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_FinishNpcGfxSetup"
+addr = 0xC04799
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_DecompressNpcGfxToHeap"
+addr = 0xC047FE
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_UseDirectGfxPtr"
+addr = 0xC04845
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetSolidProps"
+addr = 0xC04867
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetObjectGfx"
+addr = 0xC04876
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_PaletteCommand"
+addr = 0xC04892
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommand88_48BD"
+addr = 0xC048BD
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommand88_4911"
+addr = 0xC04911
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_PaletteCmd_QueueObjTask"
+addr = 0xC04970
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_PaletteCmd_SetObjColors"
+addr = 0xC049F8
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_Op2E"
+addr = 0xC04A4E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommand2E_4A68"
+addr = 0xC04A68
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_Op2E_QueuePaletteTask"
+addr = 0xC04A72
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_FindFreePaletteTaskSlot"
+addr = 0xC04B2C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetSpeed"
+addr = 0xC04B49
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetSpeedFromMem"
+addr = 0xC04B58
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetObjectCoordTiles"
+addr = 0xC04B74
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetCoordsFromMem"
+addr = 0xC04BC3
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetObjectCoordPixels"
+addr = 0xC04C27
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetSpritePriority"
+addr = 0xC04C74
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_ShowObject"
+addr = 0xC04CD5
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_HideObject"
+addr = 0xC04CE0
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_Op7E"
+addr = 0xC04CE6
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_ShowObjectN"
+addr = 0xC04CEC
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_HideObjectN"
+addr = 0xC04CF9
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_NpcJump"
+addr = 0xC04D06
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommand7A_4DA1"
+addr = 0xC04DA1
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_Op7B"
+addr = 0xC04E25
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_Op92"
+addr = 0xC04E73
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_Op9C"
+addr = 0xC04EC7
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_Op9D"
+addr = 0xC04F0A
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_MoveToCoords"
+addr = 0xC04F61
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_Op9A"
+addr = 0xC04FEA
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_MoveToCoords16"
+addr = 0xC05084
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_AnimMoveToCoords"
+addr = 0xC05129
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_AnimMoveToCoords16"
+addr = 0xC05191
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_FollowObject"
+addr = 0xC05215
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_Follow_Core"
+addr = 0xC05228
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_Op9E"
+addr = 0xC052C0
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_MoveTowardObject"
+addr = 0xC0534A
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_MoveToward_Core"
+addr = 0xC0536B
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_FollowPc"
+addr = 0xC05410
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_Op8F"
+addr = 0xC05429
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_Op9F"
+addr = 0xC054F5
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_MoveTowardPc"
+addr = 0xC0550E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_FaceUp"
+addr = 0xC05535
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_FaceDown"
+addr = 0xC05539
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_FaceLeft"
+addr = 0xC0553D
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_FaceRight"
+addr = 0xC05541
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetFacing"
+addr = 0xC05545
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommands0F171B_554B"
+addr = 0xC0554B
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetFacingFromMem"
+addr = 0xC05557
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_ObjectFaceUp"
+addr = 0xC0556C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_ObjectFaceDown"
+addr = 0xC05579
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_ObjectFaceLeft"
+addr = 0xC05586
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_ObjectFaceRight"
+addr = 0xC05593
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_FaceTowardObject"
+addr = 0xC055A0
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_FaceToward_Core"
+addr = 0xC055A9
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommandsA8A9_5600"
+addr = 0xC05600
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_FaceTowardPc"
+addr = 0xC05605
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_CheckAnimDone"
+addr = 0xC05614
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C05670"
+addr = 0xC05670
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_ResetAnimToIdle"
+addr = 0xC0568B
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_LocationInit"
+addr = 0xC056A6
+src = "dscotton"
+reason = "$C05910: JSR $C05F74 (m1x0): target not in funcs.toml"
+
+[[unresolved]]
+name = "EventScript_InitBlock"
+addr = 0xC05709
+src = "dscotton"
+reason = "$C05910: JSR $C05F74 (m1x0): target not in funcs.toml"
+
+[[unresolved]]
+name = "EventScript_RunObjectScripts"
+addr = 0xC058DE
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventScript_FetchNextCommand"
+addr = 0xC05900
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_595C"
+addr = 0xC0595C
+src = "chronoret"
+reason = "$C05977: JSR $C05F74 (m1x0): target not in funcs.toml"
+
+[[unresolved]]
+name = "Sub_597D"
+addr = 0xC0597D
+src = "chronoret"
+reason = "$C059A0: JSR ($5D6E,X): no jumptable entry in funcs.toml"
+
+[[unresolved]]
+name = "CODE_C059F8"
+addr = 0xC059F8
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C05A25"
+addr = 0xC05A25
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_ReadHVLatch"
+addr = 0xC05A46
+src = "dscotton"
+reason = "$C05AB1: JSR $C05F74 (m1x0): target not in funcs.toml"
+
+[[unresolved]]
+name = "EventScript_RunObjectScriptSlice"
+addr = 0xC05A93
+src = "dscotton"
+reason = "$C05AB1: JSR $C05F74 (m1x0): target not in funcs.toml"
+
+[[unresolved]]
+name = "Obj_TestBlockerSlotEB"
+addr = 0xC05B8D
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_ScanObjAheadOfFacing"
+addr = 0xC05B95
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C05C43"
+addr = 0xC05C43
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_LookupOrRegisterId0920"
+addr = 0xC05C90
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventScript_InstallBuiltinScripts"
+addr = 0xC05CEC
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_Nop"
+addr = 0xC05F6E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_Return"
+addr = 0xC05F74
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_CallObjectFn"
+addr = 0xC05FB6
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_CallObjectFn_Core"
+addr = 0xC05FBE
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_CallObjectFnSync"
+addr = 0xC0607E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_CallObjectFnSync_Core"
+addr = 0xC06086
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_CallObjectFnWait"
+addr = 0xC06109
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_CallObjectFnWait_Core"
+addr = 0xC06122
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_CallFnWait_Poll"
+addr = 0xC061A7
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C061AF"
+addr = 0xC061AF
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_CallPcFn"
+addr = 0xC061E9
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_CallPcFnSync"
+addr = 0xC061FE
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_CallPcFnWait"
+addr = 0xC06214
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetSelfCallLock"
+addr = 0xC06240
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_ClearSelfCallLock"
+addr = 0xC0624B
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_RemoveObject"
+addr = 0xC06254
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_DisableProcessing"
+addr = 0xC06269
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_EnableProcessing"
+addr = 0xC06282
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetMoveProps"
+addr = 0xC06295
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetMoveProps2"
+addr = 0xC062A4
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_GotoForward"
+addr = 0xC062B5
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_GotoBack"
+addr = 0xC062CB
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfMemCmpImm8"
+addr = 0xC062DE
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfMemCmpImm16"
+addr = 0xC06313
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfOp_SkipForward"
+addr = 0xC06349
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfMemCmpMem8"
+addr = 0xC06361
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfMemCmpMem16"
+addr = 0xC063A4
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfEventMem"
+addr = 0xC063E6
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfStorylineLt"
+addr = 0xC06442
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommand16OperatorRoutines"
+addr = 0xC06487
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommand16OperatorRoutines_648F"
+addr = 0xC0648F
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommand16OperatorRoutines_6497"
+addr = 0xC06497
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommand16OperatorRoutines_64A1"
+addr = 0xC064A1
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommand16OperatorRoutines_64A9"
+addr = 0xC064A9
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommand16OperatorRoutines_64B3"
+addr = 0xC064B3
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommand16OperatorRoutines_64B5"
+addr = 0xC064B5
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommand16OperatorRoutines_64BF"
+addr = 0xC064BF
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommand16OperatorRoutines_64C7"
+addr = 0xC064C7
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommand16OperatorRoutines_651F"
+addr = 0xC0651F
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_MemToResult"
+addr = 0xC0653B
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_EventMemToResult"
+addr = 0xC0654E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfResultEq"
+addr = 0xC06568
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_GetPc1Id"
+addr = 0xC0658F
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_GetObjectCoords"
+addr = 0xC065AA
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_GetPcCoords"
+addr = 0xC065EB
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_GetObjectFacing"
+addr = 0xC065F8
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_GetPcFacing"
+addr = 0xC0661F
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfObjectDrawn"
+addr = 0xC0662C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfObjectOnScreen"
+addr = 0xC06655
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfAnyButton"
+addr = 0xC066A5
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfPressed02"
+addr = 0xC066B2
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfPressed80"
+addr = 0xC066BC
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfHeld80"
+addr = 0xC066C6
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventScript_SkipBlockByLen"
+addr = 0xC066D0
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfHeld08"
+addr = 0xC066E5
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfHeld40"
+addr = 0xC066EF
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfHeld04"
+addr = 0xC066F9
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommands2D3031_6701"
+addr = 0xC06701
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfStatusF2_Bit20"
+addr = 0xC06705
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfStatusF2_Bit10"
+addr = 0xC0670F
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfLatch50_02"
+addr = 0xC06719
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfLatch50_80"
+addr = 0xC06724
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfLatch51_80"
+addr = 0xC06732
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfLatch51_08"
+addr = 0xC06740
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfLatch51_40"
+addr = 0xC0674E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfLatch51_04"
+addr = 0xC0675C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfLatch51_20"
+addr = 0xC0676A
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IfLatch51_10"
+addr = 0xC06778
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCommands2D3031_6784"
+addr = 0xC06784
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_Op47"
+addr = 0xC06788
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_ReadAbs8"
+addr = 0xC06792
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventScript_ReadAbsSrcPtr"
+addr = 0xC067A2
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_ReadAbs16"
+addr = 0xC067C7
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_WriteAbsImm8"
+addr = 0xC067D7
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventScript_ReadAbsDestPtr"
+addr = 0xC067E3
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_WriteAbsImm16"
+addr = 0xC067FB
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_WriteAbsFromMem8"
+addr = 0xC0680C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_WriteAbsFromMem16"
+addr = 0xC06829
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_MemCopy"
+addr = 0xC06846
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "NewGameSave_CopyNameField"
+addr = 0xC06897
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetMem8"
+addr = 0xC068A5
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetMem16"
+addr = 0xC068C6
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_CopyMem8"
+addr = 0xC068E9
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_CopyMem16"
+addr = 0xC06913
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_GetEventMem8"
+addr = 0xC0693D
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_GetEventMem16"
+addr = 0xC06964
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_GetStoryline"
+addr = 0xC0698B
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetEventMem"
+addr = 0xC069A6
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_MemToEventMem8"
+addr = 0xC069C4
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_MemToEventMem16"
+addr = 0xC069EB
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetStoryline"
+addr = 0xC06A12
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_AddImm8"
+addr = 0xC06A1F
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_AddMem8"
+addr = 0xC06A45
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_AddMem16"
+addr = 0xC06A74
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SubImm8"
+addr = 0xC06AA3
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SubImm16"
+addr = 0xC06AC9
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SubMem8"
+addr = 0xC06AF1
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetMemBit"
+addr = 0xC06B20
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_ClearMemBit"
+addr = 0xC06B4B
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetEventBit"
+addr = 0xC06B76
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_ClearEventBit"
+addr = 0xC06BA4
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_AndMemImm"
+addr = 0xC06BD2
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_OrMemImm"
+addr = 0xC06BF7
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_XorMemImm"
+addr = 0xC06C1C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_ShiftMemRight"
+addr = 0xC06C41
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IncMem8"
+addr = 0xC06C69
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_IncMem16"
+addr = 0xC06C85
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_DecMem8"
+addr = 0xC06CA1
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetMemTrue8"
+addr = 0xC06CBD
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetMemTrue16"
+addr = 0xC06CD6
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_SetMemFalse"
+addr = 0xC06CF0
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EventCmd_GetRandom"
+addr = 0xC06D09
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_LoadTilesetChunkTo6000"
+addr = 0xC06D65
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "SubroutineCalledByEventCommand"
+addr = 0xC06E27
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Dialog_UploadTextTileRow"
+addr = 0xC06ECB
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_AssignSpriteTileSlot"
+addr = 0xC06F9A
+src = "dscotton"
+reason = "$C06FA3: JSR $C06FB9 (m1x1): target not in funcs.toml"
+
+[[unresolved]]
+name = "Field_UploadCgram"
+addr = 0xC0712E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_AssignSpritePalette"
+addr = 0xC07170
+src = "dscotton"
+reason = "$C0717D: JSR $C07199 (m1x1): target not in funcs.toml"
+
+[[unresolved]]
+name = "Obj_AssignFixedPaletteSlot"
+addr = 0xC0719B
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C071ED"
+addr = 0xC071ED
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C0722A"
+addr = 0xC0722A
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C072B2"
+addr = 0xC072B2
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C072C2"
+addr = 0xC072C2
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0734A"
+addr = 0xC0734A
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_DrawL1TileRowStripOdd"
+addr = 0xC07700
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C077FE"
+addr = 0xC077FE
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C07840"
+addr = 0xC07840
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_DrawL1TileColStripOdd"
+addr = 0xC0787E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C0792F"
+addr = 0xC0792F
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C0794E"
+addr = 0xC0794E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C079AE"
+addr = 0xC079AE
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_DrawL2TileRowStripOdd"
+addr = 0xC07AC1
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C07BC3"
+addr = 0xC07BC3
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C07C06"
+addr = 0xC07C06
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_DrawL2TileColStripOdd"
+addr = 0xC07C45
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C07D45"
+addr = 0xC07D45
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C07DE7"
+addr = 0xC07DE7
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_DrawL3TileRowStripOdd"
+addr = 0xC07DE8
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C07E7A"
+addr = 0xC07E7A
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C07EB8"
+addr = 0xC07EB8
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_DrawL3TileColStripOdd"
+addr = 0xC07EF2
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Loc_C07F58"
+addr = 0xC07F58
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Loc_C07F5D"
+addr = 0xC07F5D
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Vblank_UploadBottomRowL1"
+addr = 0xC08445
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Dma7_TriggerVramWrite_Inc1"
+addr = 0xC084A7
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Vblank_UploadBottomRowL2"
+addr = 0xC084C1
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Vblank_UploadBottomRowL3"
+addr = 0xC08523
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Vblank_UploadTopRowL1"
+addr = 0xC08585
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Vblank_UploadTopRowL2"
+addr = 0xC085E7
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Vblank_UploadTopRowL3"
+addr = 0xC08649
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Vblank_UploadRightColL1"
+addr = 0xC086AB
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Dma7_TriggerVramWrite_Inc32"
+addr = 0xC086DD
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Vblank_UploadRightColL2"
+addr = 0xC086F7
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Vblank_UploadRightColL3"
+addr = 0xC08729
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Vblank_UploadLeftColL1"
+addr = 0xC0875B
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Vblank_UploadLeftColL2"
+addr = 0xC0878D
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Vblank_UploadLeftColL3"
+addr = 0xC087BF
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Player_ProcessControl"
+addr = 0xC0881E
+src = "dscotton"
+reason = "$C088FC: JSR $C08924 (m1x1): target not in funcs.toml"
+
+[[unresolved]]
+name = "Player_ApplyPadMoveIntent"
+addr = 0xC088EE
+src = "dscotton"
+reason = "$C088FC: JSR $C08924 (m1x1): target not in funcs.toml"
+
+[[unresolved]]
+name = "Camera_MoveDispatch"
+addr = 0xC08A6D
+src = "dscotton"
+reason = "$C090CF: JSR $C08A9E (m0x0): Camera_TryStepToTarget has no m0x0 entry"
+
+[[unresolved]]
+name = "Camera_TryStepToTarget"
+addr = 0xC08A9E
+src = "dscotton"
+reason = "$C08AAF: JSR $C09C37 (m1x0): Camera_CheckZoneMatch has no m1x0 entry"
+
+[[unresolved]]
+name = "Camera_MoveRight"
+addr = 0xC08AB5
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Camera_MoveRight_Probe2"
+addr = 0xC08AE4
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C08B13"
+addr = 0xC08B13
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Camera_MoveLeft"
+addr = 0xC08BC4
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Camera_MoveUp"
+addr = 0xC08BF9
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C08C57"
+addr = 0xC08C57
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Camera_MoveDown"
+addr = 0xC08D11
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C08D67"
+addr = 0xC08D67
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Camera_MoveUpRight"
+addr = 0xC08E21
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Camera_MoveUpLeft"
+addr = 0xC08EF1
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Camera_MoveDownLeft"
+addr = 0xC08FC1
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Camera_DownLeft_FallbackDown"
+addr = 0xC0908A
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Camera_MoveDownRight"
+addr = 0xC0909C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Camera_DownRight_FallbackDown"
+addr = 0xC09163
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C091BE"
+addr = 0xC091BE
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C091DC"
+addr = 0xC091DC
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C0999D"
+addr = 0xC0999D
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "LoadTileProperties_9AB2"
+addr = 0xC09AB2
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Camera_ComposeOutputs"
+addr = 0xC09B41
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Camera_ComposeOutputsAlt"
+addr = 0xC09B62
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Camera_ComposeOutputsByMode"
+addr = 0xC09B86
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C09BB7"
+addr = 0xC09BB7
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C09BBE"
+addr = 0xC09BBE
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C09BCF"
+addr = 0xC09BCF
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C09C4F"
+addr = 0xC09C4F
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Player_CheckExitTile"
+addr = 0xC09D2C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C09DA3"
+addr = 0xC09DA3
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Frame_PostScriptStage"
+addr = 0xC09DC3
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_RecordMovement"
+addr = 0xC09E29
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Player_SelectMoveAnim"
+addr = 0xC09E84
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_SelectMoveAnimFromHistory"
+addr = 0xC09ED1
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_SelectMoveAnimFromHistory2"
+addr = 0xC09F20
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_SelectMoveAnimFromHistoryVel"
+addr = 0xC09F6F
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C09FE7"
+addr = 0xC09FE7
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "PointersToUn_C0A079"
+addr = 0xC0A079
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "PointersToUn_C0A083"
+addr = 0xC0A083
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "PointersToUn_C0A08D"
+addr = 0xC0A08D
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "PointersToUn_C0A097"
+addr = 0xC0A097
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "PointersToUn_C0A0A1"
+addr = 0xC0A0A1
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "PointersToUn_C0A0AB"
+addr = 0xC0A0AB
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "PointersToUn_C0A0B5"
+addr = 0xC0A0B5
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "PointersToUn_C0A0BF"
+addr = 0xC0A0BF
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "PointersToUn_C0A0C9"
+addr = 0xC0A0C9
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "PointersToUn_C0A0DE"
+addr = 0xC0A0DE
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "PointersToUn_C0A0F3"
+addr = 0xC0A0F3
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "PointersToUn_C0A108"
+addr = 0xC0A108
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "PointersToUn_C0A11D"
+addr = 0xC0A11D
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "PointersToUn_C0A132"
+addr = 0xC0A132
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "PointersToUn_C0A147"
+addr = 0xC0A147
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "PointersToUn_C0A15C"
+addr = 0xC0A15C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_StartWalkAnim"
+addr = 0xC0A171
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_StartRunAnim"
+addr = 0xC0A18C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_SetIdleAnim"
+addr = 0xC0A1E9
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C0A211"
+addr = 0xC0A211
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_StartAnim1B"
+addr = 0xC0A254
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_MoveFollower1"
+addr = 0xC0A26B
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_MoveFollower2"
+addr = 0xC0A2CE
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Map_LoadAndApplyConfig"
+addr = 0xC0A33B
+src = "dscotton"
+reason = "$C0A500: JSR $C0A521 (m1x0): target not in funcs.toml"
+
+[[unresolved]]
+name = "Map_BuildTilePropGrid"
+addr = 0xC0A521
+src = "dscotton"
+reason = "diff_all: Map_BuildTilePropGrid -- generated code loops to a step-budget timeout at $C0A5C3 (a BCC closing a copy loop) on input the interpreter runs to completion on; looks like an emit.py bug specific to this loop, not decode.py or a missing opcode -- needs the generated C at $C0A5C3 compared by hand against interp.c's handling of the same instruction"
+
+[[unresolved]]
+name = "CODE_C0A641"
+addr = 0xC0A641
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_UpdateDrawObjects"
+addr = 0xC0A810
+src = "dscotton"
+reason = "$C0717D: JSR $C07199 (m1x1): target not in funcs.toml"
+
+[[unresolved]]
+name = "CODE_C0A83E"
+addr = 0xC0A83E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_UpdateVisibility"
+addr = 0xC0A88D
+src = "dscotton"
+reason = "$C0717D: JSR $C07199 (m1x1): target not in funcs.toml"
+
+[[unresolved]]
+name = "CODE_C0AA43"
+addr = 0xC0AA43
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C0AA6D"
+addr = 0xC0AA6D
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C0AA95"
+addr = 0xC0AA95
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C0AAB9"
+addr = 0xC0AAB9
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_ApplyVelocityAirborne"
+addr = 0xC0AAC7
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_ComputeMoveDeltas"
+addr = 0xC0ABA2
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_SetVelocityFromAngle"
+addr = 0xC0AC69
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_ComputeVelocityFromAngle"
+addr = 0xC0ACFD
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C0ADD7"
+addr = 0xC0ADD7
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C0ADEB"
+addr = 0xC0ADEB
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_MoveAtAngleSetPriority"
+addr = 0xC0AE37
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0AF04"
+addr = 0xC0AF04
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_StoreMoveDeltas"
+addr = 0xC0AF18
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_CopyMapRectLayers"
+addr = 0xC0AF4E
+src = "dscotton"
+reason = "diff_all: generated code times out (step budget exhausted at $C0B0E1) while the interpreter detects a corrupted return address inside $C0AF50-$C0B0FF on the same random input -- real control-flow divergence, not a missing feature"
+
+[[unresolved]]
+name = "Field_CopyMapRectMVN"
+addr = 0xC0B096
+src = "dscotton"
+reason = "diff_all: same $C0B0E1 divergence as Field_CopyMapRectLayers ($C0AF4E); the two likely share the broken code path"
+
+[[unresolved]]
+name = "Field_ActivateVisibleObjects"
+addr = 0xC0B0E6
+src = "dscotton"
+reason = "$C0717D: JSR $C07199 (m1x1): target not in funcs.toml"
+
+[[unresolved]]
+name = "Obj_ActivateIfOnScreen"
+addr = 0xC0B127
+src = "dscotton"
+reason = "$C0717D: JSR $C07199 (m1x1): target not in funcs.toml"
+
+[[unresolved]]
+name = "Obj_EmitOamEntriesSize1"
+addr = 0xC0B3DF
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_EmitOam8Entries_Loop"
+addr = 0xC0B427
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C0B45B"
+addr = 0xC0B45B
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C0B489"
+addr = 0xC0B489
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_EmitOamEntriesSize2"
+addr = 0xC0B4B8
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C0B50A"
+addr = 0xC0B50A
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C0B53E"
+addr = 0xC0B53E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C0B576"
+addr = 0xC0B576
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Obj_EmitOamEntriesSize3"
+addr = 0xC0B5AF
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C0B61F"
+addr = 0xC0B61F
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C0B6AA"
+addr = 0xC0B6AA
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C0BC50"
+addr = 0xC0BC50
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C0BE46"
+addr = 0xC0BE46
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C0BF1C"
+addr = 0xC0BF1C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C0C13B"
+addr = 0xC0C13B
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C0C483"
+addr = 0xC0C483
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_C73A"
+addr = 0xC0C73A
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C0C820"
+addr = 0xC0C820
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0C875"
+addr = 0xC0C875
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C0C9C6"
+addr = 0xC0C9C6
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C0C9D0"
+addr = 0xC0C9D0
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_AnimComputeFramePtr"
+addr = 0xC0CA18
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_ProcessAnimQueue"
+addr = 0xC0CA76
+src = "chronoret"
+reason = "$C0CF2D: JSR $C0E97A (m1x1): target not in funcs.toml"
+
+[[unresolved]]
+name = "Obj_BuildSpriteFrameStep"
+addr = 0xC0CAD9
+src = "chronoret"
+reason = "$C0CF2D: JSR $C0E97A (m1x1): target not in funcs.toml"
+
+[[unresolved]]
+name = "Sub_CB0A"
+addr = 0xC0CB0A
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0CB11"
+addr = 0xC0CB11
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_AnimReadFrameByte"
+addr = 0xC0CBC2
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_CBDC"
+addr = 0xC0CBDC
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_StreamFrameTilesToCache"
+addr = 0xC0CC04
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_CDC8"
+addr = 0xC0CDC8
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_CEF5"
+addr = 0xC0CEF5
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_D124"
+addr = 0xC0D124
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0D1A7"
+addr = 0xC0D1A7
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0D1C1"
+addr = 0xC0D1C1
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_D28A"
+addr = 0xC0D28A
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_D30D"
+addr = 0xC0D30D
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_D4F7"
+addr = 0xC0D4F7
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_D608"
+addr = 0xC0D608
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_D68B"
+addr = 0xC0D68B
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_D738"
+addr = 0xC0D738
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_D7E5"
+addr = 0xC0D7E5
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0D958"
+addr = 0xC0D958
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0D9C0"
+addr = 0xC0D9C0
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_DA69"
+addr = 0xC0DA69
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0DBAF"
+addr = 0xC0DBAF
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_DD28"
+addr = 0xC0DD28
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0DD66"
+addr = 0xC0DD66
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0DDCE"
+addr = 0xC0DDCE
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0DDE8"
+addr = 0xC0DDE8
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0DE02"
+addr = 0xC0DE02
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0DE1C"
+addr = 0xC0DE1C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0DE6A"
+addr = 0xC0DE6A
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0DE84"
+addr = 0xC0DE84
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_JL_C0DF2F"
+addr = 0xC0DF2F
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0DF61"
+addr = 0xC0DF61
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0DF7B"
+addr = 0xC0DF7B
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0DF95"
+addr = 0xC0DF95
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0DFAF"
+addr = 0xC0DFAF
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0DFE3"
+addr = 0xC0DFE3
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0DFFD"
+addr = 0xC0DFFD
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0E031"
+addr = 0xC0E031
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0E065"
+addr = 0xC0E065
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0E18D"
+addr = 0xC0E18D
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0E212"
+addr = 0xC0E212
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0E22C"
+addr = 0xC0E22C
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0E260"
+addr = 0xC0E260
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0E2AE"
+addr = 0xC0E2AE
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0E2C8"
+addr = 0xC0E2C8
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0E34A"
+addr = 0xC0E34A
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0E364"
+addr = 0xC0E364
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0E37E"
+addr = 0xC0E37E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0E398"
+addr = 0xC0E398
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0E3E6"
+addr = 0xC0E3E6
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0E400"
+addr = 0xC0E400
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0E41A"
+addr = 0xC0E41A
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0E434"
+addr = 0xC0E434
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_E739"
+addr = 0xC0E739
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_E7BC"
+addr = 0xC0E7BC
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_E83F"
+addr = 0xC0E83F
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_E8C2"
+addr = 0xC0E8C2
+src = "chronoret"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Sub_E97A"
+addr = 0xC0E97A
+src = "chronoret"
+reason = "$C0E980: JSL $0BC1BD (m1x0): target not in funcs.toml"
+
+[[unresolved]]
+name = "CODE_C0EA51"
+addr = 0xC0EA51
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_NmiHandler"
+addr = 0xC0EA63
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0EACE"
+addr = 0xC0EACE
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "UNREACH_C0EB46"
+addr = 0xC0EB46
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Vblank_DialogRowThenTail"
+addr = 0xC0EB79
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Vblank_CommonTail"
+addr = 0xC0EB86
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Vblank_CommonEnd"
+addr = 0xC0EC15
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "ASCIITextRelatedDMAVRAM"
+addr = 0xC0EC77
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Vblank_UploadOam"
+addr = 0xC0ECA3
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Field_IrqHandler"
+addr = 0xC0ECCC
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Vblank_UpdateAnimTileWords"
+addr = 0xC0ED15
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Vblank_AnimTileWords_Phase2"
+addr = 0xC0EE8B
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Vblank_AnimTileWords_DoorCells"
+addr = 0xC0EFD1
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Dialog_DrawChoiceCursor"
+addr = 0xC0F05E
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C0F0C9"
+addr = 0xC0F0C9
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Dialog_DrawChoiceSlot3"
+addr = 0xC0F110
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Dialog_DrawChoiceSlot2"
+addr = 0xC0F12B
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Dialog_DrawChoiceSlot1"
+addr = 0xC0F142
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Dialog_DrawChoiceSlot0"
+addr = 0xC0F159
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "EntryPointSMCFinishW"
+addr = 0xC0FF00
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "Jumps7E0500Memory"
+addr = 0xC0FF10
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "CODE_C0FF14"
+addr = 0xC0FF14
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+[[unresolved]]
+name = "AppearsDebugRelatedInfiniteLoo"
+addr = 0xC0FF18
+src = "dscotton"
+reason = "entry M/X state unknown: not documented, no caller found within synced scope"
+
+# ==== end sync_symbols: bank $C0 ====
+
