@@ -11,3 +11,5 @@ cmake -S . -B build && cmake --build build -j && ctest --test-dir build
 ```
 
 The ROM is never committed. Generated C goes to `out/`.
+
+Symbol names partly derived from dscotton/ct_disassembly (public domain) and ChronoRET.
