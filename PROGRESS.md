@@ -4,23 +4,23 @@ Written by `tools/progress.py`. Do not edit by hand.
 
 | Metric | Value |
 |---|---|
-| Routines recompiled | 395 |
-| Emitted C functions (routine x entry state) | 409 |
-| ROM bytes covered | 38991 |
+| Routines recompiled | 397 |
+| Emitted C functions (routine x entry state) | 411 |
+| ROM bytes covered | 39399 |
 | Functions known total (validated + unresolved) | 1033 |
-| Functions validated | 395 |
-| Functions unresolved (pending sync) | 638 |
+| Functions validated | 397 |
+| Functions unresolved (pending sync) | 636 |
 | Opcodes implemented | 251 / 256 |
 | Opcodes used by recompiled routines | 138 / 256 |
 | Opcode x width combinations implemented | 446 |
 | Tests passing | 24 / 24 |
-| Test assertions checked | 610246364 |
+| Test assertions checked | 610258361 |
 
 ## Coverage by bank
 
 | Bank | Bytes |
 |---|---|
-| $C0 | 25564 |
+| $C0 | 25972 |
 | $C1 | 9062 |
 | $C2 | 2095 |
 | $C3 | 863 |
@@ -32,7 +32,7 @@ Written by `tools/progress.py`. Do not edit by hand.
 
 | Bank | Validated | Unresolved | Known total |
 |---|---|---|---|
-| $C0 | 190 | 638 | 828 |
+| $C0 | 192 | 636 | 828 |
 | $C1 | 106 | 0 | 106 |
 | $C2 | 71 | 0 | 71 |
 | $C3 | 1 | 0 | 1 |
@@ -439,6 +439,8 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Obj_ReleaseVramCells | $C0EA42 | m1x1 | 33 | bankc0 |
 | Sub_EC60 | $C0EC60 | m1x0 | 23 | bankc0 |
 | Map_BuildTilePropGrid | $C0A521 | m1x0 | 330 | bankc0 |
+| Field_CopyMapRectLayers | $C0AF4E | m1x0 | 328 | bankc0 |
+| Field_CopyMapRectMVN | $C0B096 | m1x0 | 80 | bankc0 |
 
 ## Implemented opcodes
 
@@ -471,4 +473,4 @@ $00 BRK imm, $01 ORA dp_x_ind, $02 COP imm, $03 ORA sr, $04 TSB dp, $05 ORA dp, 
 | c1_ui_gauge | Passed |
 | interp_c1_ui_gauge | Passed |
 | diff_all | Passed |
-| sync_determinism | Passed |
+| sync_determinism | Skipped |
