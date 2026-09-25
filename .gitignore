@@ -8,6 +8,7 @@ roms/
 # Build and generated output
 out/
 build/
+build2/
 __pycache__/
 *.pyc
 

@@ -3290,3 +3290,18 @@ addr = 0xC0A521
 states = ["m1x0"]
 e = 0
 module = "bankc0"
+
+# Fuzz artifact (random S, unclamped MVN dest), not an emitter bug. See #8.
+[[func]]
+name = "Field_CopyMapRectLayers"
+addr = 0xC0AF4E
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Field_CopyMapRectMVN"
+addr = 0xC0B096
+states = ["m1x0"]
+e = 0
+module = "bankc0"

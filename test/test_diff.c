@@ -148,13 +148,24 @@ static void diff_func(const ct_func *f, int trials)
         uint16_t dp = f->dp >= 0 ? (uint16_t)f->dp : 0;
         fill(&w0[dp], 0x100);
 
+        if (!strcmp(f->name, "Field_CopyMapRectLayers") ||
+            !strcmp(f->name, "Field_CopyMapRectMVN")) {
+            /* Unclamped, these wrap into an MVN dest that can hit the stack page. */
+            w0[dp + 0x3E] = (uint8_t)(rnd32() % 32);
+            w0[dp + 0x3F] = 0;
+            w0[dp + 0x40] = (uint8_t)(w0[dp + 0x3E] + rnd32() % 32);
+            w0[dp + 0x41] = 0;
+            w0[dp + 0x42] = (uint8_t)(rnd32() % 32);
+            w0[dp + 0x43] = 0;
+        }
+
         CPU in;
         uint32_t r = rnd32();
         cpu_init(&in);
         in.A = (uint16_t)rnd32();
         in.X = f->x ? (uint16_t)(rnd32() & 0xFF) : (uint16_t)rnd32();
         in.Y = f->x ? (uint16_t)(rnd32() & 0xFF) : (uint16_t)rnd32();
-        in.S = (uint16_t)(0x1E00 + rnd32() % 0x1F0);
+        in.S = (uint16_t)(0x0500 + rnd32() % 0x200);   /* real range, per ColdBootInit's $06FF */
         in.DP = dp;
         in.DB = f->db >= 0 ? (uint8_t)f->db : 0x7E;
         in.PB = (uint8_t)(f->addr >> 16);
