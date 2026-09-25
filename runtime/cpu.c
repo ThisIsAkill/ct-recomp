@@ -17,6 +17,7 @@ void cpu_init(CPU *cpu)
 
 void (*ct_fatal_hook)(const char *msg);
 uint64_t ct_budget;
+long ct_test_cap;
 
 void ct_fatal(const char *fmt, ...)
 {

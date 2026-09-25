@@ -57,6 +57,8 @@ add_library(ct_gen STATIC ${CT_GEN_SOURCES})
 target_include_directories(ct_gen PUBLIC ${CT_OUT})
 target_link_libraries(ct_gen PUBLIC ct_runtime)
 target_compile_options(ct_gen PRIVATE ${CT_WARN} -Wno-unused-label)
+# ct_gen has no non-test consumer yet (pre-Title Screen); revisit when one exists.
+target_compile_definitions(ct_gen PRIVATE CT_TEST_BUILD)
 
 # ---- tests ----
 

@@ -60,6 +60,12 @@ static inline void ct_loop(uint32_t at)
 {
     if (ct_budget && --ct_budget == 0)
         ct_fatal("$%06X: step budget exhausted", at);
+#ifdef CT_TEST_BUILD
+    /* Hard backstop, independent of ct_budget: catches a run where the
+       caller didn't set it. Test builds only -- see CMakeLists.txt. */
+    if (ct_test_cap && --ct_test_cap == 0)
+        ct_fatal("$%06X: backward-branch cap exceeded", at);
+#endif
 }
 
 /* ---- mode checks ---- */

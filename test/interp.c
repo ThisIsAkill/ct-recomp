@@ -258,11 +258,29 @@ static void rmw_mem(CPU *c, enum rmw op, enum mode md)
     wr(e, wide, rmw(c, op, rd(e, wide), wide));
 }
 
-static void branch(CPU *c, int cond)
+/* Step budget, charged the same way as generated code's ct_loop (runtime/
+   ops.h): once per backward branch/jump actually taken, not per fetched
+   instruction. A flat per-instruction count would exhaust far sooner than
+   generated code's per-backward-edge count for any loop with more than one
+   instruction in its body, making a merely slow (not broken) loop diverge
+   only on the interpreter side. */
+static long interp_budget;
+
+static void loop_tick(uint32_t at, uint16_t new_pc)
+{
+    if (new_pc > (uint16_t)at)
+        return;
+    if (interp_budget && --interp_budget == 0)
+        ct_fatal("$%06X: step budget exhausted", at);
+}
+
+static void branch(CPU *c, uint32_t at, int cond)
 {
     int8_t off = (int8_t)fetch8(c);
-    if (cond)
+    if (cond) {
         c->PC = (uint16_t)(c->PC + off);
+        loop_tick(at, c->PC);
+    }
 }
 
 static void block_move(CPU *c, int step)
@@ -492,19 +510,24 @@ static void step(CPU *c, uint32_t at, uint8_t op)
     }
 
     /* branches */
-    case 0x10: branch(c, !c->n); break;
-    case 0x30: branch(c, c->n); break;
-    case 0x50: branch(c, !c->v); break;
-    case 0x70: branch(c, c->v); break;
-    case 0x90: branch(c, !c->c); break;
-    case 0xB0: branch(c, c->c); break;
-    case 0xD0: branch(c, !c->z); break;
-    case 0xF0: branch(c, c->z); break;
-    case 0x80: branch(c, 1); break;
-    case 0x82: { uint16_t off = fetch16(c); c->PC = (uint16_t)(c->PC + off); break; }
+    case 0x10: branch(c, at, !c->n); break;
+    case 0x30: branch(c, at, c->n); break;
+    case 0x50: branch(c, at, !c->v); break;
+    case 0x70: branch(c, at, c->v); break;
+    case 0x90: branch(c, at, !c->c); break;
+    case 0xB0: branch(c, at, c->c); break;
+    case 0xD0: branch(c, at, !c->z); break;
+    case 0xF0: branch(c, at, c->z); break;
+    case 0x80: branch(c, at, 1); break;
+    case 0x82: {
+        uint16_t off = fetch16(c);
+        c->PC = (uint16_t)(c->PC + off);
+        loop_tick(at, c->PC);
+        break;
+    }
 
     /* jumps and calls */
-    case 0x4C: c->PC = fetch16(c); break;
+    case 0x4C: c->PC = fetch16(c); loop_tick(at, c->PC); break;
     case 0x5C: {
         uint32_t t = fetch24(c);
         c->PB = (uint8_t)(t >> 16);
@@ -617,12 +640,14 @@ void interp_call(CPU *c, uint32_t entry)
         ct_fatal("interp: emulation mode not supported");
     uint16_t s0 = c->S;
     depth = 0;
+    interp_budget = CT_INTERP_BUDGET;
+    long dispatch_cap = CT_INTERP_DISPATCH_CAP;
     c->PB = (uint8_t)(entry >> 16);
     c->PC = (uint16_t)entry;
-    for (long n = 0;; n++) {
-        if (n > CT_INTERP_BUDGET)
-            ct_fatal("$%06X: step budget exhausted", (uint32_t)c->PB << 16 | c->PC);
+    for (;;) {
         uint32_t at = (uint32_t)c->PB << 16 | c->PC;
+        if (--dispatch_cap == 0)
+            ct_fatal("$%06X: instruction cap exceeded", at);
         uint8_t op = fetch8(c);
         step(c, at, op);
         if ((op == 0x60 || op == 0x6B) && c->S > s0)

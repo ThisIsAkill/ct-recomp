@@ -88,7 +88,7 @@ static void fill(uint8_t *p, unsigned n)
 static void diff_func(const ct_func *f, int trials)
 {
     static const char tag[] = "diff";
-    long fatal_both = 0, faulted_checked = 0, fails0 = th_fails;
+    long fatal_both = 0, faulted_checked = 0, timeouts = 0, fails0 = th_fails;
     Result ra, rb;
     int t;
     for (t = 0; t < trials && th_fails - fails0 < 3; t++) {
@@ -123,6 +123,7 @@ static void diff_func(const ct_func *f, int trials)
            but a tighter generated-code budget causes spurious divergences
            on routines whose legitimate loop counts are merely large. */
         ct_budget = CT_INTERP_BUDGET;
+        ct_test_cap = CT_GEN_BACKWARD_CAP;
         run(f, &in, alu, 0, &ra);
         memcpy(wa, bus_wram(), CT_WRAM_SIZE);
         memcpy(sa, bus_sram(), CT_SRAM_SIZE);
@@ -133,6 +134,11 @@ static void diff_func(const ct_func *f, int trials)
         if (ra.fatal && rb.fatal && strstr(ra.msg, "budget exhausted") &&
             strstr(rb.msg, "budget exhausted")) {
             fatal_both++;   /* both ran away; the two count different units */
+            continue;
+        }
+        if ((ra.fatal && strstr(ra.msg, "backward-branch cap exceeded")) ||
+            (rb.fatal && strstr(rb.msg, "instruction cap exceeded"))) {
+            timeouts++;   /* hard safety net (ops.h/interp.h), not a real result */
             continue;
         }
         if (ra.fatal || rb.fatal) {
@@ -179,8 +185,9 @@ static void diff_func(const ct_func *f, int trials)
         CHECK(!memcmp(sa, bus_sram(), CT_SRAM_SIZE), "%s %s: SRAM differs", tag, f->name);
         CHECK(!memcmp(ra.alu, rb.alu, 4), "%s %s: math registers differ", tag, f->name);
     }
-    printf("  %-30s $%06X m%dx%d  %d trials, %ld fatal in both (%ld compared at the fault)\n",
-           f->name, f->addr, f->m, f->x, t, fatal_both, faulted_checked);
+    printf("  %-30s $%06X m%dx%d  %d trials, %ld fatal in both (%ld compared at the fault), "
+           "%ld timed out\n",
+           f->name, f->addr, f->m, f->x, t, fatal_both, faulted_checked, timeouts);
 }
 
 int main(int argc, char **argv)

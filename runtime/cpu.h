@@ -33,4 +33,8 @@ extern void (*ct_fatal_hook)(const char *msg);
 /* Remaining backward-branch budget for generated code (0 = unlimited). */
 extern uint64_t ct_budget;
 
+/* CT_TEST_BUILD only (see ops.h ct_loop): hard backward-branch cap,
+   independent of ct_budget. 0 = unlimited. */
+extern long ct_test_cap;
+
 #endif
