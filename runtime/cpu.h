@@ -37,4 +37,8 @@ extern uint64_t ct_budget;
    independent of ct_budget. 0 = unlimited. */
 extern long ct_test_cap;
 
+/* Called before every instruction (generated: ct_trace() in ops.h; interp:
+   interp_call()) with the CPU state on entry to it, if set (test use). */
+extern void (*ct_trace_hook)(const CPU *cpu, uint32_t addr);
+
 #endif

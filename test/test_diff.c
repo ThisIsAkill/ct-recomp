@@ -8,6 +8,7 @@
  * the same message.
  *
  * usage: test_diff [trials] [name-filter]
+ *        test_diff --replay FILE
  */
 #include <setjmp.h>
 #include <string.h>
@@ -77,6 +78,54 @@ static void dump(const char *tag, const CPU *c)
             c->PB, c->PC, c->n, c->v, c->m, c->x, c->d, c->i, c->z, c->c, c->e);
 }
 
+/* On-disk snapshot of one trial's entry state, for --replay. Never checked
+   into the repo: written to /tmp only. */
+typedef struct {
+    char func_name[64];
+    CPU cpu;                     /* entry state, before run()'s push16 */
+    uint8_t wram[CT_WRAM_SIZE];
+    uint8_t sram[CT_SRAM_SIZE];
+} Snapshot;
+
+static void save_snapshot(const ct_func *f, const CPU *in, int t)
+{
+    Snapshot *snap = malloc(sizeof *snap);
+    if (!snap) {
+        fprintf(stderr, "  snapshot: out of memory\n");
+        return;
+    }
+    snprintf(snap->func_name, sizeof snap->func_name, "%s", f->name);
+    snap->cpu = *in;
+    memcpy(snap->wram, w0, CT_WRAM_SIZE);
+    memcpy(snap->sram, s0, CT_SRAM_SIZE);
+
+    char path[256];
+    snprintf(path, sizeof path, "/tmp/ct_diff_%s_t%d.snap", f->name, t);
+    FILE *fp = fopen(path, "wb");
+    if (!fp || fwrite(snap, sizeof *snap, 1, fp) != 1)
+        fprintf(stderr, "  snapshot: failed to write %s\n", path);
+    else
+        fprintf(stderr, "  snapshot: %s (replay with: test_diff --replay %s)\n", path, path);
+    if (fp)
+        fclose(fp);
+    free(snap);
+}
+
+/* Full repro recipe for a divergence: the harness PRNG is fixed-seed, so
+   rerunning the same binary with the same argv reproduces trial t exactly
+   up to this point. */
+static void dump_trial(const ct_func *f, int t, const CPU *in, uint16_t dp)
+{
+    fprintf(stderr, "  %s trial %d entry: A=%04X X=%04X Y=%04X S=%04X DP=%04X DB=%02X PB=%02X "
+            "nvmxdizc=%d%d%d%d%d%d%d%d\n", f->name, t, in->A, in->X, in->Y, in->S, in->DP,
+            in->DB, in->PB, in->n, in->v, in->m, in->x, in->d, in->i, in->z, in->c);
+    fprintf(stderr, "  dp $%04X:", dp);
+    for (int k = 0; k < 0x100; k++)
+        fprintf(stderr, "%s%02X", k % 16 == 0 ? "\n   " : " ", w0[dp + k]);
+    fputc('\n', stderr);
+    save_snapshot(f, in, t);
+}
+
 static void fill(uint8_t *p, unsigned n)
 {
     for (unsigned k = 0; k < n; k += 4) {
@@ -142,9 +191,11 @@ static void diff_func(const ct_func *f, int trials)
             continue;
         }
         if (ra.fatal || rb.fatal) {
-            CHECK(ra.fatal == rb.fatal && !strcmp(ra.msg, rb.msg),
-                  "%s %s m%dx%d trial %d: fatal mismatch: gen '%s' interp '%s'", tag, f->name,
-                  f->m, f->x, t, ra.fatal ? ra.msg : "-", rb.fatal ? rb.msg : "-");
+            int fatal_mismatch = ra.fatal != rb.fatal || strcmp(ra.msg, rb.msg);
+            if (fatal_mismatch)
+                dump_trial(f, t, &in, dp);
+            CHECK(!fatal_mismatch, "%s %s m%dx%d trial %d: fatal mismatch: gen '%s' interp '%s'",
+                  tag, f->name, f->m, f->x, t, ra.fatal ? ra.msg : "-", rb.fatal ? rb.msg : "-");
             fatal_both += ra.fatal && rb.fatal;
             if (ra.fatal && rb.fatal && !strcmp(ra.msg, rb.msg)) {
                 /* Same fault: state up to it must match (PC/PB are only
@@ -153,22 +204,30 @@ static void diff_func(const ct_func *f, int trials)
                 ga.PC = gb.PC = 0;
                 ga.PB = gb.PB = 0;
                 int ok = cpu_equal(&ga, &gb);
+                if (!ok)
+                    dump_trial(f, t, &in, dp);
                 CHECK(ok, "%s %s m%dx%d trial %d: CPU differs at fault '%s'", tag, f->name, f->m,
                       f->x, t, ra.msg);
                 if (!ok) {
                     dump("gen   ", &ra.cpu);
                     dump("interp", &rb.cpu);
                 }
-                CHECK(!memcmp(wa, bus_wram(), CT_WRAM_SIZE),
-                      "%s %s m%dx%d trial %d: WRAM differs at fault '%s'", tag, f->name, f->m, f->x,
-                      t, ra.msg);
+                int wram_ok = !memcmp(wa, bus_wram(), CT_WRAM_SIZE);
+                if (!wram_ok)
+                    dump_trial(f, t, &in, dp);
+                CHECK(wram_ok, "%s %s m%dx%d trial %d: WRAM differs at fault '%s'", tag, f->name,
+                      f->m, f->x, t, ra.msg);
                 faulted_checked++;
             }
-            if (getenv("CT_DIFF_VERBOSE") && ra.fatal && rb.fatal && fatal_both <= 3)
+            if (getenv("CT_DIFF_VERBOSE") && ra.fatal && rb.fatal && fatal_both <= 3) {
+                dump_trial(f, t, &in, dp);
                 fprintf(stderr, "  fatal in both: %s\n", ra.msg);
+            }
             continue;
         }
         int ok_cpu = cpu_equal(&ra.cpu, &rb.cpu);
+        if (!ok_cpu)
+            dump_trial(f, t, &in, dp);
         CHECK(ok_cpu, "%s %s m%dx%d trial %d: CPU differs", tag, f->name, f->m, f->x, t);
         if (!ok_cpu) {
             dump("in    ", &in);
@@ -179,10 +238,15 @@ static void diff_func(const ct_func *f, int trials)
             unsigned a = 0;
             while (wa[a] == bus_wram()[a])
                 a++;
+            dump_trial(f, t, &in, dp);
             CHECK(0, "%s %s m%dx%d trial %d: WRAM differs at $%05X (gen %02X interp %02X)", tag,
                   f->name, f->m, f->x, t, 0x7E0000 + a, wa[a], bus_wram()[a]);
         }
+        if (memcmp(sa, bus_sram(), CT_SRAM_SIZE))
+            dump_trial(f, t, &in, dp);
         CHECK(!memcmp(sa, bus_sram(), CT_SRAM_SIZE), "%s %s: SRAM differs", tag, f->name);
+        if (memcmp(ra.alu, rb.alu, 4))
+            dump_trial(f, t, &in, dp);
         CHECK(!memcmp(ra.alu, rb.alu, 4), "%s %s: math registers differ", tag, f->name);
     }
     printf("  %-30s $%06X m%dx%d  %d trials, %ld fatal in both (%ld compared at the fault), "
@@ -190,12 +254,118 @@ static void diff_func(const ct_func *f, int trials)
            f->name, f->addr, f->m, f->x, t, fatal_both, faulted_checked, timeouts);
 }
 
+/* --replay: instruction-level trace diff of one saved trial, generated vs
+   interpreter, without re-running the fuzz sweep that found it. */
+#define TRACE_CAP 2000000
+typedef struct {
+    uint32_t addr;
+    CPU cpu;
+} TraceEntry;
+static TraceEntry *trace_buf;
+static long trace_len;
+
+static void trace_hook(const CPU *c, uint32_t addr)
+{
+    if (trace_len < TRACE_CAP)
+        trace_buf[trace_len++] = (TraceEntry){addr, *c};
+}
+
+static int trace_cpu_equal(const CPU *a, const CPU *b)
+{
+    return a->A == b->A && a->X == b->X && a->Y == b->Y && a->S == b->S && a->DP == b->DP &&
+           a->DB == b->DB && a->n == b->n && a->v == b->v && a->m == b->m && a->x == b->x &&
+           a->d == b->d && a->i == b->i && a->z == b->z && a->c == b->c;
+}
+
+static void trace_dump(const char *tag, const TraceEntry *e)
+{
+    fprintf(stderr, "  %s $%06X A=%04X X=%04X Y=%04X S=%04X DP=%04X DB=%02X nvmxdizc=%d%d%d%d"
+            "%d%d%d%d\n", tag, e->addr, e->cpu.A, e->cpu.X, e->cpu.Y, e->cpu.S, e->cpu.DP,
+            e->cpu.DB, e->cpu.n, e->cpu.v, e->cpu.m, e->cpu.x, e->cpu.d, e->cpu.i, e->cpu.z,
+            e->cpu.c);
+}
+
+static int replay(const char *path)
+{
+    FILE *fp = fopen(path, "rb");
+    Snapshot *snap = fp ? malloc(sizeof *snap) : NULL;
+    if (!fp || !snap || fread(snap, sizeof *snap, 1, fp) != 1) {
+        fprintf(stderr, "replay: cannot load %s\n", path);
+        return 2;
+    }
+    fclose(fp);
+
+    const ct_func *f = NULL;
+    for (unsigned k = 0; k < ct_func_count; k++)
+        if (!strcmp(ct_funcs[k].name, snap->func_name))
+            f = &ct_funcs[k];
+    if (!f) {
+        fprintf(stderr, "replay: function %s not in ct_funcs\n", snap->func_name);
+        return 2;
+    }
+    memcpy(w0, snap->wram, CT_WRAM_SIZE);
+    memcpy(s0, snap->sram, CT_SRAM_SIZE);
+
+    trace_buf = malloc(TRACE_CAP * sizeof *trace_buf);
+    TraceEntry *trace_a = malloc(TRACE_CAP * sizeof *trace_a);
+    TraceEntry *trace_b = malloc(TRACE_CAP * sizeof *trace_b);
+    if (!trace_buf || !trace_a || !trace_b) {
+        fprintf(stderr, "replay: out of memory\n");
+        return 2;
+    }
+
+    ct_trace_hook = trace_hook;
+    Result ra, rb;
+    trace_len = 0;
+    ct_budget = CT_INTERP_BUDGET;
+    ct_test_cap = CT_GEN_BACKWARD_CAP;
+    run(f, &snap->cpu, 0, 0, &ra);
+    long na = trace_len;
+    memcpy(trace_a, trace_buf, na * sizeof *trace_a);
+
+    trace_len = 0;
+    ct_budget = 0;
+    run(f, &snap->cpu, 0, 1, &rb);
+    long nb = trace_len;
+    memcpy(trace_b, trace_buf, nb * sizeof *trace_b);
+    ct_trace_hook = NULL;
+
+    printf("gen: %ld steps, fatal=%d %s\n", na, ra.fatal, ra.fatal ? ra.msg : "-");
+    printf("interp: %ld steps, fatal=%d %s\n", nb, rb.fatal, rb.fatal ? rb.msg : "-");
+
+    long n = na < nb ? na : nb;
+    long i;
+    for (i = 0; i < n; i++) {
+        if (trace_a[i].addr != trace_b[i].addr || !trace_cpu_equal(&trace_a[i].cpu, &trace_b[i].cpu))
+            break;
+    }
+    if (i == n && na == nb) {
+        printf("traces identical for all %ld steps\n", n);
+        return 0;
+    }
+
+    printf("first divergence at step %ld (of %ld/%ld); last matching steps:\n", i, na, nb);
+    for (long k = i - 3 > 0 ? i - 3 : 0; k < i; k++)
+        trace_dump("  ok  gen   ", &trace_a[k]);
+    if (i < na)
+        trace_dump("  -> gen   ", &trace_a[i]);
+    else
+        printf("  -> gen    (ended after %ld steps)\n", na);
+    if (i < nb)
+        trace_dump("  -> interp", &trace_b[i]);
+    else
+        printf("  -> interp (ended after %ld steps)\n", nb);
+    return 1;
+}
+
 int main(int argc, char **argv)
 {
-    int trials = argc > 1 ? atoi(argv[1]) : 2000;
-    const char *filter = argc > 2 ? argv[2] : NULL;
     bus_init(NULL);
     ct_fatal_hook = on_fatal;
+    if (argc >= 3 && !strcmp(argv[1], "--replay"))
+        return replay(argv[2]);
+    int trials = argc > 1 ? atoi(argv[1]) : 2000;
+    const char *filter = argc > 2 ? argv[2] : NULL;
     for (unsigned k = 0; k < ct_func_count; k++)
         if (!filter || strstr(ct_funcs[k].name, filter))
             diff_func(&ct_funcs[k], trials);

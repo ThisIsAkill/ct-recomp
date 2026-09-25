@@ -16,6 +16,7 @@ void cpu_init(CPU *cpu)
 }
 
 void (*ct_fatal_hook)(const char *msg);
+void (*ct_trace_hook)(const CPU *cpu, uint32_t addr);
 uint64_t ct_budget;
 long ct_test_cap;
 

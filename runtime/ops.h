@@ -68,6 +68,13 @@ static inline void ct_loop(uint32_t at)
 #endif
 }
 
+/* Per-instruction trace hook, called before the instruction at `at` runs. */
+static inline void ct_trace(const CPU *c, uint32_t at)
+{
+    if (ct_trace_hook)
+        ct_trace_hook(c, at);
+}
+
 /* ---- mode checks ---- */
 
 static inline void cpu_enter(const CPU *c, uint32_t at, int m, int x)

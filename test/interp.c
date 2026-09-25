@@ -648,6 +648,8 @@ void interp_call(CPU *c, uint32_t entry)
         uint32_t at = (uint32_t)c->PB << 16 | c->PC;
         if (--dispatch_cap == 0)
             ct_fatal("$%06X: instruction cap exceeded", at);
+        if (ct_trace_hook)
+            ct_trace_hook(c, at);
         uint8_t op = fetch8(c);
         step(c, at, op);
         if ((op == 0x60 || op == 0x6B) && c->S > s0)
