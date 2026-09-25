@@ -109,18 +109,23 @@ MNEMONICS = {m for m, _ in decode.OPCODES.values()}
 # re-running sync doesn't re-add them; a fix belongs in decode.py/emit.py
 # or in re-classifying the routine, not in silently dropping this list.
 KNOWN_BAD: dict[int, str] = {
-    0xC0AF4E: ("diff_all: generated code times out (step budget exhausted at "
-               "$C0B0E1) while the interpreter detects a corrupted return "
-               "address inside $C0AF50-$C0B0FF on the same random input -- "
-               "real control-flow divergence, not a missing feature"),
-    0xC0B096: ("diff_all: same $C0B0E1 divergence as Field_CopyMapRectLayers "
+    0xC0AF4E: ("diff_all: generated code returns from a JSR to "
+               "Field_CopyMapRectMVN with a corrupted return address (seen "
+               "at the 5th of 6 call sites, $C0AF94 -> $8E9A instead of "
+               "$AF97) while the interpreter runs far longer on the same "
+               "input before hitting its own step budget inside "
+               "Field_CopyMapRectMVN's row loop ($C0B0E1) -- real "
+               "stack/control-flow divergence, not a missing feature. Not "
+               "the same bug as Map_BuildTilePropGrid: that one was a test "
+               "harness step-budget mismatch (generated code's ct_budget "
+               "and the interpreter's step cap now share CT_INTERP_BUDGET, "
+               "see test/interp.h), not an emitter bug -- fixed and pruned "
+               "from this list. This one needs the PHB/PLB and JSR "
+               "push16/cpu_check_return bookkeeping across the "
+               "$7000/$7040 (tile-props) call sites compared by hand "
+               "against interp.c's shadow call stack"),
+    0xC0B096: ("diff_all: same divergence as Field_CopyMapRectLayers "
                "($C0AF4E); the two likely share the broken code path"),
-    0xC0A521: ("diff_all: Map_BuildTilePropGrid -- generated code loops to a "
-               "step-budget timeout at $C0A5C3 (a BCC closing a copy loop) on "
-               "input the interpreter runs to completion on; looks like an "
-               "emit.py bug specific to this loop, not decode.py or a missing "
-               "opcode -- needs the generated C at $C0A5C3 compared by hand "
-               "against interp.c's handling of the same instruction"),
 }
 
 

@@ -3277,3 +3277,16 @@ e = 0
 module = "bankc0"
 
 # ==== end sync_symbols: bank $C0 ====
+
+# Hand-added (not via sync_symbols.py -- see issue tracking the tool's
+# destructive re-sync bug). Previously KNOWN_BAD/unresolved for a diff_all
+# "step budget exhausted" report; that was a test harness budget mismatch
+# (generated code's ct_budget was 100000, the interpreter's was 3000000),
+# not an emitter bug. Fixed by sharing CT_INTERP_BUDGET (test/interp.h);
+# diff_all now passes 2000/2000 trials.
+[[func]]
+name = "Map_BuildTilePropGrid"
+addr = 0xC0A521
+states = ["m1x0"]
+e = 0
+module = "bankc0"

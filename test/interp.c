@@ -620,7 +620,7 @@ void interp_call(CPU *c, uint32_t entry)
     c->PB = (uint8_t)(entry >> 16);
     c->PC = (uint16_t)entry;
     for (long n = 0;; n++) {
-        if (n > 3000000)
+        if (n > CT_INTERP_BUDGET)
             ct_fatal("$%06X: step budget exhausted", (uint32_t)c->PB << 16 | c->PC);
         uint32_t at = (uint32_t)c->PB << 16 | c->PC;
         uint8_t op = fetch8(c);

@@ -3079,12 +3079,6 @@ src = "dscotton"
 reason = "$C0A500: JSR $C0A521 (m1x0): target not in funcs.toml"
 
 [[unresolved]]
-name = "Map_BuildTilePropGrid"
-addr = 0xC0A521
-src = "dscotton"
-reason = "diff_all: Map_BuildTilePropGrid -- generated code loops to a step-budget timeout at $C0A5C3 (a BCC closing a copy loop) on input the interpreter runs to completion on; looks like an emit.py bug specific to this loop, not decode.py or a missing opcode -- needs the generated C at $C0A5C3 compared by hand against interp.c's handling of the same instruction"
-
-[[unresolved]]
 name = "CODE_C0A641"
 addr = 0xC0A641
 src = "dscotton"
@@ -3190,13 +3184,13 @@ reason = "entry M/X state unknown: not documented, no caller found within synced
 name = "Field_CopyMapRectLayers"
 addr = 0xC0AF4E
 src = "dscotton"
-reason = "diff_all: generated code times out (step budget exhausted at $C0B0E1) while the interpreter detects a corrupted return address inside $C0AF50-$C0B0FF on the same random input -- real control-flow divergence, not a missing feature"
+reason = "diff_all: generated code returns from a JSR to Field_CopyMapRectMVN with a corrupted return address (seen at the 5th of 6 call sites, $C0AF94 -> $8E9A instead of $AF97) while the interpreter runs far longer on the same input before hitting its own step budget inside Field_CopyMapRectMVN's row loop ($C0B0E1) -- real stack/control-flow divergence, not a missing feature. Not the same bug as Map_BuildTilePropGrid: that one was a test harness step-budget mismatch (generated code's ct_budget and the interpreter's step cap now share CT_INTERP_BUDGET, see test/interp.h), not an emitter bug -- fixed. This one needs the PHB/PLB and JSR push16/cpu_check_return bookkeeping across the $7000/$7040 (tile-props) call sites compared by hand against interp.c's shadow call stack"
 
 [[unresolved]]
 name = "Field_CopyMapRectMVN"
 addr = 0xC0B096
 src = "dscotton"
-reason = "diff_all: same $C0B0E1 divergence as Field_CopyMapRectLayers ($C0AF4E); the two likely share the broken code path"
+reason = "diff_all: same divergence as Field_CopyMapRectLayers ($C0AF4E); the two likely share the broken code path"
 
 [[unresolved]]
 name = "Field_ActivateVisibleObjects"

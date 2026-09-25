@@ -118,7 +118,11 @@ static void diff_func(const ct_func *f, int trials)
         in.c = r >> 4 & 1;
         uint32_t alu = rnd32();
 
-        ct_budget = 100000;
+        /* Match the interpreter's step budget: they charge backward
+           branches/jumps and instructions respectively, not the same unit,
+           but a tighter generated-code budget causes spurious divergences
+           on routines whose legitimate loop counts are merely large. */
+        ct_budget = CT_INTERP_BUDGET;
         run(f, &in, alu, 0, &ra);
         memcpy(wa, bus_wram(), CT_WRAM_SIZE);
         memcpy(sa, bus_sram(), CT_SRAM_SIZE);
