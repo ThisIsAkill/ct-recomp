@@ -13,6 +13,7 @@ __pycache__/
 
 # Local session files
 ?LAUDE.md
+CT_WORKFLOW.md
 KICKOFF*.md
 .[c]laude/
 notes/

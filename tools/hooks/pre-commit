@@ -33,7 +33,7 @@ done
 
 # Paths
 staged=$(git diff --cached --name-only --diff-filter=ACMR)
-bad=$(printf '%s\n' "$staged" | grep -E '(^|/)(C[L]AUDE\.md|KICKOFF[^/]*\.md|\.c[l]aude/|notes/|SESSION[^/]*\.md)' || true)
+bad=$(printf '%s\n' "$staged" | grep -E '(^|/)(C[L]AUDE\.md|CT_WORKFLOW\.md|KICKOFF[^/]*\.md|\.c[l]aude/|notes/|SESSION[^/]*\.md)' || true)
 [ -z "$bad" ] || fail "ignored local file staged:"$'\n'"$bad"
 bad=$(printf '%s\n' "$staged" | grep -iE '\.(sfc|smc)$' || true)
 [ -z "$bad" ] || fail "ROM file staged:"$'\n'"$bad"
