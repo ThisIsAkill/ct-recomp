@@ -26,8 +26,12 @@ def load_unresolved() -> list[dict]:
 
 def run_tests(build: str) -> tuple[list[tuple[str, str]], int, int, int]:
     """Return ([(test, status)], passed, total, checks)."""
-    p = subprocess.run(['ctest', '--test-dir', build, '-V'], capture_output=True, text=True)
+    jobs = str(os.cpu_count() or 1)
+    p = subprocess.run(['ctest', '--test-dir', build, '-V', '-j', jobs], capture_output=True,
+                       text=True)
     out = p.stdout
+    with open(os.path.join(build, 'progress_ctest.log'), 'w') as f:
+        f.write(out + p.stderr)
     results = re.findall(r'^\s*\d+/\d+ Test\s+#\d+: (\S+) \.+\s*(\*{0,3}\w+)', out, re.M)
     checks = sum(int(n) for n in re.findall(r'^\d+: \S+: (\d+) checks, 0 failed$', out, re.M))
     # ctest >= 4.x drops ", N tests failed" from the summary line when N is 0.
