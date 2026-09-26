@@ -3018,6 +3018,13 @@ e = 0
 module = "bankc0"
 
 [[func]]
+name = "Map_LoadAndApplyConfig"
+addr = 0xC0A33B
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+
+[[func]]
 name = "CODE_FN_C0A508"
 addr = 0xC0A508
 states = ["m1x0"]

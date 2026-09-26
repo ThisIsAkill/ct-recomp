@@ -31,12 +31,6 @@ src = "dscotton"
 reason = "entry M/X state unknown: not documented, no caller found within synced scope"
 
 [[unresolved]]
-name = "Field_ColdBootInit"
-addr = 0xC0000E
-src = "dscotton"
-reason = "entry M/X state unknown: not documented, no caller found within synced scope"
-
-[[unresolved]]
 name = "Field_FrameUpdate"
 addr = 0xC000BF
 src = "dscotton"
@@ -58,7 +52,7 @@ reason = "$C088FC: JSR $C08924 (m1x1): target not in funcs.toml"
 name = "Field_LoadLocationResources"
 addr = 0xC000F4
 src = "dscotton"
-reason = "$C0A500: JSR $C0A521 (m1x0): target not in funcs.toml"
+reason = "$C00112: JSL $FDFFFA (m1x0): target not in funcs.toml"
 
 [[unresolved]]
 name = "Sub_01A5"
@@ -82,7 +76,7 @@ reason = "entry M/X state unknown: not documented, no caller found within synced
 name = "Field_ResumeFromHandoff"
 addr = 0xC00283
 src = "dscotton"
-reason = "$C0A500: JSR $C0A521 (m1x0): target not in funcs.toml"
+reason = "$C088FC: JSR $C08924 (m1x1): target not in funcs.toml"
 
 [[unresolved]]
 name = "CODE_C002AF"
@@ -3071,12 +3065,6 @@ name = "Field_MoveFollower2"
 addr = 0xC0A2CE
 src = "dscotton"
 reason = "entry M/X state unknown: not documented, no caller found within synced scope"
-
-[[unresolved]]
-name = "Map_LoadAndApplyConfig"
-addr = 0xC0A33B
-src = "dscotton"
-reason = "$C0A500: JSR $C0A521 (m1x0): target not in funcs.toml"
 
 [[unresolved]]
 name = "CODE_C0A641"
