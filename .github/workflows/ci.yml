@@ -1,0 +1,27 @@
+# Engine build and tests, no ROM: with CT_ROM unset only the game-agnostic
+# engine builds, and every test that needs a game ROM is labeled rom and
+# excluded. The ROM is never available here (CT_WORKFLOW 1.2).
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  engine:
+    name: engine (${{ matrix.cc }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SDL2
+        run: sudo apt-get update && sudo apt-get install -y libsdl2-dev
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=${{ matrix.cc }}
+      - name: Build
+        run: cmake --build build -j
+      - name: Test
+        run: ctest --test-dir build -LE rom --output-on-failure
