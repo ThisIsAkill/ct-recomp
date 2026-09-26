@@ -62,10 +62,32 @@ static void test_dma_to_vram(void)
     CHECK(ppu->vramPointer == 4, "VRAM pointer advanced by the transfer");
 }
 
+/* $2180-$2183 WRAM data port. The port address is bus state that survives
+ * a WRAM memcpy, so bus_reset() must clear it: test_diff relies on that to
+ * start generated code and the interpreter from the same state. */
+static void test_wram_port(void)
+{
+    uint8_t *w = bus_wram();
+
+    write8(0x2181, 0x34);            /* WMADDL/M/H: $1_1234 */
+    write8(0x2182, 0x12);
+    write8(0x2183, 0x01);
+    write8(0x2180, 0xAB);
+    write8(0x922180, 0xCD);          /* bank $92 mirrors $12: same port */
+    CHECK(w[0x11234] == 0xAB && w[0x11235] == 0xCD, "WMDATA writes auto-increment");
+    CHECK(read8(0x2180) == w[0x11236], "WMDATA read continues from the port address");
+
+    bus_reset();
+    memset(w, 0x49, 2);
+    write8(0x2180, 0x00);
+    CHECK(w[0] == 0x00 && w[1] == 0x49, "bus_reset clears the WRAM port address");
+}
+
 int main(void)
 {
     bus_init(NULL);
     test_ppu_registers();
     test_dma_to_vram();
+    test_wram_port();
     return th_report("snes_bus");
 }

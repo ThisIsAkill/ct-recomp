@@ -44,6 +44,9 @@ static void alu_setup(uint32_t r)
 
 static void run(const ct_func *f, const CPU *in, uint32_t alu, int interp, Result *r)
 {
+    /* Both sides must start from identical hardware state, not whatever
+       the previous run left in the WRAM port, PPU, DMA, or APU. */
+    bus_reset();
     memcpy(bus_wram(), w0, CT_WRAM_SIZE);
     memcpy(bus_sram(), s0, CT_SRAM_SIZE);
     alu_setup(alu);
@@ -334,6 +337,9 @@ static int replay(const char *path)
     long na = trace_len;
     memcpy(trace_a, trace_buf, na * sizeof *trace_a);
 
+    memcpy(wa, bus_wram(), CT_WRAM_SIZE);
+    memcpy(sa, bus_sram(), CT_SRAM_SIZE);
+
     trace_len = 0;
     ct_budget = 0;
     run(f, &snap->cpu, 0, 1, &rb);
@@ -344,6 +350,31 @@ static int replay(const char *path)
     printf("gen: %ld steps, fatal=%d %s\n", na, ra.fatal, ra.fatal ? ra.msg : "-");
     printf("interp: %ld steps, fatal=%d %s\n", nb, rb.fatal, rb.fatal ? rb.msg : "-");
 
+    /* End state, as the sweep compares it (PC/PB only at returns). */
+    int end_ok = 1;
+    CPU ga = ra.cpu, gb = rb.cpu;
+    if (ra.fatal && rb.fatal) {
+        ga.PC = gb.PC = 0;
+        ga.PB = gb.PB = 0;
+    }
+    if (!cpu_equal(&ga, &gb)) {
+        printf("end state: CPU differs\n");
+        dump("gen   ", &ra.cpu);
+        dump("interp", &rb.cpu);
+        end_ok = 0;
+    }
+    for (unsigned a = 0; a < CT_WRAM_SIZE; a++)
+        if (wa[a] != bus_wram()[a]) {
+            if (end_ok || getenv("CT_DIFF_VERBOSE"))
+                printf("end state: WRAM differs at $%05X (gen %02X interp %02X entry %02X)\n",
+                       0x7E0000 + a, wa[a], bus_wram()[a], snap->wram[a]);
+            end_ok = 0;
+        }
+    if (memcmp(sa, bus_sram(), CT_SRAM_SIZE)) {
+        printf("end state: SRAM differs\n");
+        end_ok = 0;
+    }
+
     long n = na < nb ? na : nb;
     long i;
     for (i = 0; i < n; i++) {
@@ -352,7 +383,7 @@ static int replay(const char *path)
     }
     if (i == n && na == nb) {
         printf("traces identical for all %ld steps\n", n);
-        return 0;
+        return end_ok ? 0 : 1;
     }
 
     printf("first divergence at step %ld (of %ld/%ld); last matching steps:\n", i, na, nb);
