@@ -33,7 +33,7 @@ target_include_directories(ct_snes_vendor PUBLIC third_party/snes third_party)
 
 # ---- runtime ----
 add_library(ct_runtime STATIC runtime/cpu.c runtime/bus.c runtime/hooks.c
-    runtime/snes_adapter.c)
+    runtime/snes_adapter.c runtime/png.c)
 target_include_directories(ct_runtime PUBLIC runtime)
 target_link_libraries(ct_runtime PUBLIC ct_snes_vendor)
 target_compile_options(ct_runtime PRIVATE ${CT_WARN})
@@ -74,6 +74,15 @@ target_compile_definitions(ct_gen PRIVATE CT_TEST_BUILD)
 add_library(ct_interp STATIC runtime/interp.c)
 target_link_libraries(ct_interp PUBLIC ct_gen)
 target_compile_options(ct_interp PRIVATE ${CT_WARN})
+
+# ---- frame scheduler and boot probe (sched.h) ----
+add_library(ct_sched STATIC runtime/sched.c)
+target_link_libraries(ct_sched PUBLIC ct_interp)
+target_compile_options(ct_sched PRIVATE ${CT_WARN})
+
+add_executable(ct_boot tools/ct_boot.c)
+target_link_libraries(ct_boot ct_sched)
+target_compile_options(ct_boot PRIVATE ${CT_WARN})
 
 # ---- tests ----
 
@@ -126,6 +135,11 @@ add_executable(test_interp_system test/test_interp_system.c)
 target_link_libraries(test_interp_system ct_gen ct_interp)
 target_compile_options(test_interp_system PRIVATE ${CT_WARN})
 add_test(NAME interp_system COMMAND test_interp_system)
+
+add_executable(test_sched test/test_sched.c)
+target_link_libraries(test_sched ct_sched)
+target_compile_options(test_sched PRIVATE ${CT_WARN})
+add_test(NAME sched COMMAND test_sched)
 
 add_executable(test_stack_guard test/test_stack_guard.c)
 target_link_libraries(test_stack_guard ct_gen ct_interp)
