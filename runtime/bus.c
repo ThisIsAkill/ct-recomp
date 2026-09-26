@@ -53,12 +53,12 @@ static uint32_t wram_port_addr;
 
 /* Last value on the data bus (MDR): every read and write through read8/
    write8 sets it, including the interpreter's opcode and operand fetches. */
-static uint8_t mdr;
+uint8_t bus_mdr;
 
 uint8_t bus_open_bus(uint16_t reg)
 {
     (void)reg;
-    return mdr;
+    return bus_mdr;
 }
 
 void bus_readonly_write(uint16_t reg, uint8_t v)
@@ -141,7 +141,7 @@ void bus_reset(void)
     memset(&alu, 0, sizeof alu);
     wram_port_addr = 0;
     memsel = 0;
-    mdr = 0;
+    bus_mdr = 0;
     snes_hw_reset();
 }
 
@@ -245,12 +245,12 @@ uint8_t read8(uint32_t a)
     uint32_t off;
     a &= 0xFFFFFF;
     switch (decode_addr(a, &off)) {
-    case R_WRAM: return mdr = wram[off];
-    case R_SRAM: return mdr = sram[off];
-    case R_ROM:  return mdr = rom[off];
+    case R_WRAM: return bus_mdr = wram[off];
+    case R_SRAM: return bus_mdr = sram[off];
+    case R_ROM:  return bus_mdr = rom[off];
     case R_HW:
         if (hw_rd[off - HW_BASE])
-            return mdr = hw_rd[off - HW_BASE]((uint16_t)off);
+            return bus_mdr = hw_rd[off - HW_BASE]((uint16_t)off);
         ct_fatal("read8 $%06X: unhooked hardware register", a);
     default:
         ct_fatal("read8 $%06X: open bus", a);
@@ -259,7 +259,7 @@ uint8_t read8(uint32_t a)
 
 void write8(uint32_t a, uint8_t v)
 {
-    mdr = v;
+    bus_mdr = v;
     uint32_t off;
     a &= 0xFFFFFF;
     switch (decode_addr(a, &off)) {

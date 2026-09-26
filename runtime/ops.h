@@ -75,6 +75,15 @@ static inline void ct_trace(const CPU *c, uint32_t at)
         ct_trace_hook(c, at);
 }
 
+/* Start of each generated instruction: the data bus holds the
+   instruction's last byte, as after the interpreter's fetch of it (open-bus
+   reads return it). */
+static inline void ct_insn(const CPU *c, uint32_t at, uint8_t last)
+{
+    bus_mdr = last;
+    ct_trace(c, at);
+}
+
 /* ---- mode checks ---- */
 
 static inline void cpu_enter(const CPU *c, uint32_t at, int m, int x)

@@ -202,6 +202,11 @@ foreach(k RANGE ${ct_last_shard})
     add_test(NAME diff_all_${k} COMMAND test_diff 2000 --shard ${k}/${CT_DIFF_SHARDS})
 endforeach()
 
+# Regression (#29): Sub_B309 trial 32 reads the open-bus $2188 right after
+# LDA long,X's operand fetch; generated code must leave the operand's last
+# byte on the bus as the interpreter does.
+add_test(NAME diff_open_bus COMMAND test_diff 200 Sub_B309)
+
 add_test(NAME sync_determinism COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_sync.py)
 set_tests_properties(sync_determinism PROPERTIES SKIP_RETURN_CODE 77)
 

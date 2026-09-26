@@ -31,9 +31,11 @@ extern void (*ct_wram_write_hook)(uint32_t off);
 
 /* Read handler for write-only registers: returns the last value on the
    data bus, as hardware does (for LDA abs that is the address high byte).
-   Used for the write-only CPU registers $4200-$420D only; open bus
-   anywhere else stays fatal. Generated code has no operand fetches, so its
-   bus value differs from the interpreter's here. */
+   Used for write-only and unused registers (see snes_adapter.c and
+   bus.c for the map). The interpreter's opcode and operand fetches go
+   through read8; generated code has none, so it sets bus_mdr to each
+   instruction's last byte instead (ct_insn in ops.h). */
+extern uint8_t bus_mdr;
 uint8_t bus_open_bus(uint16_t reg);
 
 /* Write handler for read-only registers ($4210-$421F): ignored, as on

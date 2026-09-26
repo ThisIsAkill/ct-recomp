@@ -346,7 +346,8 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
             if nxt is None or nxt.key != succ:
                 body.append(f'goto {label(i.next_addr, post)};')
         lines.append(f'{label(i.addr, i.key[1:])}: /* {i.text()} */')
-        lines.append(f'    ct_trace(cpu, 0x{i.addr:06X});')
+        last = i.opcode if i.size == 1 else (i.operand >> (8 * (i.size - 2))) & 0xFF
+        lines.append(f'    ct_insn(cpu, 0x{i.addr:06X}, 0x{last:02X});')
         if len(body) == 1:
             lines.append(f'    {{ {body[0]} }}')
         else:
