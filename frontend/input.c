@@ -1,5 +1,7 @@
 #include "input.h"
 
+#include <string.h>
+
 uint16_t input_keyboard(const uint8_t *keys)
 {
     static const struct { SDL_Scancode key; uint16_t bit; } map[] = {
@@ -49,4 +51,46 @@ uint16_t input_controller(int (*button)(void *ctx, SDL_GameControllerButton b),
     if (y > dead)
         pad |= PAD_DOWN;
     return pad;
+}
+
+void key_filter_init(key_filter *kf)
+{
+    memset(kf, 0, sizeof *kf);
+    kf->last_button = -1000;
+}
+
+static int near_button(const key_filter *kf, long frame)
+{
+    long d = frame - kf->last_button;
+    return kf->controller && d >= -KEY_FILTER_FRAMES && d <= KEY_FILTER_FRAMES;
+}
+
+void key_filter_key(key_filter *kf, SDL_Scancode sc, int down, long frame)
+{
+    if ((unsigned)sc >= SDL_NUM_SCANCODES)
+        return;
+    if (!down) {
+        kf->held[sc] = kf->ignored[sc] = 0;
+        return;
+    }
+    kf->pressed_at[sc] = frame;
+    if (near_button(kf, frame)) {
+        kf->ignored[sc] = 1;
+        kf->held[sc] = 0;
+    } else if (!kf->ignored[sc]) {
+        kf->held[sc] = 1;
+    }
+}
+
+void key_filter_button(key_filter *kf, long frame)
+{
+    kf->last_button = frame;
+    if (!kf->controller)
+        return;
+    /* A key that arrived just before this button press is its duplicate. */
+    for (int k = 0; k < SDL_NUM_SCANCODES; k++)
+        if (kf->held[k] && frame - kf->pressed_at[k] <= KEY_FILTER_FRAMES) {
+            kf->held[k] = 0;
+            kf->ignored[k] = 1;
+        }
 }

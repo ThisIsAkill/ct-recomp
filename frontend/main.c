@@ -7,7 +7,10 @@
  * 256x224, integer scaled (--scale, default 3); paced to 60.0988 Hz
  * (NTSC) unless --fast; 48 kHz stereo audio; keyboard (arrows, Z=B X=A
  * A=Y S=X Q=L W=R, Enter=Start, Right Shift=Select) and the first game
- * controller on pad 1. Esc or closing the window quits. --frames, --dump
+ * controller on pad 1. Ctrl+Q or closing the window quits (not Esc: Steam
+ * Input's desktop layout sends Esc for controller B). While a controller
+ * is active, key presses within 2 frames of a controller button press are
+ * ignored (key_filter in input.h). --frames, --dump
  * and --needed-hw work as in ct_boot.
  *
  * Every exit prints its reason ("ct_sdl: exit: ..."); startup prints each
@@ -77,7 +80,8 @@ static void print_controllers(void)
     }
     fprintf(stderr, "ct_sdl: pad 1: keyboard arrows, Z=B X=A A=Y S=X Q=L W=R, Enter=Start, "
                     "Right Shift=Select; controller south=B east=A west=Y north=X, "
-                    "shoulders=L/R, Start, Back=Select, d-pad/left stick. Esc quits.\n");
+                    "shoulders=L/R, Start, Back=Select, d-pad/left stick. Ctrl+Q or closing "
+                    "the window quits.\n");
 }
 
 static int pad_button(void *ctx, SDL_GameControllerButton b)
@@ -182,10 +186,13 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    static key_filter keys;
+    key_filter_init(&keys);
     uint64_t freq = SDL_GetPerformanceFrequency(), next = SDL_GetPerformanceCounter();
     int running = 1;
     for (long f = 0; running && (frames < 0 || f < frames); f++) {
         exit_frame = f;
+        keys.controller = pad != NULL;
         SDL_Event ev;
         while (SDL_PollEvent(&ev)) {
             if (log_input && (ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP) && !ev.key.repeat)
@@ -200,11 +207,14 @@ int main(int argc, char **argv)
                 set_exit_reason("SDL_QUIT event (window closed, or quit requested by the "
                                 "desktop or another program)");
                 running = 0;
-            } else if (ev.type == SDL_KEYDOWN && ev.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
-                set_exit_reason("Escape key (scancode %d, key %s). Note: Steam Input's desktop "
-                                "layout can send Escape from a controller button",
-                                ev.key.keysym.scancode, SDL_GetKeyName(ev.key.keysym.sym));
+            } else if (ev.type == SDL_KEYDOWN && ev.key.keysym.scancode == SDL_SCANCODE_Q &&
+                       (ev.key.keysym.mod & KMOD_CTRL)) {
+                set_exit_reason("Ctrl+Q");
                 running = 0;
+            } else if ((ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP) && !ev.key.repeat) {
+                key_filter_key(&keys, ev.key.keysym.scancode, ev.type == SDL_KEYDOWN, f);
+            } else if (ev.type == SDL_CONTROLLERBUTTONDOWN) {
+                key_filter_button(&keys, f);
             } else if (ev.type == SDL_CONTROLLERDEVICEADDED && !pad)
                 pad = open_controller();
             else if (ev.type == SDL_CONTROLLERDEVICEREMOVED && pad &&
@@ -213,7 +223,7 @@ int main(int argc, char **argv)
                 pad = open_controller();
             }
         }
-        uint16_t buttons = input_keyboard(SDL_GetKeyboardState(NULL));
+        uint16_t buttons = input_keyboard(keys.held);
         if (pad)
             buttons |= input_controller(pad_button, pad_axis, pad);
         sched_set_joypad(0, buttons);

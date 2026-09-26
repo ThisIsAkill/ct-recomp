@@ -21,7 +21,7 @@
 #define PAD_L      0x0020
 #define PAD_R      0x0010
 
-/* keys: SDL_GetKeyboardState. Arrows, Z=B X=A A=Y S=X Q=L W=R,
+/* keys: held state per scancode (key_filter.held). Arrows, Z=B X=A A=Y S=X Q=L W=R,
    Enter=Start, Right Shift=Select. */
 uint16_t input_keyboard(const uint8_t *keys);
 
@@ -30,5 +30,24 @@ uint16_t input_keyboard(const uint8_t *keys);
    SNES), shoulders L/R, Start, Back=Select, d-pad and left stick. */
 uint16_t input_controller(int (*button)(void *ctx, SDL_GameControllerButton b),
                           int (*axis)(void *ctx, SDL_GameControllerAxis a), void *ctx);
+
+/* Held keys, built from key events. While a game controller is active, a
+   key press within KEY_FILTER_FRAMES of a controller button press (either
+   order) is ignored until that key is released: Steam Input's desktop
+   layout sends a keyboard key along with some controller buttons (B ->
+   Escape, A -> Return), which would otherwise press a second SNES button. */
+#define KEY_FILTER_FRAMES 2
+
+typedef struct {
+    uint8_t held[SDL_NUM_SCANCODES];      /* for input_keyboard() */
+    uint8_t ignored[SDL_NUM_SCANCODES];   /* pressed, filtered until released */
+    long pressed_at[SDL_NUM_SCANCODES];
+    long last_button;                     /* frame of the last controller press */
+    int controller;                       /* a game controller is active */
+} key_filter;
+
+void key_filter_init(key_filter *kf);
+void key_filter_key(key_filter *kf, SDL_Scancode sc, int down, long frame);
+void key_filter_button(key_filter *kf, long frame);
 
 #endif
