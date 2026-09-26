@@ -98,6 +98,8 @@ static void test_apu_ports(void)
     CHECK(apu->ram[0] == 0 && apu->ram[3] == 0, "not SPC RAM $0000-$0003");
     apu->outPorts[1] = 0x5A;
     CHECK(read8(0x2141) == 0x5A, "CPU reads <- SPC output ports");
+    write8(0x217F, 0x56);   /* $2144-$217F mirror the four ports (addr & 3) */
+    CHECK(apu->inPorts[3] == 0x56 && read8(0x217D) == 0x5A, "APU port mirrors");
 
     bus_reset();
     CHECK(read8(0x2140) == 0 && read8(0x2141) == 0, "no signature before the IPL runs");

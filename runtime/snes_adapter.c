@@ -55,7 +55,7 @@ static void ppu_reg_write(uint16_t reg, uint8_t v)
     ppu_write(g_ppu, (uint8_t)(reg - 0x2100u), v);
 }
 
-/* ---- $2140-$2143 APU communication ports ----
+/* ---- $2140-$2143 APU communication ports, mirrored through $217F ----
  * CPU side: writes land in the SPC700's input ports (what it reads at
  * $F4-$F7), reads return its output ports (what it wrote there).
  * apu_cpuRead/apu_cpuWrite are the SPC700's own memory map, not this. */
@@ -125,7 +125,7 @@ void snes_hw_init(void)
 
     for (uint16_t r = 0x2100; r <= 0x213F; r++)
         bus_hook(r, ppu_reg_read, ppu_reg_write);
-    for (uint16_t r = 0x2140; r <= 0x2143; r++)
+    for (uint16_t r = 0x2140; r <= 0x217F; r++)   /* $2144-$217F mirror $2140-$2143 */
         bus_hook(r, apu_reg_read, apu_reg_write);
     for (uint16_t r = 0x4300; r <= 0x437F; r++)
         bus_hook(r, dma_reg_read, dma_reg_write);
