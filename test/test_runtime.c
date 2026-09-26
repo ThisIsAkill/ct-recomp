@@ -18,10 +18,10 @@ static void test_map(void)
     write8(0x306000, 0x77);
     CHECK(read8(0x206000) == 0x77 && read8(0xB06000) == 0x77, "SRAM mirrors");
 
-    CHECK(memcmp(&rom[0xFFC0], "CHRONO TRIGGER", 14) == 0, "ROM header");
+    CHECK(memcmp(&rom[0xFFC0], TH_TITLE, sizeof TH_TITLE - 1) == 0, "ROM header");
     CHECK(read8(0xC0FFC0) == 'C' && read8(0x00FFC0) == 'C' && read8(0x40FFC0) == 'C' &&
           read8(0x80FFC0) == 'C', "ROM mirrors");
-    CHECK(read8(0xC10089) == rom[0x10089], "bank $C1 offset");
+    CHECK(read8(0xC12345) == rom[0x12345], "bank $C1 offset");
     CHECK(read16(0x7EFFFF) == (uint16_t)(read8(0x7EFFFF) | read8(0x7F0000) << 8),
           "read16 crosses bank");
 }
@@ -81,14 +81,14 @@ static void test_index_ops(void)
     CHECK(c.X == 0xFFFF && c.n == 1, "DEX wraps");
 
     for (unsigned k = 0; k < 8; k++)
-        write8(0x7E3000 + k, (uint8_t)(0xA0 + k));
-    c.X = 0x3000;
-    c.Y = 0x3100;
+        write8(0x7E3400 + k, (uint8_t)(0xA0 + k));
+    c.X = 0x3400;
+    c.Y = 0x3500;
     c.A = 7;
     c.DB = 0x00;
     mvn16(&c, 0x7F, 0x7E);
-    CHECK(c.A == 0xFFFF && c.X == 0x3008 && c.Y == 0x3108 && c.DB == 0x7F, "MVN regs");
-    CHECK(read8(0x7F3100) == 0xA0 && read8(0x7F3107) == 0xA7, "MVN data");
+    CHECK(c.A == 0xFFFF && c.X == 0x3408 && c.Y == 0x3508 && c.DB == 0x7F, "MVN regs");
+    CHECK(read8(0x7F3500) == 0xA0 && read8(0x7F3507) == 0xA7, "MVN data");
 }
 
 static void test_p(void)
@@ -166,14 +166,14 @@ static int fatal_case(const char *name)
     if (!strcmp(name, "fatal_rom_write")) write8(0xC10000, 0);
     if (!strcmp(name, "fatal_unhooked")) read8(0x004016);
     if (!strcmp(name, "fatal_decimal")) { c.d = 1; adc8(&c, 1, 0xC10000); }
-    if (!strcmp(name, "fatal_entry")) { c.m = 0; cpu_enter(&c, 0xC10089, 1, 0); }
+    if (!strcmp(name, "fatal_entry")) { c.m = 0; cpu_enter(&c, 0xC08100, 1, 0); }
     fprintf(stderr, "no fatal for %s\n", name);
     return 0;
 }
 
 int main(int argc, char **argv)
 {
-    bus_init(NULL);
+    th_bus_init();
     if (argc > 1)
         return fatal_case(argv[1]);
     test_map();

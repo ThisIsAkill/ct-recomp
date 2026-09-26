@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Regenerate PROGRESS.md from funcs.toml, the emitter, and ctest."""
+"""Regenerate a game's PROGRESS.md from its funcs.toml, the emitter, and ctest.
+
+usage: progress.py GAME_DIR BUILD_DIR
+"""
 from __future__ import annotations
 
 import os
@@ -9,6 +12,7 @@ import sys
 import tomllib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+GAME = ''   # set by main
 sys.path.insert(0, os.path.join(ROOT, 'recomp'))
 
 import decode  # noqa: E402
@@ -17,7 +21,7 @@ import funcs  # noqa: E402
 
 
 def load_unresolved() -> list[dict]:
-    path = os.path.join(ROOT, 'unresolved.toml')
+    path = os.path.join(GAME, 'unresolved.toml')
     if not os.path.isfile(path):
         return []
     with open(path, 'rb') as f:
@@ -44,10 +48,15 @@ def run_tests(build: str) -> tuple[list[tuple[str, str]], int, int, int]:
 
 
 def main() -> int:
-    build = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'build')
+    global GAME
+    if len(sys.argv) != 3:
+        print(__doc__.strip().splitlines()[-1], file=sys.stderr)
+        return 2
+    GAME, build = os.path.abspath(sys.argv[1]), sys.argv[2]
+    funcs_toml = os.path.join(GAME, 'funcs.toml')
     rom = decode.load_rom()
-    metas = funcs.load()
-    reg = funcs.Registry(rom, metas)
+    metas = funcs.load(funcs_toml)
+    reg = funcs.Registry(rom, metas, funcs_toml)
     metas, pending = funcs.split_emittable(reg, metas)
 
     rows, covered, variants, used = [], set(), 0, set()
@@ -115,7 +124,7 @@ def main() -> int:
     out += [f'| {name} | {status.strip("*")} |' for name, status in tests]
     out.append('')
 
-    with open(os.path.join(ROOT, 'PROGRESS.md'), 'w') as f:
+    with open(os.path.join(GAME, 'PROGRESS.md'), 'w') as f:
         f.write('\n'.join(out))
     print(f'PROGRESS.md: {len(metas)} routines, {len(covered)} bytes, {len(ops)}/256 opcodes, '
           f'{passed}/{total} tests')

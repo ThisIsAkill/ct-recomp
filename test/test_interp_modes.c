@@ -144,7 +144,7 @@ static void test_shared_fatals(void)
 
 int main(void)
 {
-    bus_init(NULL);
+    th_bus_init();
     ct_fatal_hook = on_fatal;
     test_emulation_mode();
     test_undeclared_jump_table();

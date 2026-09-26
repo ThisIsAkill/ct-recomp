@@ -21,15 +21,16 @@ import sys
 import tempfile
 import tomllib
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SYNC = os.path.join(ROOT, 'tools', 'sync_symbols.py')
+GAME = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # game/ct
+REPO = os.path.dirname(os.path.dirname(GAME))
+SYNC = os.path.join(GAME, 'tools', 'sync_symbols.py')
 BANK = 'C0'
 
 
 def run_sync(funcs_toml: str, unresolved_toml: str) -> None:
     subprocess.run(
         [sys.executable, SYNC, BANK, '--funcs-toml', funcs_toml, '--unresolved-toml', unresolved_toml],
-        check=True, cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        check=True, cwd=REPO, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def read(path: str) -> str:
@@ -50,8 +51,8 @@ def main() -> int:
         return 77
 
     with tempfile.TemporaryDirectory() as d:
-        funcs_src = os.path.join(ROOT, 'funcs.toml')
-        unres_src = os.path.join(ROOT, 'unresolved.toml')
+        funcs_src = os.path.join(GAME, 'funcs.toml')
+        unres_src = os.path.join(GAME, 'unresolved.toml')
         a_funcs, a_unres = os.path.join(d, 'a_funcs.toml'), os.path.join(d, 'a_unresolved.toml')
         b_funcs, b_unres = os.path.join(d, 'b_funcs.toml'), os.path.join(d, 'b_unresolved.toml')
         for dst in (a_funcs, b_funcs):

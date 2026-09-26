@@ -11,27 +11,27 @@ static void put(uint16_t at, const uint8_t *p, unsigned n)
 
 int main(void)
 {
-    bus_init(NULL);
+    th_bus_init();
 
     /* HDMA channel 7, mode 3 (4 bytes to $2121 $2121 $2122 $2122): every
        line sets CGRAM[0] (the backdrop) to red = row & 31. */
     uint8_t *w = bus_wram();
     for (int r = 0; r < SCHED_HEIGHT; r++) {
-        uint8_t *e = w + 0x3000 + r * 5;
+        uint8_t *e = w + 0x3400 + r * 5;
         e[0] = 1;
         e[1] = e[2] = 0;
         e[3] = (uint8_t)(r & 31);
         e[4] = 0;
     }
-    w[0x3000 + SCHED_HEIGHT * 5] = 0;
+    w[0x3400 + SCHED_HEIGHT * 5] = 0;
 
     static const uint8_t prog[] = {
         0xA9, 0x0F, 0x8D, 0x00, 0x21,   /* LDA #$0F / STA $2100  INIDISP */
         0x9C, 0x2C, 0x21,               /* STZ $212C             TM: backdrop only */
         0xA9, 0x03, 0x8D, 0x70, 0x43,   /* DMAP7 = 3 */
         0xA9, 0x21, 0x8D, 0x71, 0x43,   /* BBAD7 = $21 */
-        0xA9, 0x00, 0x8D, 0x72, 0x43,   /* A1T7 = $7E3000 */
-        0xA9, 0x30, 0x8D, 0x73, 0x43,
+        0xA9, 0x00, 0x8D, 0x72, 0x43,   /* A1T7 = $7E3400 */
+        0xA9, 0x34, 0x8D, 0x73, 0x43,
         0xA9, 0x7E, 0x8D, 0x74, 0x43,
         0xA9, 0x80, 0x8D, 0x0C, 0x42,   /* HDMAEN = ch 7 */
         0xA9, 0x80, 0x8D, 0x00, 0x42,   /* NMITIMEN: NMI on */

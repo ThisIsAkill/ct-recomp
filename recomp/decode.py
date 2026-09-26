@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """65816 decoder with static M/X/E tracking.
 
-Opcode table, operand sizing, and HiROM mapping ported from
-ChronoRET tools/disasm.py. Reworked as a library: decode one function from
-an entry address and entry state into a list of instructions.
+Opcode table, operand sizing, and HiROM mapping ported from the author's
+earlier standalone disassembler. Reworked as a library: decode one function
+from an entry address and entry state into a list of instructions.
 
 Failure policy: any state the decoder cannot resolve statically (unknown
 M/X at a width-dependent instruction, conflicting states at one address,
@@ -368,14 +368,6 @@ def parse_state(s: str, e: bool = False) -> State:
     return State(m=s[1] == '1', x=s[3] == '1', e=e)
 
 
-def default_state(bank: int) -> State:
-    """Entry default: native mode, 8-bit A, 16-bit X/Y for bank $C1+
-    (ChronoRET session 38). No default elsewhere."""
-    if bank >= 0xC1:
-        return State(m=True, x=False, e=False)
-    raise DecodeError(f'no default entry state for bank ${bank:02X}')
-
-
 def rep(st: State, v: int) -> State:
     if st.e:
         return st
@@ -713,13 +705,20 @@ def listing(fn: Function) -> str:
 def main(argv: list[str]) -> int:
     import argparse
     ap = argparse.ArgumentParser(description='Decode one 65816 function.')
-    ap.add_argument('addr', help='24-bit entry address, hex (e.g. C10089)')
-    ap.add_argument('--state', help='entry state, e.g. m1x0 (default: bank default)')
+    ap.add_argument('addr', help='24-bit entry address, hex (e.g. C08000)')
+    ap.add_argument('--state', help='entry state, e.g. m1x0 (default: the game\'s bank default)')
+    ap.add_argument('--game', help='game directory, for the bank default entry state')
     ap.add_argument('--rom', help='ROM path (default: $CT_ROM)')
     a = ap.parse_args(argv)
     rom = load_rom(a.rom)
     addr = int(a.addr, 16)
-    st = parse_state(a.state) if a.state else default_state(addr >> 16)
+    if a.state:
+        st = parse_state(a.state)
+    elif a.game:
+        import game
+        st = game.load(a.game).default_state(addr >> 16)
+    else:
+        raise DecodeError('no entry state: pass --state or --game')
     fn = decode_function(rom, addr, st)
     print(listing(fn))
     print(f'; {len(fn.insns)} insns, {fn.size} bytes')

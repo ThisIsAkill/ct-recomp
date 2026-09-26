@@ -9,9 +9,22 @@
 
 #include "bus.h"
 #include "cpu.h"
-#include "ct_funcs.h"
+#include "func_table.h"
 #include "interp.h"
 #include "ops.h"
+
+/* Engine tests run on a synthetic ROM, not a game: written at build time
+ * by tools/make_test_rom.py (layout documented there) to CT_TEST_ROM. */
+#define TH_TITLE "CT-RECOMP TEST ROM"
+
+static inline void th_bus_init(void)
+{
+#ifdef CT_TEST_ROM
+    bus_init(CT_TEST_ROM);
+#else
+    bus_init(NULL);   /* game tests: $CT_ROM */
+#endif
+}
 
 static long th_checks, th_fails;
 

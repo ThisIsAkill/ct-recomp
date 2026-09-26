@@ -8,7 +8,6 @@ from dataclasses import dataclass
 import decode
 from decode import DecodeError, State, parse_state
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 @dataclass(frozen=True)
@@ -36,10 +35,9 @@ class Extern:
     noreturn: bool = False   # hook never returns (v0 boundary)
 
 
-def load_externs(path: str | None = None) -> dict[int, Extern]:
+def load_externs(path: str) -> dict[int, Extern]:
     """Exit M/X of an extern equals its entry M/X (checked from the code
     when the entry is declared; see funcs.toml)."""
-    path = path or os.path.join(ROOT, 'funcs.toml')
     with open(path, 'rb') as f:
         data = tomllib.load(f)
     out = {}
@@ -55,9 +53,8 @@ def load_externs(path: str | None = None) -> dict[int, Extern]:
     return out
 
 
-def load_jumptables(path: str | None = None) -> dict[int, int]:
+def load_jumptables(path: str) -> dict[int, int]:
     """site (24-bit address of JMP/JSR (abs,X)) -> entry count."""
-    path = path or os.path.join(ROOT, 'funcs.toml')
     with open(path, 'rb') as f:
         data = tomllib.load(f)
     out = {}
@@ -68,8 +65,7 @@ def load_jumptables(path: str | None = None) -> dict[int, int]:
     return out
 
 
-def load(path: str | None = None) -> list[FuncMeta]:
-    path = path or os.path.join(ROOT, 'funcs.toml')
+def load(path: str) -> list[FuncMeta]:
     with open(path, 'rb') as f:
         data = tomllib.load(f)
     out = []
@@ -128,11 +124,12 @@ class NeedAssumption(DecodeError):
 class Registry:
     """Decodes funcs.toml entries on demand and resolves JSR targets."""
 
-    def __init__(self, rom: bytes, metas: list[FuncMeta], jumptables: dict[int, int] | None = None):
+    def __init__(self, rom: bytes, metas: list[FuncMeta], funcs_path: str,
+                 jumptables: dict[int, int] | None = None):
         self.rom = rom
         self.by_addr = {fm.addr: fm for fm in metas}
-        self.jumptables = load_jumptables() if jumptables is None else jumptables
-        self.externs = load_externs()
+        self.jumptables = load_jumptables(funcs_path) if jumptables is None else jumptables
+        self.externs = load_externs(funcs_path)
         self.cache: dict[tuple, decode.Function] = {}
         self.active: set[tuple] = set()
         self.assume: dict[tuple, tuple] = {}   # recursive key -> assumed exit (m, x)

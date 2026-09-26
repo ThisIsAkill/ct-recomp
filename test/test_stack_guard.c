@@ -34,7 +34,7 @@ static long guarded(const uint8_t *code, unsigned n)
 
 int main(void)
 {
-    bus_init(NULL);
+    th_bus_init();
     ct_fatal_hook = on_fatal;
 
     /* PHA / PHP / JSR $2010 / PLP / PLA / STA $1000 / RTS; $2010: PHA PLA RTS */

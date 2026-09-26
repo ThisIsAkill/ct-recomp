@@ -390,9 +390,10 @@ def emit_module(reg: funcs.Registry, metas: list[funcs.FuncMeta], module: str) -
 
 
 def emit_prototypes(reg: funcs.Registry, metas: list[funcs.FuncMeta]) -> tuple[str, str]:
-    """ct_funcs.h (all prototypes, table type) and ct_funcs.c (table)."""
+    """ct_funcs.h (all prototypes) and ct_funcs.c (the tables declared in
+    runtime/func_table.h)."""
     h = [HEADER, '#ifndef CT_OUT_FUNCS_H', '#define CT_OUT_FUNCS_H', '', '#include <stdint.h>', '',
-         '#include "cpu.h"', '']
+         '#include "cpu.h"', '#include "func_table.h"', '']
     c = [HEADER, '#include "ct_funcs.h"', '', 'const ct_func ct_funcs[] = {']
     n = 0
     for fm in metas:
@@ -405,25 +406,12 @@ def emit_prototypes(reg: funcs.Registry, metas: list[funcs.FuncMeta]) -> tuple[s
             c.append(f'    {{"{fm.name}", 0x{fm.addr:06X}, {int(st.m)}, {int(st.x)}, {fn.size}, '
                      f'{db}, {dp}, {name}}},')
             n += 1
-    h += ['', 'typedef struct {', '    const char *name;', '    uint32_t addr;',
-          '    uint8_t m, x;', '    uint16_t size;',
-          '    int db, dp;         /* entry DB/DP from funcs.toml, -1 if unknown */',
-          '    void (*fn)(CPU *);', '} ct_func;', '',
-          'extern const ct_func ct_funcs[];', 'extern const unsigned ct_func_count;', '',
-          '/* call boundaries: target -> runtime hook */',
-          'typedef struct {', '    uint32_t addr;', '    int kind;           /* 0 JSR, 1 JSL, 2 JML */',
-          '    void (*hook)(CPU *);',
-          '} ct_extern;', '', 'extern const ct_extern ct_externs[];',
-          'extern const unsigned ct_extern_count;', '',
-          '/* (abs,X) jump table bounds from funcs.toml */',
-          'typedef struct {', '    uint32_t site;', '    uint16_t count;', '} ct_jumptable;', '',
-          'extern const ct_jumptable ct_jumptables[];', 'extern const unsigned ct_jumptable_count;', '',
-          '#endif', '']
+    h += ['', '#endif', '']
     c += ['};', f'const unsigned ct_func_count = {n};', '']
     jt = sorted(reg.jumptables.items())
     ex = sorted(reg.externs.values(), key=lambda e: e.addr)
     for e in ex:
-        h.insert(h.index('#include "cpu.h"') + 2,
+        h.insert(h.index('#include "func_table.h"') + 2,
                  f'void ct_hook_{e.hook}(CPU *cpu);  /* extern {e.name} ${e.addr:06X} ({e.kind}) */')
     c += ['const ct_extern ct_externs[] = {']
     kinds = {'JSR': 0, 'JSL': 1, 'JML': 2}
@@ -453,15 +441,17 @@ def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument('--module', help='emit one module (default: all)')
     ap.add_argument('--list-modules', action='store_true')
-    ap.add_argument('--out', default=os.path.join(funcs.ROOT, 'out'))
+    ap.add_argument('--out', help='output directory (required unless --list-modules)')
     ap.add_argument('--rom')
-    ap.add_argument('--funcs')
+    ap.add_argument('--funcs', required=True, help="the game's funcs.toml")
     a = ap.parse_args(argv)
     metas = funcs.load(a.funcs)
     if a.list_modules:
         print(';'.join(modules(metas)))
         return 0
-    reg = funcs.Registry(decode.load_rom(a.rom), metas)
+    if not a.out:
+        ap.error('--out is required')
+    reg = funcs.Registry(decode.load_rom(a.rom), metas, a.funcs)
     metas, pending = funcs.split_emittable(reg, metas)
     for fm, why in pending:
         print(f'emit: manual root {fm.name} ${fm.addr:06X} not emitted yet: {why}', file=sys.stderr)

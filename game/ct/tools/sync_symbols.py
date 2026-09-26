@@ -94,15 +94,16 @@ import sys
 import tomllib
 from dataclasses import dataclass, field
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, 'recomp'))
+GAME = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # game/ct
+REPO = os.path.dirname(os.path.dirname(GAME))
+sys.path.insert(0, os.path.join(REPO, 'recomp'))
 
 import decode  # noqa: E402
 import funcs  # noqa: E402
 from decode import DecodeError, State  # noqa: E402
 
-FUNCS_TOML = os.path.join(ROOT, 'funcs.toml')
-UNRESOLVED_TOML = os.path.join(ROOT, 'unresolved.toml')
+FUNCS_TOML = os.path.join(GAME, 'funcs.toml')
+UNRESOLVED_TOML = os.path.join(GAME, 'unresolved.toml')
 
 MNEMONICS = {m for m, _ in decode.OPCODES.values()}
 
@@ -143,7 +144,7 @@ def dscotton_dir() -> str:
 
 
 def chronoret_dir() -> str:
-    d = os.environ.get('CHRONORET', os.path.join(ROOT, '..', 'ChronoRET'))
+    d = os.environ.get('CHRONORET', os.path.join(REPO, '..', 'ChronoRET'))
     if not os.path.isdir(d):
         raise SystemExit(f'ChronoRET checkout not found at {d!r}; '
                           'set CHRONORET or place it at ../ChronoRET')
@@ -417,7 +418,7 @@ class Result:
 
 
 def validate(rom: bytes, existing: list[funcs.FuncMeta], candidates: dict[int, Candidate],
-             module: str) -> Result:
+             module: str, funcs_path: str = FUNCS_TOML) -> Result:
     res = Result()
     existing_by_addr = {fm.addr: fm for fm in existing}
 
@@ -442,7 +443,7 @@ def validate(rom: bytes, existing: list[funcs.FuncMeta], candidates: dict[int, C
         metas = list(existing) + [
             funcs.FuncMeta(c.name, c.addr, c.states, 0, None, None, module) for c in live.values()
         ]
-        reg = funcs.Registry(rom, metas)
+        reg = funcs.Registry(rom, metas, funcs_path)
         failed = []
         for addr, c in live.items():
             try:
@@ -576,7 +577,7 @@ def sync(bank: int, module: str | None = None, funcs_path: str = FUNCS_TOML) -> 
     auto = [fm for fm in loaded if fm.addr in auto_addrs]
     candidates = carry_forward(auto, merge(bank))
     candidates = propagate(rom, existing, candidates)
-    res = validate(rom, existing, candidates, module)
+    res = validate(rom, existing, candidates, module, funcs_path)
     kept = {fm.addr for fm in res.validated}
     for fm in auto:
         if fm.addr not in kept:

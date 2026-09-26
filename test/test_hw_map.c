@@ -164,7 +164,7 @@ static void test_scheduler_registers(void)
 
 int main(void)
 {
-    bus_init(NULL);
+    th_bus_init();
     test_apu_mirrors();
     test_open_bus_classes();
     test_vram_read();

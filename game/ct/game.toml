@@ -1,0 +1,19 @@
+# Game description read by recomp/game.py, tools/check_rom.py,
+# tools/check_agnostic.py, and the build.
+
+name = "Chrono Trigger (USA) 1.0"
+rom_size = 0x400000          # headerless
+rom_crc32 = 0x2D206BF7
+mapping = "hirom"
+
+# Words that must not appear in the game-agnostic tree (check_agnostic.py).
+agnostic_words = ["chrono", "trigger", "chronoret", "dscotton", "crono", "lucca", "marle",
+                  "frog", "robo", "ayla", "magus", "lavos", "leene", "epoch", "guardia",
+                  "truce", "zeal", "square"]
+
+# Entry M/X assumed for a routine with no documented or propagated state
+# (decode.py --game without --state). Banks $C1-$FF: native, 8-bit A,
+# 16-bit X/Y (ChronoRET session 38). No default elsewhere.
+[[entry_default]]
+banks = [0xC1, 0xFF]
+state = "m1x0"

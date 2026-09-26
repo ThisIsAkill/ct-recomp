@@ -1,5 +1,6 @@
-/* SDL2 frontend: Chrono Trigger from reset in the system-mode interpreter
- * under the frame scheduler, in a window.
+/* SDL2 frontend: the game in $CT_ROM from reset, in the system-mode
+ * interpreter under the frame scheduler, in a window titled from the ROM
+ * header.
  *
  * usage: ct_sdl [--scale N] [--frames N] [--dump DIR] [--needed-hw FILE] [--fast]
  *               [--require-render] [--log-input]
@@ -137,7 +138,14 @@ int main(int argc, char **argv)
         set_exit_reason("SDL_Init failed");
         return 1;
     }
-    SDL_Window *win = SDL_CreateWindow("Chrono Trigger", SDL_WINDOWPOS_CENTERED,
+    static CPU cpu;
+    bus_init(NULL);
+    char title[22];   /* ROM header title, $FFC0, 21 bytes, space padded */
+    memcpy(title, bus_rom() + 0xFFC0, 21);
+    title[21] = 0;
+    for (int k = 20; k >= 0 && (title[k] == ' ' || !title[k]); k--)
+        title[k] = 0;
+    SDL_Window *win = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED,
                                        SDL_WINDOWPOS_CENTERED, SCHED_WIDTH * scale,
                                        SCHED_HEIGHT * scale, SDL_WINDOW_RESIZABLE);
     SDL_Renderer *ren = win ? SDL_CreateRenderer(win, -1, 0) : NULL;
@@ -169,8 +177,6 @@ int main(int argc, char **argv)
     if (pad)
         fprintf(stderr, "ct_sdl: using \"%s\" on pad 1\n", SDL_GameControllerName(pad));
 
-    static CPU cpu;
-    bus_init(NULL);
     interp_reset(&cpu);
     sched_init(&cpu);
     ct_fatal_hook = on_fatal;

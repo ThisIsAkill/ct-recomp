@@ -15,11 +15,15 @@ import os
 import re
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, 'recomp'))
+GAME = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # game/ct
+REPO = os.path.dirname(os.path.dirname(GAME))
+FUNCS_TOML = os.path.join(GAME, 'funcs.toml')
+sys.path.insert(0, os.path.join(REPO, 'recomp'))
 
-import decode  # noqa: E402
+import decode
+import game as game_cfg  # noqa: E402
 import funcs  # noqa: E402
+GAME_CFG = game_cfg.load(GAME)
 
 ORG_RE = re.compile(r'^org \$([0-9A-F]{6})', re.I)
 LABEL_RE = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*):')
@@ -55,7 +59,7 @@ def parse(path: str) -> list[dict]:
 def entry_state(note: str | None, bank: int) -> tuple[str | None, int | None, str]:
     """(state tag, DB, source); tag None when neither documented nor defaulted."""
     try:
-        base = decode.default_state(bank)
+        base = GAME_CFG.default_state(bank)
         m, x, src = base.m, base.x, 'default'
     except decode.DecodeError:
         m, x, src = None, None, 'none'
@@ -83,12 +87,12 @@ def main() -> int:
     bank = int(args[0], 16)
     module = args[args.index('--module') + 1] if '--module' in args else f'c{bank:02x}_auto'.lower()
     want_toml = '--toml' in args
-    cret = os.environ.get('CHRONORET', os.path.join(ROOT, '..', 'ChronoRET'))
+    cret = os.environ.get('CHRONORET', os.path.join(REPO, '..', 'ChronoRET'))
     path = os.path.join(cret, 'asm', f'bank{bank:02X}', f'bank{bank:02X}.asm')
     cands = [c for c in parse(path) if c['addr'] >> 16 == bank]
 
     rom = decode.load_rom()
-    metas = funcs.load()
+    metas = funcs.load(FUNCS_TOML)
     known = {fm.addr for fm in metas}
     extra = []
     for c in cands:
@@ -101,7 +105,7 @@ def main() -> int:
     live = list(extra)
     status: dict[int, str] = {}
     while True:
-        reg = funcs.Registry(rom, metas + live)
+        reg = funcs.Registry(rom, metas + live, FUNCS_TOML)
         failed = []
         for fm in live:
             try:

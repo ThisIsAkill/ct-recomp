@@ -16,6 +16,7 @@
  */
 #include <string.h>
 
+#include "ct_funcs.h"
 #include "harness.h"
 
 #define STACK_TOP 0x1FF0u

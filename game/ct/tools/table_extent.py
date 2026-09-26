@@ -13,8 +13,9 @@ import os
 import re
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, 'recomp'))
+GAME = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # game/ct
+REPO = os.path.dirname(os.path.dirname(GAME))
+sys.path.insert(0, os.path.join(REPO, 'recomp'))
 
 import decode  # noqa: E402
 
@@ -25,7 +26,7 @@ def main() -> int:
     site = int(sys.argv[1], 16)
     rom = decode.load_rom()
     bank = site >> 16
-    path = os.path.join(os.environ.get('CT_DISASM', os.path.join(ROOT, '..', 'ct_disassembly')),
+    path = os.path.join(os.environ.get('CT_DISASM', os.path.join(REPO, '..', 'ct_disassembly')),
                         f'bank_{bank:02X}.asm')
     lines = open(path).read().splitlines()
     idx = next(k for k, l in enumerate(lines) if f';{site:06X}|' in l)

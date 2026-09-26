@@ -130,7 +130,7 @@ static void test_readonly_writes(void)
 
 int main(void)
 {
-    bus_init(NULL);
+    th_bus_init();
     test_readonly_writes();
     test_ppu_registers();
     test_dma_to_vram();

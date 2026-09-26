@@ -1,7 +1,7 @@
 #include "interp.h"
 
 #include "bus.h"
-#include "ct_funcs.h"
+#include "func_table.h"
 
 typedef struct {
     uint32_t a;

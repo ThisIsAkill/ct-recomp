@@ -19,9 +19,11 @@ import os
 import re
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, 'recomp'))
-sys.path.insert(0, os.path.join(ROOT, 'tools'))
+GAME = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # game/ct
+REPO = os.path.dirname(os.path.dirname(GAME))
+FUNCS_TOML = os.path.join(GAME, 'funcs.toml')
+sys.path.insert(0, os.path.join(REPO, 'recomp'))
+sys.path.insert(0, os.path.join(GAME, 'tools'))
 
 import check_meta  # noqa: E402
 import decode  # noqa: E402
@@ -32,11 +34,11 @@ import funcs  # noqa: E402
 def label_names() -> dict[int, str]:
     """addr -> name; ChronoRET labels win over the second disassembly."""
     names: dict[int, str] = {}
-    second = os.environ.get('CT_DISASM', os.path.join(ROOT, '..', 'ct_disassembly'))
+    second = os.environ.get('CT_DISASM', os.path.join(REPO, '..', 'ct_disassembly'))
     for path in sorted(glob.glob(os.path.join(second, 'bank_*.asm'))):
         for name, addr in check_meta.parse_second(path).items():
             names.setdefault(addr, name)
-    cret = os.environ.get('CHRONORET', os.path.join(ROOT, '..', 'ChronoRET'))
+    cret = os.environ.get('CHRONORET', os.path.join(REPO, '..', 'ChronoRET'))
     org_re = re.compile(r'^org \$([0-9A-F]{6})', re.I)
     lab_re = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*):')
     for path in sorted(glob.glob(os.path.join(cret, 'asm', 'bank*', '*.asm'))):
@@ -60,7 +62,7 @@ def main() -> int:
     args = sys.argv[1:]
     limit = int(args[args.index('--max') + 1]) if '--max' in args else 200
     rom = decode.load_rom()
-    metas = funcs.load()
+    metas = funcs.load(FUNCS_TOML)
     names = label_names()
     used_names = {fm.name for fm in metas}
     cands: dict[int, funcs.FuncMeta] = {}
@@ -69,7 +71,7 @@ def main() -> int:
     skipped: list[str] = []
     if '--chronoret' in args:
         bank = int(args[args.index('--chronoret') + 1], 16)
-        cret = os.environ.get('CHRONORET', os.path.join(ROOT, '..', 'ChronoRET'))
+        cret = os.environ.get('CHRONORET', os.path.join(REPO, '..', 'ChronoRET'))
         path = os.path.join(cret, 'asm', f'bank{bank:02X}', f'bank{bank:02X}.asm')
         known = {fm.addr for fm in metas}
         for c in import_chronoret.parse(path):
@@ -84,7 +86,7 @@ def main() -> int:
             used_names.add(c['name'])
 
     while True:
-        reg = funcs.Registry(rom, metas + list(cands.values()))
+        reg = funcs.Registry(rom, metas + list(cands.values()), FUNCS_TOML)
         missing: set[tuple] = set()
         failures.clear()
         for fm in metas + list(cands.values()):
@@ -121,7 +123,7 @@ def main() -> int:
         if not new:
             break
 
-    reg = funcs.Registry(rom, metas + list(cands.values()))
+    reg = funcs.Registry(rom, metas + list(cands.values()), FUNCS_TOML)
     ok = []
     for fm in cands.values():
         good = []
@@ -143,7 +145,7 @@ def main() -> int:
     print(f'# {len(ok)} decodable candidates of {len(cands)}', file=sys.stderr)
 
     if '--write' in args and add_states:
-        path = os.path.join(ROOT, 'funcs.toml')
+        path = os.path.join(GAME, 'funcs.toml')
         text = open(path).read()
         for name, tags in add_states.items():
             m = re.search(rf'name = "{re.escape(name)}"\naddr = [^\n]*\nstates = \[([^\]]*)\]', text)
@@ -156,7 +158,7 @@ def main() -> int:
             text = text[:m.start(1)] + new_line + text[m.end(1):]
         open(path, 'w').write(text)
     if '--write' in args and ok:
-        with open(os.path.join(ROOT, 'funcs.toml'), 'a') as f:
+        with open(os.path.join(GAME, 'funcs.toml'), 'a') as f:
             f.write('\n# ---- discovered by tools/discover.py (entry state from call sites) ----\n')
             for fm in sorted(ok, key=lambda m: m.addr):
                 states = ', '.join(f'"{s}"' for s in fm.states)

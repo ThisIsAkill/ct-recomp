@@ -1,5 +1,5 @@
-/* Boot probe: run Chrono Trigger from reset in the system-mode interpreter
- * under the frame scheduler, headless.
+/* Boot probe: run the game in $CT_ROM from reset in the system-mode
+ * interpreter under the frame scheduler, headless.
  *
  * usage: ct_boot [--frames N] [--dump DIR] [--needed-hw FILE] [options]
  *

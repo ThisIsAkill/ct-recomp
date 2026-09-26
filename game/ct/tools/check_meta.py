@@ -18,10 +18,15 @@ import os
 import re
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'recomp'))
+GAME = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # game/ct
+REPO = os.path.dirname(os.path.dirname(GAME))
+FUNCS_TOML = os.path.join(GAME, 'funcs.toml')
+sys.path.insert(0, os.path.join(REPO, 'recomp'))
 
-import decode  # noqa: E402
+import decode
+import game as game_cfg  # noqa: E402
 import funcs  # noqa: E402
+GAME_CFG = game_cfg.load(GAME)
 
 BLOCK_RE = re.compile(r'^;.*\((\d+) bytes, \$([0-9A-F]{4})[–-]\$([0-9A-F]{4})\)')
 # Header continuation: ';   Name (N byte(s), $XXXX...)' after a header ending in '+'.
@@ -117,7 +122,7 @@ def sweep(rom: bytes, blk: Block, states: dict[int, set], errors: list, notes: l
             if len(sizes) != 1:
                 errors.append(f'${addr:06X}: variants decode to different sizes {sorted(sizes)}')
         if st is None:
-            st = decode.default_state(addr >> 16)
+            st = GAME_CFG.default_state(addr >> 16)
         try:
             i = decode.decode_insn(rom, addr, st)
         except decode.DecodeError as ex:
@@ -144,8 +149,8 @@ def main() -> int:
     cret = os.environ.get('CHRONORET', os.path.join(here, '..', 'ChronoRET'))
     second = os.environ.get('CT_DISASM', os.path.join(here, '..', 'ct_disassembly'))
     rom = decode.load_rom()
-    metas = funcs.load()
-    reg = funcs.Registry(rom, metas)
+    metas = funcs.load(FUNCS_TOML)
+    reg = funcs.Registry(rom, metas, FUNCS_TOML)
     errors: list[str] = []
     notes: list[str] = []
 

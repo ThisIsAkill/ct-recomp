@@ -145,6 +145,8 @@ void bus_reset(void)
     snes_hw_reset();
 }
 
+static void bus_setup(void);
+
 void bus_init(const char *path)
 {
     if (!path)
@@ -163,7 +165,11 @@ void bus_init(const char *path)
     fclose(f);
     if (n != CT_ROM_SIZE || extra != EOF)
         ct_fatal("ROM %s: expected %u bytes", path, CT_ROM_SIZE);
+    bus_setup();
+}
 
+static void bus_setup(void)
+{
     memset(hw_rd, 0, sizeof hw_rd);
     memset(hw_wr, 0, sizeof hw_wr);
     for (uint16_t r = 0x4202; r <= 0x4206; r++)

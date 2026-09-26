@@ -15,8 +15,10 @@ import json
 import os
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, 'recomp'))
+GAME = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # game/ct
+REPO = os.path.dirname(os.path.dirname(GAME))
+FUNCS_TOML = os.path.join(GAME, 'funcs.toml')
+sys.path.insert(0, os.path.join(REPO, 'recomp'))
 
 import decode  # noqa: E402
 import funcs  # noqa: E402
@@ -34,10 +36,10 @@ def ranges(addrs: set[int]) -> list[tuple[int, int]]:
 
 def main() -> int:
     args = sys.argv[1:]
-    out_dir = args[args.index('--out') + 1] if '--out' in args else os.path.join(ROOT, 'out', 'hints')
+    out_dir = args[args.index('--out') + 1] if '--out' in args else os.path.join(REPO, 'build', 'hints')
     rom = decode.load_rom()
-    metas = funcs.load()
-    reg = funcs.Registry(rom, metas)
+    metas = funcs.load(FUNCS_TOML)
+    reg = funcs.Registry(rom, metas, FUNCS_TOML)
     banks: dict[int, dict] = {}
 
     def bank(b: int) -> dict:

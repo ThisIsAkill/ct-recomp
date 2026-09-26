@@ -1,4 +1,4 @@
-/* System mode (runtime/interp.h): the real reset stub, the emulation-mode
+/* System mode (runtime/interp.h): the test ROM's reset stub, the emulation-mode
  * allowlist, cycle counts against the 65C816 datasheet, NMI entry through
  * the ROM vector, RTI, and WAI. Test programs run from WRAM ($7E, 8 master
  * clocks per cycle). */
@@ -44,14 +44,14 @@ static void test_reset_stub(void)
 {
     CPU c;
     interp_reset(&c);
-    CHECK(c.e && c.i && c.PB == 0 && c.PC == 0xFF00 && c.S == 0x01FF, "power-on state, PC $%04X",
+    CHECK(c.e && c.i && c.PB == 0 && c.PC == 0x8000 && c.S == 0x01FF, "power-on state, PC $%04X",
           c.PC);
     unsigned t[4];
     for (int k = 0; k < 4; k++)
-        t[k] = step1(&c);                               /* SEI CLC XCE JML $FDC000 */
+        t[k] = step1(&c);                               /* SEI CLC XCE JML $C08100 */
     CHECK(!fatal_msg[0], "reset stub ran: %s", fatal_msg);
     CHECK(!c.e && c.m && c.x && c.i, "native after XCE, M/X still 1");
-    CHECK(c.PB == 0xFD && c.PC == 0xC000, "JML to MainInit: $%02X%04X", c.PB, c.PC);
+    CHECK(c.PB == 0xC0 && c.PC == 0x8100, "JML out of the stub: $%02X%04X", c.PB, c.PC);
     CHECK(t[0] == 16 && t[1] == 16 && t[2] == 16 && t[3] == 32,
           "stub cycles %u %u %u %u (2 2 2 4 x 8)", t[0], t[1], t[2], t[3]);
 
@@ -92,15 +92,15 @@ static void test_cycles(void)
               got, want[k] * 8);
     }
 
-    /* FastROM: SEI at $C0FF00 (the reset stub's bytes) */
-    at(&c, 0xFF00);
+    /* FastROM: SEI at $C08000 (the test ROM's reset stub) */
+    at(&c, 0x8000);
     c.PB = 0xC0;
     CHECK(step1(&c) == 16, "bank $C0, MEMSEL=0: 8 clocks per cycle");
     write8(0x00420D, 1);
-    at(&c, 0xFF00);
+    at(&c, 0x8000);
     c.PB = 0xC0;
     CHECK(step1(&c) == 12, "bank $C0, MEMSEL=1: 6 clocks per cycle");
-    at(&c, 0xFF00);
+    at(&c, 0x8000);
     c.PB = 0x00;
     CHECK(step1(&c) == 16, "bank $00 stays slow with MEMSEL=1");
     write8(0x00420D, 0);
@@ -122,7 +122,7 @@ static void test_nmi_rti_wai(void)
           "stepping while waiting is fatal: '%s'", fatal_msg);
 
     CHECK(interp_interrupt(&c, 1) == 64 && !interp_waiting(), "NMI entry ends the wait");
-    CHECK(c.PB == 0 && c.PC == 0xFF10 && c.i && !c.d && c.S == 0x01EC,
+    CHECK(c.PB == 0 && c.PC == 0x8010 && c.i && !c.d && c.S == 0x01EC,
           "NMI through $FFEA: $%02X%04X S $%04X", c.PB, c.PC, c.S);
     CHECK(step1(&c) == 32 && c.PB == 0 && c.PC == 0x0500, "ROM stub JML $000500");
     CHECK(step1(&c) == 56, "RTI native: 7 cycles");
@@ -147,7 +147,7 @@ static void test_open_bus(void)
 
 int main(void)
 {
-    bus_init(NULL);
+    th_bus_init();
     ct_fatal_hook = on_fatal;
     test_open_bus();
     test_reset_stub();

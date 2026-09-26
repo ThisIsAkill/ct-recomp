@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Manual roots in funcs.toml (`manual = true`):
 
-1. funcs.load() reads the flag (Field_ColdBootInit, $C0000E).
+1. funcs.load(FUNCS_TOML) reads the flag (Field_ColdBootInit, $C0000E).
 2. A manual root seeds sync_symbols.py's M/X propagation: a candidate it
    calls with no documented state gets the state live at the call site.
 3. split_emittable() holds a manual root back from emission while it
@@ -12,9 +12,11 @@ import dataclasses
 import os
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, 'recomp'))
-sys.path.insert(0, os.path.join(ROOT, 'tools'))
+GAME = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # game/ct
+REPO = os.path.dirname(os.path.dirname(GAME))
+FUNCS_TOML = os.path.join(GAME, 'funcs.toml')
+sys.path.insert(0, os.path.join(REPO, 'recomp'))
+sys.path.insert(0, os.path.join(GAME, 'tools'))
 
 import decode  # noqa: E402
 import emit  # noqa: E402
@@ -35,7 +37,7 @@ def main() -> int:
             fails += 1
 
     rom = decode.load_rom()
-    metas = funcs.load()
+    metas = funcs.load(FUNCS_TOML)
     root = next((fm for fm in metas if fm.addr == COLD_BOOT), None)
     check(root is not None and root.manual, 'Field_ColdBootInit is a manual root')
     check(root is not None and (root.states, root.dp, root.db) == (('m1x0',), 0x2100, 0x00),
@@ -49,14 +51,14 @@ def main() -> int:
     check(seeded[LOAD_LOCATION].states == ('m1x0',),
           f'root seeds propagation: got {seeded[LOAD_LOCATION].states}')
 
-    reg = funcs.Registry(rom, metas)
+    reg = funcs.Registry(rom, metas, FUNCS_TOML)
     ok, pending = funcs.split_emittable(reg, metas)
     check(root not in ok, 'undecodable manual root is not emitted')
     check([fm for fm, _ in pending] == [root], 'only the manual root is pending')
     check(bool(pending) and 'JSL $C70000' in pending[0][1], f'pending reason: {pending}')
 
     plain = dataclasses.replace(root, manual=False)
-    preg = funcs.Registry(rom, [plain])
+    preg = funcs.Registry(rom, [plain], FUNCS_TOML)
     pok, ppending = funcs.split_emittable(preg, [plain])
     check(pok == [plain] and not ppending, 'non-manual entry is never held back')
     try:
