@@ -130,7 +130,12 @@ add_test(NAME stack_guard COMMAND test_stack_guard)
 add_executable(test_diff test/test_diff.c)
 target_link_libraries(test_diff ct_gen ct_interp)
 target_compile_options(test_diff PRIVATE ${CT_WARN})
-add_test(NAME diff_all COMMAND test_diff 2000)
+# Full 2000-trial sweep, split into shards so ctest -j runs them in parallel.
+set(CT_DIFF_SHARDS 8)
+math(EXPR ct_last_shard "${CT_DIFF_SHARDS} - 1")
+foreach(k RANGE ${ct_last_shard})
+    add_test(NAME diff_all_${k} COMMAND test_diff 2000 --shard ${k}/${CT_DIFF_SHARDS})
+endforeach()
 
 add_test(NAME sync_determinism COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_sync.py)
 set_tests_properties(sync_determinism PROPERTIES SKIP_RETURN_CODE 77)

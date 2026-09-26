@@ -10,7 +10,11 @@
  * compared: random entry state pointed a store, MVN, or the WRAM port at
  * saved return addresses/registers. Counted as "stack clobber".
  *
- * usage: test_diff [trials] [name-filter]
+ * Each (function, entry state) seeds its own PRNG stream from its address
+ * and M/X, so a trial's input doesn't depend on which other functions ran:
+ * a name filter or a shard reproduces exactly the trials of the full sweep.
+ *
+ * usage: test_diff [trials] [name-filter] [--shard K/N]
  *        test_diff --replay FILE
  */
 #include <setjmp.h>
@@ -121,9 +125,9 @@ static void save_snapshot(const ct_func *f, const CPU *in, int t)
     free(snap);
 }
 
-/* Full repro recipe for a divergence: the harness PRNG is fixed-seed, so
-   rerunning the same binary with the same argv reproduces trial t exactly
-   up to this point. */
+/* Full repro recipe for a divergence: the PRNG stream is seeded per
+   function (seed_for), so rerunning with the function's name as the filter
+   reproduces trial t exactly. */
 static void dump_trial(const ct_func *f, int t, const CPU *in, uint16_t dp)
 {
     fprintf(stderr, "  %s trial %d entry: A=%04X X=%04X Y=%04X S=%04X DP=%04X DB=%02X PB=%02X "
@@ -144,12 +148,22 @@ static void fill(uint8_t *p, unsigned n)
     }
 }
 
+static uint64_t seed_for(const ct_func *f)
+{
+    uint64_t k = (uint64_t)f->addr << 2 | (uint64_t)f->m << 1 | f->x;
+    k = (k ^ 0x9E3779B97F4A7C15ull) * 0xBF58476D1CE4E5B9ull;   /* splitmix64 step */
+    k = (k ^ (k >> 31)) * 0x94D049BB133111EBull;
+    k ^= k >> 29;
+    return k ? k : 1;   /* xorshift state must be nonzero */
+}
+
 static void diff_func(const ct_func *f, int trials)
 {
     static const char tag[] = "diff";
     long fatal_both = 0, faulted_checked = 0, timeouts = 0, clobbers = 0, fails0 = th_fails;
     Result ra, rb;
     int t;
+    th_rng = seed_for(f);
     for (t = 0; t < trials && th_fails - fails0 < 3; t++) {
         if (t % 16 == 0) {
             fill(w0, CT_WRAM_SIZE);
@@ -408,10 +422,23 @@ int main(int argc, char **argv)
     ct_fatal_hook = on_fatal;
     if (argc >= 3 && !strcmp(argv[1], "--replay"))
         return replay(argv[2]);
-    int trials = argc > 1 ? atoi(argv[1]) : 2000;
-    const char *filter = argc > 2 ? argv[2] : NULL;
+    int trials = 2000, npos = 0;
+    unsigned shard = 0, shards = 1;
+    const char *filter = NULL;
+    for (int k = 1; k < argc; k++) {
+        if (!strcmp(argv[k], "--shard") && k + 1 < argc) {
+            if (sscanf(argv[++k], "%u/%u", &shard, &shards) != 2 || !shards || shard >= shards) {
+                fprintf(stderr, "test_diff: bad --shard %s\n", argv[k]);
+                return 2;
+            }
+        } else if (npos++ == 0) {
+            trials = atoi(argv[k]);
+        } else {
+            filter = argv[k];
+        }
+    }
     for (unsigned k = 0; k < ct_func_count; k++)
-        if (!filter || strstr(ct_funcs[k].name, filter))
+        if (k % shards == shard && (!filter || strstr(ct_funcs[k].name, filter)))
             diff_func(&ct_funcs[k], trials);
     return th_report("diff");
 }
