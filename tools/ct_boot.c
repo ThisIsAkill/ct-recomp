@@ -11,6 +11,8 @@
  *
  * --min-nmis K     exit 1 unless at least K NMIs were taken
  *
+ * On a fatal error the last 64 instruction addresses are printed.
+ *
  * Exit 0 after N frames, 1 on a fatal error, 2 on bad usage. */
 #include <setjmp.h>
 #include <stdio.h>
@@ -29,6 +31,21 @@ static void on_fatal(const char *msg)
 {
     snprintf(fatal_msg, sizeof fatal_msg, "%s", msg);
     longjmp(fatal_jmp, 1);
+}
+
+/* Last executed instruction addresses (with the CPU state at each). */
+#define TAIL 64
+static struct {
+    uint32_t at;
+    CPU c;
+} tail[TAIL];
+static unsigned tail_n;
+
+static void trace(const CPU *c, uint32_t at)
+{
+    tail[tail_n % TAIL].at = at;
+    tail[tail_n % TAIL].c = *c;
+    tail_n++;
 }
 
 static uint32_t hash(const uint8_t *p, size_t n)
@@ -72,6 +89,7 @@ int main(int argc, char **argv)
     interp_reset(&cpu);
     sched_init(&cpu);
     ct_fatal_hook = on_fatal;
+    ct_trace_hook = trace;
 
     static volatile long dumped;
     static volatile uint32_t last;
@@ -80,6 +98,12 @@ int main(int argc, char **argv)
         int l = sched_line();
         printf("ct_boot: stopped in frame %ld, line %d, PC $%02X%04X: %s\n", f, l, cpu.PB,
                cpu.PC, fatal_msg);
+        printf("last instructions:\n");
+        for (unsigned k = tail_n > TAIL ? tail_n - TAIL : 0; k < tail_n; k++) {
+            const CPU *c = &tail[k % TAIL].c;
+            printf("  $%06X A=%04X X=%04X Y=%04X S=%04X DP=%04X DB=%02X m%dx%d\n",
+                   tail[k % TAIL].at, c->A, c->X, c->Y, c->S, c->DP, c->DB, c->m, c->x);
+        }
         if (needed) {
             FILE *fp = fopen(needed, "w");
             if (fp) {
