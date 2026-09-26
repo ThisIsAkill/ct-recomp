@@ -26,7 +26,8 @@ target_include_directories(ct_snes_vendor PUBLIC third_party/snes third_party)
 
 # ---- runtime ----
 add_library(ct_runtime STATIC runtime/cpu.c runtime/bus.c
-    runtime/snes_adapter.c runtime/png.c runtime/wav.c runtime/hwlog.c)
+    runtime/snes_adapter.c runtime/png.c runtime/wav.c runtime/hwlog.c
+    runtime/cycles.c)
 target_include_directories(ct_runtime PUBLIC runtime)
 target_link_libraries(ct_runtime PUBLIC ct_snes_vendor)
 target_compile_options(ct_runtime PRIVATE ${CT_WARN})

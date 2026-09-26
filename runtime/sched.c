@@ -10,7 +10,8 @@
 #include "snes_adapter.h"
 
 static CPU *cpu;
-static uint8_t fb[SCHED_WIDTH * SCHED_HEIGHT * 4];
+static uint8_t fb[SCHED_WIDTH * SCHED_HEIGHT * 4];        /* PPU draws here */
+static uint8_t present[SCHED_WIDTH * SCHED_HEIGHT * 4];   /* copied at VBlank */
 static int line;
 static unsigned hclock;         /* master clocks into the current line */
 static uint64_t line_start;     /* master clocks since sched_init at line start */
@@ -32,6 +33,11 @@ static uint16_t pad[4];         /* current buttons per port (sched_set_joypad) *
 static uint16_t joy[4];         /* $4218-$421F: last auto-read result */
 
 static void apu_sync(void);
+
+static int irq_at;               /* this line's H/V timer clock, or -1 */
+static int irq_done, hblank_done;
+static int need_start;           /* line 0 not started yet (sched_init) */
+static int frame_done;
 
 /* ---- registers ---- */
 
@@ -162,6 +168,8 @@ void sched_init(CPU *c)
     cpu = c;
     line = 0;
     hclock = 0;
+    need_start = 1;
+    frame_done = 0;
     frames = nmis = 0;
     nmi_pending = 0;
     line_start = spc_done = 0;
@@ -176,6 +184,7 @@ void sched_init(CPU *c)
     memset(pad, 0, sizeof pad);
     memset(joy, 0, sizeof joy);
     memset(fb, 0, sizeof fb);
+    memset(present, 0, sizeof present);
     bus_hook(0x4200, bus_open_bus, nmitimen_write);   /* write-only: open bus */
     bus_hook(0x4201, bus_open_bus, wrio_write);
     for (uint16_t r = 0x4207; r <= 0x420A; r++)
@@ -210,32 +219,6 @@ static void apu_sync(void)
     }
 }
 
-/* ---- CPU ---- */
-
-static void run_to(unsigned target)
-{
-    while (hclock < target) {
-        if (nmi_pending) {
-            nmi_pending = 0;
-            nmis++;
-            hclock += interp_interrupt(cpu, 1);
-            continue;
-        }
-        if (timeup && (nmitimen & 0x30)) {
-            if (!cpu->i) {
-                hclock += interp_interrupt(cpu, 0);   /* level: until $4211 is read */
-                continue;
-            }
-            interp_wake();   /* IRQ with I=1 still ends WAI */
-        }
-        if (interp_waiting()) {
-            hclock = target;   /* WAI: nothing happens until the next event */
-            break;
-        }
-        hclock += interp_step(cpu);
-    }
-}
-
 /* ---- frame ---- */
 
 static void start_line(void)
@@ -249,6 +232,7 @@ static void start_line(void)
         dma_initHdma(dma);
     }
     if (line == SCHED_VBLANK_LINE) {
+        memcpy(present, fb, sizeof present);   /* rows 0-223 are final */
         in_vblank = 1;
         rdnmi = 0x80;
         snes_oam_vblank_reload();
@@ -279,30 +263,94 @@ static int irq_clock(void)
     return mode == 2 ? 0 : htime * 4;
 }
 
+/* ---- clock and events ----
+   The clock advances by whole instructions and interrupt entries. An event
+   fires at the first instruction boundary at or past its clock, in time
+   order: an H/V timer IRQ before HBlank, HBlank (HDMA), an H/V timer IRQ
+   at or after HBlank, then the end of the line. Line 0 starts as soon as
+   line 261 ends, so a frame boundary never waits on the caller. */
+
+static void begin_line(void)
+{
+    start_line();
+    irq_at = irq_clock();
+    irq_done = irq_at < 0;
+    hblank_done = 0;
+}
+
+static unsigned next_event(void)
+{
+    unsigned t = SCHED_CLOCKS_PER_LINE;
+    if (!hblank_done && SCHED_HBLANK_CLOCK < t)
+        t = SCHED_HBLANK_CLOCK;
+    if (!irq_done && (unsigned)irq_at < t)
+        t = (unsigned)irq_at;
+    return t;
+}
+
+static void advance(unsigned clocks)
+{
+    hclock += clocks;
+    for (;;) {
+        if (!irq_done && irq_at < SCHED_HBLANK_CLOCK && hclock >= (unsigned)irq_at) {
+            timeup = 0x80;
+            irq_done = 1;
+        } else if (!hblank_done && hclock >= SCHED_HBLANK_CLOCK) {
+            if (line < SCHED_HEIGHT)
+                dma_doHdma(snes_hw_dma());
+            hblank_done = 1;
+        } else if (!irq_done && hclock >= (unsigned)irq_at) {
+            timeup = 0x80;
+            irq_done = 1;
+        } else if (hclock >= SCHED_CLOCKS_PER_LINE) {
+            apu_sync();
+            hclock -= SCHED_CLOCKS_PER_LINE;
+            line_start += SCHED_CLOCKS_PER_LINE;
+            if (++line == SCHED_LINES) {
+                line = 0;
+                frames++;
+                frame_done = 1;
+            }
+            begin_line();
+        } else {
+            break;
+        }
+    }
+}
+
+/* One step at an instruction boundary: take a due interrupt, sit out a
+   WAI until the next event, or run one instruction. */
+static void exec_one(void)
+{
+    if (nmi_pending) {
+        nmi_pending = 0;
+        nmis++;
+        advance(interp_interrupt(cpu, 1));
+        return;
+    }
+    if (timeup && (nmitimen & 0x30)) {
+        if (!cpu->i) {
+            advance(interp_interrupt(cpu, 0));   /* level: until $4211 is read */
+            return;
+        }
+        interp_wake();   /* IRQ with I=1 still ends WAI */
+    }
+    if (interp_waiting()) {
+        advance(next_event() - hclock);
+        return;
+    }
+    advance(interp_step(cpu));
+}
+
 void sched_run_frame(void)
 {
-    Dma *dma = snes_hw_dma();
-    for (line = 0; line < SCHED_LINES; line++) {
-        start_line();
-        int irq = irq_clock();
-        if (irq >= 0 && irq < SCHED_HBLANK_CLOCK) {
-            run_to((unsigned)irq);
-            timeup = 0x80;
-        }
-        run_to(SCHED_HBLANK_CLOCK);
-        if (line < SCHED_HEIGHT)
-            dma_doHdma(dma);
-        if (irq >= SCHED_HBLANK_CLOCK) {
-            run_to((unsigned)irq);
-            timeup = 0x80;
-        }
-        run_to(SCHED_CLOCKS_PER_LINE);
-        apu_sync();
-        hclock -= SCHED_CLOCKS_PER_LINE;
-        line_start += SCHED_CLOCKS_PER_LINE;
+    if (need_start) {
+        need_start = 0;
+        begin_line();
     }
-    line = 0;
-    frames++;
+    frame_done = 0;
+    while (!frame_done)
+        exec_one();
 }
 
 void sched_audio(int16_t *stereo, int samples)
@@ -310,7 +358,7 @@ void sched_audio(int16_t *stereo, int samples)
     dsp_getSamples(snes_hw_apu()->dsp, stereo, samples, 2);
 }
 
-const uint8_t *sched_frame(void) { return fb; }
+const uint8_t *sched_frame(void) { return present; }
 long sched_frame_count(void) { return frames; }
 long sched_nmi_count(void) { return nmis; }
 int sched_line(void) { return line; }
