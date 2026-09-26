@@ -84,6 +84,21 @@ add_executable(ct_boot tools/ct_boot.c)
 target_link_libraries(ct_boot ct_sched)
 target_compile_options(ct_boot PRIVATE ${CT_WARN})
 
+# ---- SDL2 frontend (optional: skipped when SDL2 isn't installed) ----
+find_package(SDL2 CONFIG QUIET)
+if(SDL2_FOUND)
+    add_library(ct_input STATIC frontend/input.c)
+    target_include_directories(ct_input PUBLIC frontend)
+    target_link_libraries(ct_input PUBLIC SDL2::SDL2)
+    target_compile_options(ct_input PRIVATE ${CT_WARN})
+
+    add_executable(ct_sdl frontend/main.c)
+    target_link_libraries(ct_sdl ct_sched ct_input)
+    target_compile_options(ct_sdl PRIVATE ${CT_WARN})
+else()
+    message(STATUS "SDL2 not found: ct_sdl not built")
+endif()
+
 # ---- tests ----
 
 add_executable(test_runtime test/test_runtime.c)
@@ -146,6 +161,17 @@ add_test(NAME sched COMMAND test_sched)
 # audio produced.
 add_test(NAME boot_interp COMMAND ct_boot --frames 1500 --min-nmis 1394 --require-render
     --require-audio)
+
+if(SDL2_FOUND)
+    add_executable(test_input test/test_input.c)
+    target_link_libraries(test_input ct_input)
+    target_compile_options(test_input PRIVATE ${CT_WARN})
+    add_test(NAME input COMMAND test_input)
+
+    # The frontend itself, headless (SDL dummy drivers), unpaced.
+    add_test(NAME sdl_boot COMMAND ct_sdl --frames 300 --fast --require-render)
+    set_tests_properties(sdl_boot PROPERTIES LABELS rom)
+endif()
 set_tests_properties(boot_interp PROPERTIES LABELS rom)
 
 add_executable(test_stack_guard test/test_stack_guard.c)
@@ -170,4 +196,6 @@ add_test(NAME manual_root COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test
 
 # ---- test environment (keep last) ----
 get_property(ct_tests DIRECTORY PROPERTY TESTS)
-set_tests_properties(${ct_tests} PROPERTIES ENVIRONMENT "CT_ROM=${CT_ROM}")
+# SDL dummy drivers: sdl_boot runs the frontend headless; no other test uses SDL.
+set_tests_properties(${ct_tests} PROPERTIES ENVIRONMENT
+    "CT_ROM=${CT_ROM};SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
