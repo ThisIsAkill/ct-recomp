@@ -123,8 +123,8 @@ void snes_hw_init(void)
         bus_hook(r, apu_reg_read, apu_reg_write);
     for (uint16_t r = 0x4300; r <= 0x437F; r++)
         bus_hook(r, dma_reg_read, dma_reg_write);
-    bus_hook(0x420B, NULL, mdmaen_write);
-    bus_hook(0x420C, NULL, hdmaen_write);
+    bus_hook(0x420B, bus_open_bus, mdmaen_write);   /* write-only: open bus */
+    bus_hook(0x420C, bus_open_bus, hdmaen_write);
 }
 
 void snes_hw_reset(void)

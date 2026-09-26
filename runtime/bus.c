@@ -50,6 +50,16 @@ static void math_write(uint16_t reg, uint8_t v)
 
 static uint32_t wram_port_addr;
 
+/* Last value on the data bus (MDR): every read and write through read8/
+   write8 sets it, including the interpreter's opcode and operand fetches. */
+static uint8_t mdr;
+
+uint8_t bus_open_bus(uint16_t reg)
+{
+    (void)reg;
+    return mdr;
+}
+
 void (*ct_wram_write_hook)(uint32_t off);
 
 static uint8_t wram_port_read(uint16_t reg)
@@ -118,6 +128,7 @@ void bus_reset(void)
     memset(&alu, 0, sizeof alu);
     wram_port_addr = 0;
     memsel = 0;
+    mdr = 0;
     snes_hw_reset();
 }
 
@@ -143,13 +154,13 @@ void bus_init(const char *path)
     memset(hw_rd, 0, sizeof hw_rd);
     memset(hw_wr, 0, sizeof hw_wr);
     for (uint16_t r = 0x4202; r <= 0x4206; r++)
-        bus_hook(r, NULL, math_write);
+        bus_hook(r, bus_open_bus, math_write);
     for (uint16_t r = 0x4214; r <= 0x4217; r++)
         bus_hook(r, math_read, NULL);
     bus_hook(0x2180, wram_port_read, wram_port_write);
     for (uint16_t r = 0x2181; r <= 0x2183; r++)
         bus_hook(r, NULL, wram_port_write);
-    bus_hook(0x420D, NULL, memsel_write);
+    bus_hook(0x420D, bus_open_bus, memsel_write);
     snes_hw_init();
     bus_reset();
 }
@@ -204,12 +215,12 @@ uint8_t read8(uint32_t a)
     uint32_t off;
     a &= 0xFFFFFF;
     switch (decode_addr(a, &off)) {
-    case R_WRAM: return wram[off];
-    case R_SRAM: return sram[off];
-    case R_ROM:  return rom[off];
+    case R_WRAM: return mdr = wram[off];
+    case R_SRAM: return mdr = sram[off];
+    case R_ROM:  return mdr = rom[off];
     case R_HW:
         if (hw_rd[off - HW_BASE])
-            return hw_rd[off - HW_BASE]((uint16_t)off);
+            return mdr = hw_rd[off - HW_BASE]((uint16_t)off);
         ct_fatal("read8 $%06X: unhooked hardware register", a);
     default:
         ct_fatal("read8 $%06X: open bus", a);
@@ -218,6 +229,7 @@ uint8_t read8(uint32_t a)
 
 void write8(uint32_t a, uint8_t v)
 {
+    mdr = v;
     uint32_t off;
     a &= 0xFFFFFF;
     switch (decode_addr(a, &off)) {

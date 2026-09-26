@@ -130,10 +130,26 @@ static void test_nmi_rti_wai(void)
           "RTI back after the WAI: $%02X%04X S $%04X", c.PB, c.PC, c.S);
 }
 
+/* Write-only CPU registers read back the last data bus value: for an
+   absolute load that is the address high byte, as on hardware (the mode-7
+   engine's RAM code does LDX $4202). */
+static void test_open_bus(void)
+{
+    CPU c;
+    static const uint8_t ldx[] = {0xAE, 0x02, 0x42};    /* LDX $4202 (X=0: $4202/$4203) */
+    load(ldx, sizeof ldx, 0x2400);
+    at(&c, 0x2400);
+    c.x = 0;
+    c.DB = 0x00;
+    step1(&c);
+    CHECK(!fatal_msg[0] && c.X == 0x4242, "LDX $4202: X $%04X, want $4242 (%s)", c.X, fatal_msg);
+}
+
 int main(void)
 {
     bus_init(NULL);
     ct_fatal_hook = on_fatal;
+    test_open_bus();
     test_reset_stub();
     test_cycles();
     test_nmi_rti_wai();

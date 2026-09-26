@@ -29,6 +29,13 @@ void bus_hook(uint16_t reg, hw_read_fn rd, hw_write_fn wr);
    WRAM byte written, whatever the path (CPU store, WRAM data port, DMA). */
 extern void (*ct_wram_write_hook)(uint32_t off);
 
+/* Read handler for write-only registers: returns the last value on the
+   data bus, as hardware does (for LDA abs that is the address high byte).
+   Used for the write-only CPU registers $4200-$420D only; open bus
+   anywhere else stays fatal. Generated code has no operand fetches, so its
+   bus value differs from the interpreter's here. */
+uint8_t bus_open_bus(uint16_t reg);
+
 /* $420D MEMSEL bit 0: FastROM enabled for banks $80-$FF. */
 int bus_fastrom(void);
 

@@ -160,10 +160,10 @@ void sched_init(CPU *c)
     memset(pad, 0, sizeof pad);
     memset(joy, 0, sizeof joy);
     memset(fb, 0, sizeof fb);
-    bus_hook(0x4200, NULL, nmitimen_write);
-    bus_hook(0x4201, NULL, wrio_write);
+    bus_hook(0x4200, bus_open_bus, nmitimen_write);   /* write-only: open bus */
+    bus_hook(0x4201, bus_open_bus, wrio_write);
     for (uint16_t r = 0x4207; r <= 0x420A; r++)
-        bus_hook(r, NULL, htime_vtime_write);
+        bus_hook(r, bus_open_bus, htime_vtime_write);
     bus_hook(0x4210, rdnmi_read, NULL);
     bus_hook(0x4211, timeup_read, NULL);
     bus_hook(0x4212, hvbjoy_read, NULL);
