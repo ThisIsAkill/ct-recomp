@@ -47,7 +47,8 @@ int main(void)
     w[0x10] = 0;
 
     static CPU c;
-    cpu_init(&c);
+    interp_reset(&c);   /* power-on: also clears a pending WAI */
+    c.e = 0;
     c.PB = 0x7E;
     c.PC = 0x2000;
     c.DB = 0x00;
@@ -75,5 +76,28 @@ int main(void)
         }
     }
     CHECK(!bad, "HDMA gradient: row r red = r & 31");
+
+    /* APU catch-up on port access: spin on $2140 until the IPL's $AA,
+       then mark $11. Without the sync the loop never ends. */
+    static const uint8_t poll[] = {
+        0xAD, 0x40, 0x21,               /* $2100 loop: LDA $2140 */
+        0xC9, 0xAA,                     /*            CMP #$AA */
+        0xD0, 0xF9,                     /*            BNE loop */
+        0xE6, 0x11,                     /*            INC $11 */
+        0xCB, 0x80, 0xFD,               /* idle: WAI / BRA idle */
+    };
+    bus_reset();
+    put(0x2100, poll, sizeof poll);
+    interp_reset(&c);   /* power-on: also clears a pending WAI */
+    c.e = 0;
+    c.PB = 0x7E;
+    c.PC = 0x2100;
+    c.DB = 0x00;
+    c.m = c.x = 1;
+    c.i = 1;
+    c.S = 0x01FF;
+    sched_init(&c);
+    sched_run_frame();
+    CHECK(bus_wram()[0x11] == 1, "IPL signature seen through $2140 within one frame");
     return th_report("sched");
 }

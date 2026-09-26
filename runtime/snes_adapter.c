@@ -49,16 +49,31 @@ static void ppu_reg_write(uint16_t reg, uint8_t v)
     ppu_write(g_ppu, (uint8_t)(reg - 0x2100u), v);
 }
 
-/* ---- $2140-$2143 APU communication ports ---- */
+/* ---- $2140-$2143 APU communication ports ----
+ * CPU side: writes land in the SPC700's input ports (what it reads at
+ * $F4-$F7), reads return its output ports (what it wrote there).
+ * apu_cpuRead/apu_cpuWrite are the SPC700's own memory map, not this. */
+
+void (*snes_apu_sync)(void);
 
 static uint8_t apu_reg_read(uint16_t reg)
 {
-    return apu_cpuRead(g_apu, (uint16_t)(reg - 0x2140u));
+    if (snes_apu_sync)
+        snes_apu_sync();
+    return g_apu->outPorts[reg & 3];
 }
 
 static void apu_reg_write(uint16_t reg, uint8_t v)
 {
-    apu_cpuWrite(g_apu, (uint16_t)(reg - 0x2140u), v);
+    if (snes_apu_sync)
+        snes_apu_sync();
+    g_apu->inPorts[reg & 3] = v;
+}
+
+void snes_apu_run(uint32_t spc_cycles)
+{
+    while (spc_cycles--)
+        apu_cycle(g_apu);
 }
 
 /* ---- $4300-$437F DMA channel registers ---- */

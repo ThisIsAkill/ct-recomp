@@ -4,6 +4,7 @@
 
 #include "harness.h"
 #include "ppu.h"
+#include "apu.h"
 #include "dma.h"
 #include "snes_adapter.h"
 
@@ -83,11 +84,33 @@ static void test_wram_port(void)
     CHECK(w[0] == 0x00 && w[1] == 0x49, "bus_reset clears the WRAM port address");
 }
 
+/* $2140-$2143: CPU writes reach the SPC700's input ports, CPU reads see
+ * its output ports. Then the real IPL boot ROM: after it runs, the CPU
+ * sees its $AA/$BB ready signature, the first step of every upload. */
+static void test_apu_ports(void)
+{
+    bus_reset();
+    Apu *apu = snes_hw_apu();
+    write8(0x2140, 0x12);
+    write8(0x002143, 0x34);
+    CHECK(apu->inPorts[0] == 0x12 && apu->inPorts[3] == 0x34, "CPU writes -> SPC input ports");
+    CHECK(apu->ram[0] == 0 && apu->ram[3] == 0, "not SPC RAM $0000-$0003");
+    apu->outPorts[1] = 0x5A;
+    CHECK(read8(0x2141) == 0x5A, "CPU reads <- SPC output ports");
+
+    bus_reset();
+    CHECK(read8(0x2140) == 0 && read8(0x2141) == 0, "no signature before the IPL runs");
+    snes_apu_run(100000);
+    CHECK(read8(0x2140) == 0xAA && read8(0x2141) == 0xBB, "IPL ready signature: $%02X $%02X",
+          read8(0x2140), read8(0x2141));
+}
+
 int main(void)
 {
     bus_init(NULL);
     test_ppu_registers();
     test_dma_to_vram();
     test_wram_port();
+    test_apu_ports();
     return th_report("snes_bus");
 }

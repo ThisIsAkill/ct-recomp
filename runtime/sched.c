@@ -12,6 +12,8 @@ static CPU *cpu;
 static uint8_t fb[SCHED_WIDTH * SCHED_HEIGHT * 4];
 static int line;
 static unsigned hclock;         /* master clocks into the current line */
+static uint64_t line_start;     /* master clocks since sched_init at line start */
+static uint64_t spc_done;       /* SPC700 cycles run since sched_init */
 static long frames, nmis;
 static int nmi_pending;
 
@@ -21,6 +23,8 @@ static int in_vblank;
 static int autojoy_busy;
 static uint8_t wrio;            /* $4201, stored only */
 static uint8_t htime_vtime[4];  /* $4207-$420A, stored only; used by #21 */
+
+static void apu_sync(void);
 
 /* ---- registers ---- */
 
@@ -75,6 +79,8 @@ void sched_init(CPU *c)
     hclock = 0;
     frames = nmis = 0;
     nmi_pending = 0;
+    line_start = spc_done = 0;
+    snes_apu_sync = apu_sync;
     nmitimen = rdnmi = 0;
     in_vblank = autojoy_busy = 0;
     wrio = 0xFF;
@@ -87,6 +93,24 @@ void sched_init(CPU *c)
     bus_hook(0x4210, rdnmi_read, NULL);
     bus_hook(0x4211, timeup_read, NULL);
     bus_hook(0x4212, hvbjoy_read, NULL);
+}
+
+/* ---- APU ----
+   The SPC700 runs at 1.024 MHz against the 21.477272 MHz master clock. It
+   is caught up to CPU time on every $2140-$2143 access (instruction-start
+   time) and at the end of each line, so the upload handshake sees the
+   driver respond at a plausible pace. Deterministic. */
+
+#define MASTER_HZ 21477272u
+#define SPC_HZ    1024000u
+
+static void apu_sync(void)
+{
+    uint64_t want = (line_start + hclock) * SPC_HZ / MASTER_HZ;
+    if (want > spc_done) {
+        snes_apu_run((uint32_t)(want - spc_done));
+        spc_done = want;
+    }
 }
 
 /* ---- CPU ---- */
@@ -142,7 +166,9 @@ void sched_run_frame(void)
         if (line < SCHED_HEIGHT)
             dma_doHdma(dma);
         run_to(SCHED_CLOCKS_PER_LINE);
+        apu_sync();
         hclock -= SCHED_CLOCKS_PER_LINE;
+        line_start += SCHED_CLOCKS_PER_LINE;
     }
     line = 0;
     frames++;

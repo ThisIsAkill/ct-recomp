@@ -9,6 +9,8 @@
  * --needed-hw FILE on a fatal error (unimplemented register, opcode, ...),
  *                  write FILE describing it: where the boot stops next
  *
+ * --min-nmis K     exit 1 unless at least K NMIs were taken
+ *
  * Exit 0 after N frames, 1 on a fatal error, 2 on bad usage. */
 #include <setjmp.h>
 #include <stdio.h>
@@ -47,7 +49,7 @@ static int nonblack(const uint8_t *p, size_t n)
 
 int main(int argc, char **argv)
 {
-    static long frames = 60;              /* static: survive the longjmp */
+    static long frames = 60, min_nmis;    /* static: survive the longjmp */
     static const char *dump, *needed;
     for (int k = 1; k < argc; k++) {
         if (!strcmp(argv[k], "--frames") && k + 1 < argc)
@@ -56,8 +58,11 @@ int main(int argc, char **argv)
             dump = argv[++k];
         else if (!strcmp(argv[k], "--needed-hw") && k + 1 < argc)
             needed = argv[++k];
+        else if (!strcmp(argv[k], "--min-nmis") && k + 1 < argc)
+            min_nmis = atol(argv[++k]);
         else {
-            fprintf(stderr, "usage: ct_boot [--frames N] [--dump DIR] [--needed-hw FILE]\n");
+            fprintf(stderr, "usage: ct_boot [--frames N] [--dump DIR] [--needed-hw FILE] "
+                            "[--min-nmis K]\n");
             return 2;
         }
     }
@@ -103,5 +108,5 @@ int main(int argc, char **argv)
     }
     printf("ct_boot: %ld frames, %ld NMIs, %ld frames dumped, PC $%02X%04X\n",
            sched_frame_count(), sched_nmi_count(), (long)dumped, cpu.PB, cpu.PC);
-    return 0;
+    return sched_nmi_count() >= min_nmis ? 0 : 1;
 }
