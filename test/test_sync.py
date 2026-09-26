@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""tools/sync_symbols.py must be deterministic: given the same funcs.toml,
-ChronoRET checkout, and dscotton checkout, syncing a bank twice (into two
-independent copies of funcs.toml) must produce byte-identical output, and
-syncing an already-synced copy a second time (idempotency) must leave it
-unchanged. Operates on scratch copies; never touches the real funcs.toml
-or unresolved.toml.
+"""tools/sync_symbols.py must not lose entries and must be deterministic.
+
+Every run works on scratch copies of funcs.toml and unresolved.toml (via
+--funcs-toml/--unresolved-toml, which the tool both reads and writes), never
+the real ones:
+
+1. No dropped entries: re-syncing a copy of the committed funcs.toml keeps
+   every [[func]] it already had (by name and address), including the ones
+   inside the bank's own auto block.
+2. Determinism: syncing two independent copies gives byte-identical output.
+3. Idempotency: syncing an already-synced copy again leaves it unchanged.
 
 Skips (exit 77) if DSCOTTON_DIR isn't set, since that's an external
 checkout not every environment has.
@@ -14,6 +19,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SYNC = os.path.join(ROOT, 'tools', 'sync_symbols.py')
@@ -33,6 +39,11 @@ def read(path: str) -> str:
         return f.read()
 
 
+def entries(path: str) -> set[tuple[str, int]]:
+    with open(path, 'rb') as f:
+        return {(fn['name'], fn['addr']) for fn in tomllib.load(f).get('func', [])}
+
+
 def main() -> int:
     if not os.environ.get('DSCOTTON_DIR'):
         print('skip: DSCOTTON_DIR not set')
@@ -40,13 +51,24 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory() as d:
         funcs_src = os.path.join(ROOT, 'funcs.toml')
+        unres_src = os.path.join(ROOT, 'unresolved.toml')
         a_funcs, a_unres = os.path.join(d, 'a_funcs.toml'), os.path.join(d, 'a_unresolved.toml')
         b_funcs, b_unres = os.path.join(d, 'b_funcs.toml'), os.path.join(d, 'b_unresolved.toml')
-        shutil.copy(funcs_src, a_funcs)
-        shutil.copy(funcs_src, b_funcs)
+        for dst in (a_funcs, b_funcs):
+            shutil.copy(funcs_src, dst)
+        for dst in (a_unres, b_unres):
+            shutil.copy(unres_src, dst)
 
         run_sync(a_funcs, a_unres)
         run_sync(b_funcs, b_unres)
+
+        lost = entries(funcs_src) - entries(a_funcs)
+        if lost:
+            print(f'FAIL: re-sync dropped {len(lost)} existing funcs.toml entries, e.g.:')
+            for name, addr in sorted(lost, key=lambda e: e[1])[:10]:
+                print(f'  ${addr:06X} {name}')
+            return 1
+
         a_funcs_text, b_funcs_text = read(a_funcs), read(b_funcs)
         a_unres_text, b_unres_text = read(a_unres), read(b_unres)
         if a_funcs_text != b_funcs_text:
@@ -65,7 +87,7 @@ def main() -> int:
             print('FAIL: re-syncing an already-synced unresolved.toml changed it (not idempotent)')
             return 1
 
-    print('ok: sync_symbols.py is deterministic and idempotent for bank', BANK)
+    print('ok: sync_symbols.py keeps existing entries, deterministic and idempotent for bank', BANK)
     return 0
 
 

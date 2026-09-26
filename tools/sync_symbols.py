@@ -73,8 +73,12 @@ funcs.toml keeps every existing entry byte-for-byte. New, validated
 entries are written into a single delimited, address-sorted block per
 bank (`# ==== sync_symbols: bank $XX (auto) ====` ... `# ==== end ... `),
 replacing any previous block for that same bank so re-running the sync
-after a source update updates in place. Re-running with unchanged inputs
-reproduces the same block byte-for-byte (tested by test/test_sync.py).
+after a source update updates in place. Entries in that previous block are
+carried forward as candidates and re-validated, never dropped silently: one
+that no longer validates moves to unresolved.toml and is reported on
+stderr. --funcs-toml is both read and written. Re-running with unchanged
+inputs keeps every entry and reproduces the same block byte-for-byte
+(tested by test/test_sync.py).
 An address already present under a *different* name in the existing file
 (hand-written or from a previous sync) is left untouched and reported as
 a conflict on stderr, never silently overwritten.
@@ -87,6 +91,7 @@ import argparse
 import os
 import re
 import sys
+import tomllib
 from dataclasses import dataclass, field
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -149,7 +154,7 @@ def chronoret_dir() -> str:
 class Candidate:
     addr: int
     name: str
-    src: str                 # 'chronoret' | 'dscotton'
+    src: str                 # 'chronoret' | 'dscotton' | 'funcs.toml' (prior auto block)
     states: tuple[str, ...] = ()   # documented/propagated so far
 
 
@@ -418,13 +423,13 @@ def validate(rom: bytes, existing: list[funcs.FuncMeta], candidates: dict[int, C
 
     live: dict[int, Candidate] = {}
     for addr, c in candidates.items():
-        if addr in KNOWN_BAD:
-            res.unresolved.append((c, KNOWN_BAD[addr]))
-            continue
         ex = existing_by_addr.get(addr)
         if ex is not None:
             if ex.name != c.name:
                 res.conflicts.append((c, f'address already registered as {ex.name!r}'))
+            continue
+        if addr in KNOWN_BAD:
+            res.unresolved.append((c, KNOWN_BAD[addr]))
             continue
         if not c.states:
             res.unresolved.append((c, 'entry M/X state unknown: not documented, '
@@ -480,14 +485,18 @@ def write_funcs_toml(bank: int, validated: list[funcs.FuncMeta], dry_run: bool,
     start, end = _block_markers(bank)
     with open(path, encoding='utf-8') as f:
         text = f.read()
-    if start in text:
-        pre, rest = text.split(start, 1)
-        _, post = rest.split(end, 1)
-        text = pre + post
-    text = text.rstrip('\n') + '\n'
+    block = ''
     if validated:
         block = start + '\n' + '\n'.join(_func_toml(fm) for fm in sorted(validated, key=lambda f: f.addr)) + '\n' + end
-        text = text + '\n' + block
+    if start in text:
+        # Replace in place so entries after the block keep their position.
+        pre, rest = text.split(start, 1)
+        _, post = rest.split(end, 1)
+        text = pre + block + post if block else pre.rstrip('\n') + '\n' + post
+    else:
+        text = text.rstrip('\n') + '\n'
+        if block:
+            text = text + '\n' + block
     if dry_run:
         print(f'--- funcs.toml would gain {len(validated)} entries for bank ${bank:02X} ---')
     else:
@@ -523,16 +532,57 @@ def write_unresolved_toml(bank: int, unresolved: list[tuple[Candidate, str]], dr
             f.write(text)
 
 
-def sync(bank: int, module: str | None = None) -> Result:
-    """Run the full sync for `bank` and return the result, without writing
-    anything -- used by callers (and tests) that want to inspect or diff
-    output themselves."""
+def _auto_block_addrs(bank: int, path: str) -> set[int]:
+    """Addresses of the [[func]] entries inside this bank's auto block."""
+    start, end = _block_markers(bank)
+    with open(path, encoding='utf-8') as f:
+        text = f.read()
+    if start not in text:
+        return set()
+    block = text.split(start, 1)[1].split(end, 1)[0]
+    return {t['addr'] for t in tomllib.loads(block).get('func', [])}
+
+
+def carry_forward(auto: list[funcs.FuncMeta],
+                  candidates: dict[int, Candidate]) -> dict[int, Candidate]:
+    """The bank's previous auto block is rewritten wholesale, so every entry
+    in it must come back as a candidate: validated before, it keeps its
+    states (merged with any new ones) and is re-validated like the rest.
+    A source name still wins; an entry no source lists any more keeps its
+    old name rather than silently disappearing."""
+    cands = dict(candidates)
+    for fm in auto:
+        c = cands.get(fm.addr)
+        if c is None:
+            cands[fm.addr] = Candidate(fm.addr, fm.name, 'funcs.toml', tuple(fm.states))
+        else:
+            states = tuple(sorted(set(c.states) | set(fm.states)))
+            cands[fm.addr] = Candidate(c.addr, c.name, c.src, states)
+    return cands
+
+
+def sync(bank: int, module: str | None = None, funcs_path: str = FUNCS_TOML) -> Result:
+    """Run the full sync for `bank` against `funcs_path` and return the
+    result, without writing anything -- used by callers (and tests) that
+    want to inspect or diff output themselves.
+
+    Entries in this bank's own auto block are re-derived, not treated as
+    fixed: they are what the write replaces."""
     module = module or f'bank{bank:02x}'
     rom = decode.load_rom()
-    existing = funcs.load()
-    candidates = merge(bank)
+    loaded = funcs.load(funcs_path)
+    auto_addrs = _auto_block_addrs(bank, funcs_path)
+    existing = [fm for fm in loaded if fm.addr not in auto_addrs]
+    auto = [fm for fm in loaded if fm.addr in auto_addrs]
+    candidates = carry_forward(auto, merge(bank))
     candidates = propagate(rom, existing, candidates)
-    return validate(rom, existing, candidates, module)
+    res = validate(rom, existing, candidates, module)
+    kept = {fm.addr for fm in res.validated}
+    for fm in auto:
+        if fm.addr not in kept:
+            print(f'DROPPED ${fm.addr:06X} {fm.name}: no longer validates, moved to unresolved',
+                  file=sys.stderr)
+    return res
 
 
 def main(argv: list[str]) -> int:
@@ -545,7 +595,7 @@ def main(argv: list[str]) -> int:
     a = p.parse_args(argv)
     bank = int(a.bank, 16)
     module = a.module or f'bank{bank:02x}'
-    result = sync(bank, module)
+    result = sync(bank, module, a.funcs_toml)
 
     for c, reason in result.conflicts:
         print(f'CONFLICT ${c.addr:06X} {c.name} ({c.src}): {reason}', file=sys.stderr)
