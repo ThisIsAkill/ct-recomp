@@ -124,6 +124,8 @@ add_test(NAME diff_all COMMAND test_diff 2000)
 add_test(NAME sync_determinism COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_sync.py)
 set_tests_properties(sync_determinism PROPERTIES SKIP_RETURN_CODE 77)
 
+add_test(NAME manual_root COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_manual_root.py)
+
 # ---- test environment (keep last) ----
 get_property(ct_tests DIRECTORY PROPERTY TESTS)
 set_tests_properties(${ct_tests} PROPERTIES ENVIRONMENT "CT_ROM=${CT_ROM}")

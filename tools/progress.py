@@ -44,6 +44,7 @@ def main() -> int:
     rom = decode.load_rom()
     metas = funcs.load()
     reg = funcs.Registry(rom, metas)
+    metas, pending = funcs.split_emittable(reg, metas)
 
     rows, covered, variants, used = [], set(), 0, set()
     modules = emit.modules(metas)
@@ -84,9 +85,10 @@ def main() -> int:
            f'| Routines recompiled | {len(metas)} |',
            f'| Emitted C functions (routine x entry state) | {variants} |',
            f'| ROM bytes covered | {len(covered)} |',
-           f'| Functions known total (validated + unresolved) | {len(metas) + len(unresolved)} |',
+           f'| Functions known total (validated + pending + unresolved) | {len(metas) + len(pending) + len(unresolved)} |',
            f'| Functions validated | {len(metas)} |',
            f'| Functions unresolved (pending sync) | {len(unresolved)} |',
+           f'| Manual roots not yet emittable | {len(pending)} |',
            f'| Opcodes implemented | {len(ops)} / 256 |',
            f'| Opcodes used by recompiled routines | {len(used)} / 256 |',
            f'| Opcode x width combinations implemented | {combos} |',

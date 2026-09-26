@@ -20,6 +20,7 @@ class FuncMeta:
     dp: int | None
     db: int | None
     module: str
+    manual: bool = False   # hand-declared root (e.g. reset entry): seeds M/X propagation
 
     def entry_states(self) -> list[State]:
         return [parse_state(s, e=bool(self.e)) for s in self.states]
@@ -83,8 +84,28 @@ def load(path: str | None = None) -> list[FuncMeta]:
         if t['e']:
             raise DecodeError(f'funcs.toml: {t["name"]}: emulation-mode entry not supported')
         out.append(FuncMeta(t['name'], t['addr'], tuple(t['states']), t['e'],
-                            t.get('dp'), t.get('db'), t['module']))
+                            t.get('dp'), t.get('db'), t['module'], bool(t.get('manual'))))
     return out
+
+
+def split_emittable(reg: 'Registry', metas: list[FuncMeta]) -> tuple[list[FuncMeta],
+                                                                      list[tuple[FuncMeta, str]]]:
+    """Manual roots are declared by hand to seed M/X propagation, usually
+    well before everything they reach is registered. One that doesn't
+    decode yet is held back from emission (returned as pending, with the
+    reason) instead of failing the build. Every other entry must decode;
+    those errors propagate to the caller as before."""
+    ok, pending = [], []
+    for fm in metas:
+        if fm.manual:
+            try:
+                for st in fm.entry_states():
+                    reg.function(fm.addr, st)
+            except DecodeError as ex:
+                pending.append((fm, str(ex)))
+                continue
+        ok.append(fm)
+    return ok, pending
 
 
 class MissingTarget(DecodeError):

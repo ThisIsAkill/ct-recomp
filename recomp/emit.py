@@ -461,6 +461,9 @@ def main(argv: list[str]) -> int:
         print(';'.join(modules(metas)))
         return 0
     reg = funcs.Registry(decode.load_rom(a.rom), metas)
+    metas, pending = funcs.split_emittable(reg, metas)
+    for fm, why in pending:
+        print(f'emit: manual root {fm.name} ${fm.addr:06X} not emitted yet: {why}', file=sys.stderr)
     os.makedirs(a.out, exist_ok=True)
     for mod in [a.module] if a.module else modules(metas):
         src, hdr = emit_module(reg, metas, mod)
