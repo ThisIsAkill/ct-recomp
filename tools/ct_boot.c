@@ -10,6 +10,7 @@
  *                  write FILE describing it: where the boot stops next
  *
  * --min-nmis K     exit 1 unless at least K NMIs were taken
+ * --require-render exit 1 if the last frame is all black
  *
  * On a fatal error the last 64 instruction addresses are printed.
  *
@@ -67,6 +68,7 @@ static int nonblack(const uint8_t *p, size_t n)
 int main(int argc, char **argv)
 {
     static long frames = 60, min_nmis;    /* static: survive the longjmp */
+    static int require_render;
     static const char *dump, *needed;
     for (int k = 1; k < argc; k++) {
         if (!strcmp(argv[k], "--frames") && k + 1 < argc)
@@ -77,9 +79,11 @@ int main(int argc, char **argv)
             needed = argv[++k];
         else if (!strcmp(argv[k], "--min-nmis") && k + 1 < argc)
             min_nmis = atol(argv[++k]);
+        else if (!strcmp(argv[k], "--require-render"))
+            require_render = 1;
         else {
             fprintf(stderr, "usage: ct_boot [--frames N] [--dump DIR] [--needed-hw FILE] "
-                            "[--min-nmis K]\n");
+                            "[--min-nmis K] [--require-render]\n");
             return 2;
         }
     }
@@ -132,5 +136,8 @@ int main(int argc, char **argv)
     }
     printf("ct_boot: %ld frames, %ld NMIs, %ld frames dumped, PC $%02X%04X\n",
            sched_frame_count(), sched_nmi_count(), (long)dumped, cpu.PB, cpu.PC);
-    return sched_nmi_count() >= min_nmis ? 0 : 1;
+    int rendered = nonblack(sched_frame(), (size_t)SCHED_WIDTH * SCHED_HEIGHT * 4);
+    if (require_render && !rendered)
+        printf("ct_boot: last frame is black\n");
+    return sched_nmi_count() >= min_nmis && (rendered || !require_render) ? 0 : 1;
 }

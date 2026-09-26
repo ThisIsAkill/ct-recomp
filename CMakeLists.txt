@@ -141,10 +141,9 @@ target_link_libraries(test_sched ct_sched)
 target_compile_options(test_sched PRIVATE ${CT_WARN})
 add_test(NAME sched COMMAND test_sched)
 
-# Boot from reset in the interpreter. 30 frames: past MainInit and the
-# audio driver upload; the game enables NMI together with the V-IRQ
-# in frame 31 (#21), so NMIs are checked once that lands.
-add_test(NAME boot_interp COMMAND ct_boot --frames 30)
+# Boot from reset in the interpreter to frame 1500, on the title screen:
+# no fatal, NMIs running (1394 by then, deterministic), frame not black.
+add_test(NAME boot_interp COMMAND ct_boot --frames 1500 --min-nmis 1394 --require-render)
 set_tests_properties(boot_interp PROPERTIES LABELS rom)
 
 add_executable(test_stack_guard test/test_stack_guard.c)
