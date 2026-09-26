@@ -61,13 +61,23 @@ static inline void th_args(int argc, char **argv)
    return addresses and registers the routine will pull back; with fuzzed
    state that is a trial artifact, not a result. Counts the clobbering
    writes. The routine must not use stack-relative stores (none of the
-   recompiled set does). */
+   recompiled set does).
+
+   Write budget: the same hook counts every WRAM write, and past
+   sg_write_cap (0 = no cap) the run stops with "write budget exhausted".
+   The backward-branch budget can't bound a single MVN, and a random length
+   can make one move tens of megabytes; both sides make the same writes,
+   so they stop at the same one and the trial counts as a runaway, like
+   the branch budget. */
 static const CPU *sg_cpu;
 static uint16_t sg_top;
 static long sg_hits;
+static long sg_writes, sg_write_cap;
 
 static inline void sg_hook(uint32_t off)
 {
+    if (++sg_writes > sg_write_cap && sg_write_cap)
+        ct_fatal("write budget exhausted after %ld WRAM writes", sg_write_cap);
     if (off < 0x2000 && off > sg_cpu->S && off <= sg_top)
         sg_hits++;
 }
@@ -77,6 +87,7 @@ static inline void stack_guard_begin(const CPU *cpu, uint16_t top)
     sg_cpu = cpu;
     sg_top = top;
     sg_hits = 0;
+    sg_writes = 0;
     ct_wram_write_hook = sg_hook;
 }
 

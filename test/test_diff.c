@@ -14,13 +14,21 @@
  * and M/X, so a trial's input doesn't depend on which other functions ran:
  * a name filter or a shard reproduces exactly the trials of the full sweep.
  *
- * usage: test_diff [trials] [name-filter] [--shard K/N]
+ * Each trial also has a WRAM write budget (--write-cap, default
+ * TD_WRITE_CAP writes per side; stack_guard in harness.h): a trial where
+ * both sides exhaust it is a runaway, counted with "fatal in both" and not
+ * compared.
+ *
+ * usage: test_diff [trials] [name-filter] [--shard K/N] [--write-cap N]
  *        test_diff --replay FILE
  */
 #include <setjmp.h>
 #include <string.h>
 
 #include "harness.h"
+
+/* Eight full 64 KB banks: far above what any real routine writes. */
+#define TD_WRITE_CAP (8L << 16)
 
 static jmp_buf fatal_jmp;
 static char fatal_msg[256];
@@ -420,6 +428,7 @@ int main(int argc, char **argv)
 {
     bus_init(NULL);
     ct_fatal_hook = on_fatal;
+    sg_write_cap = TD_WRITE_CAP;
     if (argc >= 3 && !strcmp(argv[1], "--replay"))
         return replay(argv[2]);
     int trials = 2000, npos = 0;
@@ -431,6 +440,8 @@ int main(int argc, char **argv)
                 fprintf(stderr, "test_diff: bad --shard %s\n", argv[k]);
                 return 2;
             }
+        } else if (!strcmp(argv[k], "--write-cap") && k + 1 < argc) {
+            sg_write_cap = atol(argv[++k]);
         } else if (npos++ == 0) {
             trials = atoi(argv[k]);
         } else {

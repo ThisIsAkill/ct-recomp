@@ -6,10 +6,11 @@
 #include "harness.h"
 
 static jmp_buf fatal_jmp;
+static char fatal_msg[128];
 
 static void on_fatal(const char *msg)
 {
-    (void)msg;
+    snprintf(fatal_msg, sizeof fatal_msg, "%s", msg);
     longjmp(fatal_jmp, 1);
 }
 
@@ -67,6 +68,22 @@ int main(void)
     /* STA $01EE (at S: free space) / STA $01F5 (above entry S: not a frame) / RTS */
     static const uint8_t outside[] = {0x8D, 0xEE, 0x01, 0x8D, 0xF5, 0x01, 0x60};
     CHECK(guarded(outside, sizeof outside) == 0, "writes at S or above the entry S are not clobbers");
+
+    /* Write budget: an MVN of 4 KB with a cap of 100 WRAM writes stops at
+       the 101st write, whatever the length the routine asked for. */
+    static const uint8_t big_mvn[] = {
+        0xC2, 0x20, 0xA9, 0xFF, 0x0F, 0xA2, 0x00, 0x30, 0xA0, 0x00, 0x40,
+        0x54, 0x7E, 0x7E, 0xE2, 0x20, 0x60};
+    sg_write_cap = 100;
+    fatal_msg[0] = 0;
+    guarded(big_mvn, sizeof big_mvn);
+    CHECK(!strcmp(fatal_msg, "write budget exhausted after 100 WRAM writes"),
+          "write budget: '%s'", fatal_msg);
+    CHECK(sg_writes == 101, "stopped at write %ld", sg_writes);
+    sg_write_cap = 0;
+    fatal_msg[0] = 0;
+    guarded(big_mvn, sizeof big_mvn);
+    CHECK(!fatal_msg[0] && sg_writes == 0x1000, "no cap: all %ld writes", sg_writes);
 
     return th_report("stack_guard");
 }
