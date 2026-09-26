@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "harness.h"
+#include "hwlog.h"
 #include "ppu.h"
 #include "apu.h"
 #include "dma.h"
@@ -105,9 +106,30 @@ static void test_apu_ports(void)
           read8(0x2140), read8(0x2141));
 }
 
+/* $4210-$421F are read-only: writes are ignored (as on hardware) and
+ * noted once per register; reads are unaffected. Menu_InitPpu ($C2940D)
+ * zeroes $4216-$4219 this way. */
+static void test_readonly_writes(void)
+{
+    bus_reset();
+    write8(0x4202, 12);
+    write8(0x4203, 10);                  /* WRMPYB: product 120 in $4216 */
+    unsigned before = hw_note_count();
+    write8(0x4216, 0x00);
+    write8(0x004216, 0x00);
+    write8(0x4217, 0x00);
+    CHECK(read8(0x4216) == 120 && read8(0x4217) == 0, "product survives writes: %u",
+          read8(0x4216));
+    CHECK(hw_note_count() == before + 2, "one note per register: %u new",
+          hw_note_count() - before);
+    CHECK(strstr(hw_note_text(before), "$4216") != NULL, "note names the register: %s",
+          hw_note_text(before));
+}
+
 int main(void)
 {
     bus_init(NULL);
+    test_readonly_writes();
     test_ppu_registers();
     test_dma_to_vram();
     test_wram_port();

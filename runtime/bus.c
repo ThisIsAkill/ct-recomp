@@ -1,4 +1,5 @@
 #include "bus.h"
+#include "hwlog.h"
 #include "cpu.h"
 #include "snes_adapter.h"
 
@@ -58,6 +59,12 @@ uint8_t bus_open_bus(uint16_t reg)
 {
     (void)reg;
     return mdr;
+}
+
+void bus_readonly_write(uint16_t reg, uint8_t v)
+{
+    (void)v;
+    hw_note("write $%04X ignored: read-only register, hardware ignores it", reg);
 }
 
 void (*ct_wram_write_hook)(uint32_t off);
@@ -155,8 +162,11 @@ void bus_init(const char *path)
     memset(hw_wr, 0, sizeof hw_wr);
     for (uint16_t r = 0x4202; r <= 0x4206; r++)
         bus_hook(r, bus_open_bus, math_write);
-    for (uint16_t r = 0x4214; r <= 0x4217; r++)
-        bus_hook(r, math_read, NULL);
+    /* $4210-$421F are read-only: writes are ignored. The scheduler adds
+       the reads of $4210-$4212 and $4218-$421F; $4213 and $421x beyond
+       those stay fatal to read. */
+    for (uint16_t r = 0x4210; r <= 0x421F; r++)
+        bus_hook(r, r >= 0x4214 && r <= 0x4217 ? math_read : NULL, bus_readonly_write);
     bus_hook(0x2180, wram_port_read, wram_port_write);
     for (uint16_t r = 0x2181; r <= 0x2183; r++)
         bus_hook(r, NULL, wram_port_write);

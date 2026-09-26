@@ -33,7 +33,7 @@ target_include_directories(ct_snes_vendor PUBLIC third_party/snes third_party)
 
 # ---- runtime ----
 add_library(ct_runtime STATIC runtime/cpu.c runtime/bus.c runtime/hooks.c
-    runtime/snes_adapter.c runtime/png.c runtime/wav.c)
+    runtime/snes_adapter.c runtime/png.c runtime/wav.c runtime/hwlog.c)
 target_include_directories(ct_runtime PUBLIC runtime)
 target_link_libraries(ct_runtime PUBLIC ct_snes_vendor)
 target_compile_options(ct_runtime PRIVATE ${CT_WARN})
@@ -161,6 +161,14 @@ add_test(NAME sched COMMAND test_sched)
 # audio produced.
 add_test(NAME boot_interp COMMAND ct_boot --frames 1500 --min-nmis 1394 --require-render
     --require-audio)
+
+# Press Start on the title (frames 1500-1505): a new game opens the Battle
+# Mode menu through Menu_InitPpu ($C2940D), which writes the read-only
+# $4216-$4219. Found in ct_sdl, where the keyboard drives pad 1; the
+# no-input boot never runs it.
+add_test(NAME boot_menu COMMAND ct_boot --frames 1700 --input 1500-1505:start
+    --expect-pc C2940D --require-render)
+set_tests_properties(boot_menu PROPERTIES LABELS rom)
 
 if(SDL2_FOUND)
     add_executable(test_input test/test_input.c)

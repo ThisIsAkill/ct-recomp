@@ -165,11 +165,11 @@ void sched_init(CPU *c)
     bus_hook(0x4201, bus_open_bus, wrio_write);
     for (uint16_t r = 0x4207; r <= 0x420A; r++)
         bus_hook(r, bus_open_bus, htime_vtime_write);
-    bus_hook(0x4210, rdnmi_read, NULL);
-    bus_hook(0x4211, timeup_read, NULL);
-    bus_hook(0x4212, hvbjoy_read, NULL);
+    bus_hook(0x4210, rdnmi_read, bus_readonly_write);
+    bus_hook(0x4211, timeup_read, bus_readonly_write);
+    bus_hook(0x4212, hvbjoy_read, bus_readonly_write);
     for (uint16_t r = 0x4218; r <= 0x421F; r++)
-        bus_hook(r, joy_read, NULL);
+        bus_hook(r, joy_read, bus_readonly_write);
     bus_hook(0x2137, slhv_read, NULL);
     bus_hook(0x213C, ophct_read, NULL);
     bus_hook(0x213D, opvct_read, NULL);

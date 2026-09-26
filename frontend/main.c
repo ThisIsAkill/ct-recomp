@@ -1,13 +1,14 @@
 /* SDL2 frontend: Chrono Trigger from reset in the system-mode interpreter
  * under the frame scheduler, in a window.
  *
- * usage: ct_sdl [--scale N] [--frames N] [--dump DIR] [--fast] [--require-render]
+ * usage: ct_sdl [--scale N] [--frames N] [--dump DIR] [--needed-hw FILE] [--fast]
+ *               [--require-render]
  *
  * 256x224, integer scaled (--scale, default 3); paced to 60.0988 Hz
  * (NTSC) unless --fast; 48 kHz stereo audio; keyboard (arrows, Z=B X=A
  * A=Y S=X Q=L W=R, Enter=Start, Right Shift=Select) and the first game
- * controller on pad 1. Esc or closing the window quits. --frames and
- * --dump work as in ct_boot. */
+ * controller on pad 1. Esc or closing the window quits. --frames, --dump
+ * and --needed-hw work as in ct_boot. */
 #include <setjmp.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,6 +17,7 @@
 #include <SDL.h>
 
 #include "bus.h"
+#include "hwlog.h"
 #include "input.h"
 #include "interp.h"
 #include "png.h"
@@ -56,7 +58,7 @@ int main(int argc, char **argv)
 {
     static long frames = -1;           /* static: survive the longjmp */
     static int scale = 3, fast, require_render;
-    static const char *dump;
+    static const char *dump, *needed;
     for (int k = 1; k < argc; k++) {
         if (!strcmp(argv[k], "--scale") && k + 1 < argc)
             scale = atoi(argv[++k]);
@@ -64,13 +66,15 @@ int main(int argc, char **argv)
             frames = atol(argv[++k]);
         else if (!strcmp(argv[k], "--dump") && k + 1 < argc)
             dump = argv[++k];
+        else if (!strcmp(argv[k], "--needed-hw") && k + 1 < argc)
+            needed = argv[++k];
         else if (!strcmp(argv[k], "--fast"))
             fast = 1;
         else if (!strcmp(argv[k], "--require-render"))
             require_render = 1;
         else {
-            fprintf(stderr, "usage: ct_sdl [--scale N] [--frames N] [--dump DIR] [--fast] "
-                            "[--require-render]\n");
+            fprintf(stderr, "usage: ct_sdl [--scale N] [--frames N] [--dump DIR] "
+                            "[--needed-hw FILE] [--fast] [--require-render]\n");
             return 2;
         }
     }
@@ -115,8 +119,12 @@ int main(int argc, char **argv)
     sched_init(&cpu);
     ct_fatal_hook = on_fatal;
     if (setjmp(fatal_jmp)) {
-        fprintf(stderr, "ct_sdl: stopped in frame %ld, line %d, PC $%02X%04X: %s\n",
-                sched_frame_count(), sched_line(), cpu.PB, cpu.PC, fatal_msg);
+        static char stop[512];
+        snprintf(stop, sizeof stop, "frame %ld, line %d, PC $%02X%04X: %s", sched_frame_count(),
+                 sched_line(), cpu.PB, cpu.PC, fatal_msg);
+        fprintf(stderr, "ct_sdl: stopped in %s\n", stop);
+        if (needed && hw_needed_write(needed, "ct_sdl", stop))
+            fprintf(stderr, "ct_sdl: cannot write %s\n", needed);
         SDL_Quit();
         return 1;
     }
@@ -174,6 +182,10 @@ int main(int argc, char **argv)
         rendered = fb[k] | fb[k + 1] | fb[k + 2];
     printf("ct_sdl: %ld frames, %ld NMIs, PC $%02X%04X\n", sched_frame_count(), sched_nmi_count(),
            cpu.PB, cpu.PC);
+    for (unsigned k = 0; k < hw_note_count(); k++)
+        printf("ct_sdl: stubbed: %s\n", hw_note_text(k));
+    if (needed && hw_needed_write(needed, "ct_sdl", NULL))
+        fprintf(stderr, "ct_sdl: cannot write %s\n", needed);
     if (pad)
         SDL_GameControllerClose(pad);
     if (audio)

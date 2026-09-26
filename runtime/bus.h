@@ -36,6 +36,10 @@ extern void (*ct_wram_write_hook)(uint32_t off);
    bus value differs from the interpreter's here. */
 uint8_t bus_open_bus(uint16_t reg);
 
+/* Write handler for read-only registers ($4210-$421F): ignored, as on
+   hardware; noted once per register (hwlog.h). */
+void bus_readonly_write(uint16_t reg, uint8_t v);
+
 /* $420D MEMSEL bit 0: FastROM enabled for banks $80-$FF. */
 int bus_fastrom(void);
 
