@@ -122,6 +122,11 @@ target_link_libraries(test_interp_modes ct_gen ct_interp)
 target_compile_options(test_interp_modes PRIVATE ${CT_WARN})
 add_test(NAME interp_modes COMMAND test_interp_modes)
 
+add_executable(test_stack_guard test/test_stack_guard.c)
+target_link_libraries(test_stack_guard ct_gen ct_interp)
+target_compile_options(test_stack_guard PRIVATE ${CT_WARN})
+add_test(NAME stack_guard COMMAND test_stack_guard)
+
 add_executable(test_diff test/test_diff.c)
 target_link_libraries(test_diff ct_gen ct_interp)
 target_compile_options(test_diff PRIVATE ${CT_WARN})

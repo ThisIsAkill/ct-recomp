@@ -5,7 +5,10 @@
  * when unknown), random A/X/Y/S/flags (D=0), random WRAM and SRAM.
  * Compared after return: every CPU field, all WRAM, SRAM, and the math
  * unit result registers. A fatal error must occur in both or neither, with
- * the same message.
+ * the same message. A trial where either side writes into its own live
+ * stack frames other than by pushing (stack_guard in harness.h) is not
+ * compared: random entry state pointed a store, MVN, or the WRAM port at
+ * saved return addresses/registers. Counted as "stack clobber".
  *
  * usage: test_diff [trials] [name-filter]
  *        test_diff --replay FILE
@@ -32,6 +35,7 @@ typedef struct {
     int fatal;
     char msg[256];
     uint8_t alu[4];
+    long clobber;   /* writes into live stack frames (stack_guard) */
 } Result;
 
 static void alu_setup(uint32_t r)
@@ -53,7 +57,9 @@ static void run(const ct_func *f, const CPU *in, uint32_t alu, int interp, Resul
     r->cpu = *in;
     r->fatal = 0;
     push16(&r->cpu, 0x1233);
+    stack_guard_begin(&r->cpu, in->S);
     if (setjmp(fatal_jmp)) {
+        r->clobber = stack_guard_end();
         r->fatal = 1;
         snprintf(r->msg, sizeof r->msg, "%s", fatal_msg);
         return;
@@ -62,6 +68,7 @@ static void run(const ct_func *f, const CPU *in, uint32_t alu, int interp, Resul
         interp_call(&r->cpu, f->addr);
     else
         f->fn(&r->cpu);
+    r->clobber = stack_guard_end();
     for (int k = 0; k < 4; k++)
         r->alu[k] = read8(0x004214 + k);
 }
@@ -140,7 +147,7 @@ static void fill(uint8_t *p, unsigned n)
 static void diff_func(const ct_func *f, int trials)
 {
     static const char tag[] = "diff";
-    long fatal_both = 0, faulted_checked = 0, timeouts = 0, fails0 = th_fails;
+    long fatal_both = 0, faulted_checked = 0, timeouts = 0, clobbers = 0, fails0 = th_fails;
     Result ra, rb;
     int t;
     for (t = 0; t < trials && th_fails - fails0 < 3; t++) {
@@ -150,17 +157,6 @@ static void diff_func(const ct_func *f, int trials)
         }
         uint16_t dp = f->dp >= 0 ? (uint16_t)f->dp : 0;
         fill(&w0[dp], 0x100);
-
-        if (!strcmp(f->name, "Field_CopyMapRectLayers") ||
-            !strcmp(f->name, "Field_CopyMapRectMVN")) {
-            /* Unclamped, these wrap into an MVN dest that can hit the stack page. */
-            w0[dp + 0x3E] = (uint8_t)(rnd32() % 32);
-            w0[dp + 0x3F] = 0;
-            w0[dp + 0x40] = (uint8_t)(w0[dp + 0x3E] + rnd32() % 32);
-            w0[dp + 0x41] = 0;
-            w0[dp + 0x42] = (uint8_t)(rnd32() % 32);
-            w0[dp + 0x43] = 0;
-        }
 
         CPU in;
         uint32_t r = rnd32();
@@ -194,6 +190,10 @@ static void diff_func(const ct_func *f, int trials)
         ct_budget = 0;
         run(f, &in, alu, 1, &rb);
 
+        if (ra.clobber || rb.clobber) {
+            clobbers++;   /* fuzz artifact: live stack frames overwritten */
+            continue;
+        }
         if (ra.fatal && rb.fatal && strstr(ra.msg, "budget exhausted") &&
             strstr(rb.msg, "budget exhausted")) {
             fatal_both++;   /* both ran away; the two count different units */
@@ -264,8 +264,8 @@ static void diff_func(const ct_func *f, int trials)
         CHECK(!memcmp(ra.alu, rb.alu, 4), "%s %s: math registers differ", tag, f->name);
     }
     printf("  %-30s $%06X m%dx%d  %d trials, %ld fatal in both (%ld compared at the fault), "
-           "%ld timed out\n",
-           f->name, f->addr, f->m, f->x, t, fatal_both, faulted_checked, timeouts);
+           "%ld timed out, %ld stack clobber\n",
+           f->name, f->addr, f->m, f->x, t, fatal_both, faulted_checked, timeouts, clobbers);
 }
 
 /* --replay: instruction-level trace diff of one saved trial, generated vs
@@ -347,8 +347,10 @@ static int replay(const char *path)
     memcpy(trace_b, trace_buf, nb * sizeof *trace_b);
     ct_trace_hook = NULL;
 
-    printf("gen: %ld steps, fatal=%d %s\n", na, ra.fatal, ra.fatal ? ra.msg : "-");
-    printf("interp: %ld steps, fatal=%d %s\n", nb, rb.fatal, rb.fatal ? rb.msg : "-");
+    printf("gen: %ld steps, fatal=%d %s, stack clobber writes %ld\n", na, ra.fatal,
+           ra.fatal ? ra.msg : "-", ra.clobber);
+    printf("interp: %ld steps, fatal=%d %s, stack clobber writes %ld\n", nb, rb.fatal,
+           rb.fatal ? rb.msg : "-", rb.clobber);
 
     /* End state, as the sweep compares it (PC/PB only at returns). */
     int end_ok = 1;

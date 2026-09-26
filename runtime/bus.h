@@ -25,6 +25,10 @@ typedef uint8_t (*hw_read_fn)(uint16_t reg);
 typedef void    (*hw_write_fn)(uint16_t reg, uint8_t v);
 void bus_hook(uint16_t reg, hw_read_fn rd, hw_write_fn wr);
 
+/* Test use: if set, called with the WRAM offset ($00000-$1FFFF) of every
+   WRAM byte written, whatever the path (CPU store, WRAM data port, DMA). */
+extern void (*ct_wram_write_hook)(uint32_t off);
+
 uint8_t *bus_wram(void);
 uint8_t *bus_sram(void);
 const uint8_t *bus_rom(void);

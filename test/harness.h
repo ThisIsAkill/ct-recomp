@@ -53,6 +53,39 @@ static inline void th_args(int argc, char **argv)
             th_interp = 1;
 }
 
+/* Stack-clobber guard (diff_all). A trial's live stack frames are the
+   bytes in (S, top]: everything the routine and its callees have pushed
+   and not yet pulled, up to the return address the harness pushed at top.
+   Pushes and JSR/JSL write at S and never land there. Any other write into
+   that range (a store, MVN, the WRAM data port, DMA) clobbers the saved
+   return addresses and registers the routine will pull back; with fuzzed
+   state that is a trial artifact, not a result. Counts the clobbering
+   writes. The routine must not use stack-relative stores (none of the
+   recompiled set does). */
+static const CPU *sg_cpu;
+static uint16_t sg_top;
+static long sg_hits;
+
+static inline void sg_hook(uint32_t off)
+{
+    if (off < 0x2000 && off > sg_cpu->S && off <= sg_top)
+        sg_hits++;
+}
+
+static inline void stack_guard_begin(const CPU *cpu, uint16_t top)
+{
+    sg_cpu = cpu;
+    sg_top = top;
+    sg_hits = 0;
+    ct_wram_write_hook = sg_hook;
+}
+
+static inline long stack_guard_end(void)
+{
+    ct_wram_write_hook = NULL;
+    return sg_hits;
+}
+
 typedef void (*th_fn)(CPU *);
 
 static inline const ct_func *th_lookup(th_fn fn)

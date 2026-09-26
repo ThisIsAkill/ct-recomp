@@ -50,6 +50,8 @@ static void math_write(uint16_t reg, uint8_t v)
 
 static uint32_t wram_port_addr;
 
+void (*ct_wram_write_hook)(uint32_t off);
+
 static uint8_t wram_port_read(uint16_t reg)
 {
     (void)reg;
@@ -62,6 +64,8 @@ static void wram_port_write(uint16_t reg, uint8_t v)
 {
     switch (reg) {
     case 0x2180:
+        if (ct_wram_write_hook)
+            ct_wram_write_hook(wram_port_addr & (CT_WRAM_SIZE - 1));
         wram[wram_port_addr & (CT_WRAM_SIZE - 1)] = v;
         wram_port_addr = (wram_port_addr + 1) & 0x1FFFFu;
         break;
@@ -201,7 +205,11 @@ void write8(uint32_t a, uint8_t v)
     uint32_t off;
     a &= 0xFFFFFF;
     switch (decode_addr(a, &off)) {
-    case R_WRAM: wram[off] = v; return;
+    case R_WRAM:
+        if (ct_wram_write_hook)
+            ct_wram_write_hook(off);
+        wram[off] = v;
+        return;
     case R_SRAM: sram[off] = v; return;
     case R_ROM:
         ct_fatal("write8 $%06X: write to ROM", a);
