@@ -148,5 +148,28 @@ int main(void)
         unsigned want = ((mode ? 400u : 0u) + 64 + 32 + 32 + 40) / 4;
         CHECK(h == want, "mode %d: latched H %u, want %u", mode, h, want);
     }
+
+    /* Auto-joypad (#22): sampled at VBlank start when NMITIMEN bit 0 is
+       set; nothing before that. */
+    bus_reset();
+    static const uint8_t idle[] = {0xCB, 0x80, 0xFD};
+    put(0x2300, idle, sizeof idle);
+    interp_reset(&c);
+    c.e = 0;
+    c.PB = 0x7E;
+    c.PC = 0x2300;
+    c.DB = 0x00;
+    c.S = 0x01FF;
+    sched_init(&c);
+    sched_set_joypad(0, 0x8010);   /* B + R */
+    sched_set_joypad(1, 0x0800);   /* Up on port 2 */
+    sched_run_frame();
+    CHECK(read8(0x4218) == 0 && read8(0x4219) == 0, "no auto-read while disabled");
+    write8(0x4200, 0x01);
+    sched_run_frame();
+    CHECK(read8(0x4218) == 0x10 && read8(0x4219) == 0x80, "JOY1: $%02X%02X", read8(0x4219),
+          read8(0x4218));
+    CHECK(read8(0x421A) == 0x00 && read8(0x421B) == 0x08, "JOY2: $%02X%02X", read8(0x421B),
+          read8(0x421A));
     return th_report("sched");
 }

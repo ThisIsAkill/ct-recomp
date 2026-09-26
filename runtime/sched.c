@@ -27,6 +27,8 @@ static uint8_t timeup;          /* $4211 bit 7: IRQ flag, the IRQ line */
 static uint16_t lat_h, lat_v;   /* latched H/V counters */
 static int lat_flag;            /* $213F bit 6 */
 static int ophct_hi, opvct_hi;  /* $213C/$213D read flip-flops */
+static uint16_t pad[4];         /* current buttons per port (sched_set_joypad) */
+static uint16_t joy[4];         /* $4218-$421F: last auto-read result */
 
 static void apu_sync(void);
 
@@ -103,6 +105,20 @@ static void htime_vtime_write(uint16_t reg, uint8_t v)
         *t = (uint16_t)((*t & 0xFF) | (v & 1) << 8); /* $4208/$420A: bit 8 */
 }
 
+/* $4218-$421F JOY1L..JOY4H: 16-bit auto-read results, low byte first
+   (L: A X L R 0 0 0 0, H: B Y Select Start Up Down Left Right). */
+static uint8_t joy_read(uint16_t reg)
+{
+    uint16_t v = joy[(reg - 0x4218) >> 1];
+    return (uint8_t)(reg & 1 ? v >> 8 : v);
+}
+
+void sched_set_joypad(int port, uint16_t buttons)
+{
+    if (port >= 0 && port < 4)
+        pad[port] = buttons;
+}
+
 static uint8_t rdnmi_read(uint16_t reg)
 {
     (void)reg;
@@ -141,6 +157,8 @@ void sched_init(CPU *c)
     timeup = 0;
     lat_h = lat_v = 0;
     lat_flag = ophct_hi = opvct_hi = 0;
+    memset(pad, 0, sizeof pad);
+    memset(joy, 0, sizeof joy);
     memset(fb, 0, sizeof fb);
     bus_hook(0x4200, NULL, nmitimen_write);
     bus_hook(0x4201, NULL, wrio_write);
@@ -149,6 +167,8 @@ void sched_init(CPU *c)
     bus_hook(0x4210, rdnmi_read, NULL);
     bus_hook(0x4211, timeup_read, NULL);
     bus_hook(0x4212, hvbjoy_read, NULL);
+    for (uint16_t r = 0x4218; r <= 0x421F; r++)
+        bus_hook(r, joy_read, NULL);
     bus_hook(0x2137, slhv_read, NULL);
     bus_hook(0x213C, ophct_read, NULL);
     bus_hook(0x213D, opvct_read, NULL);
@@ -215,6 +235,8 @@ static void start_line(void)
         in_vblank = 1;
         rdnmi = 0x80;
         autojoy_busy = nmitimen & 1;
+        if (nmitimen & 1)
+            memcpy(joy, pad, sizeof joy);   /* auto-read (results readable at once) */
         if (nmitimen & 0x80)
             nmi_pending = 1;
     }
