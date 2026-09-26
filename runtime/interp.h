@@ -1,5 +1,16 @@
-/* Reference 65816 interpreter (native mode, binary arithmetic).
-   Test oracle for generated code: shares only the bus with the runtime. */
+/* 65816 interpreter (native mode, binary arithmetic), two modes:
+
+   strict  Test oracle for generated code (interp_call). Enforces the same
+           discipline generated code relies on: every JSR/JSL returns to its
+           call site + 3/+4 (shadow call stack), every (abs,X) jump table is
+           declared in funcs.toml, extern call boundaries run their runtime
+           hook. Emulation mode is rejected. Shares only the bus with the
+           runtime.
+   system  Plain 65816 semantics for running the game from reset
+           (interp_step). The stack is ordinary memory, jump tables need no
+           declaration, externs are not consulted: the ROM's own code runs.
+
+   Both modes fail loudly on anything unimplemented. */
 #ifndef CT_INTERP_H
 #define CT_INTERP_H
 
@@ -25,9 +36,12 @@
    see runtime/ops.h): same role, other side. */
 #define CT_GEN_BACKWARD_CAP 5000000
 
-/* Run from entry (24-bit) with the return address already pushed; stop at
-   the RTS/RTL that pulls S above its entry value. Fatal on anything
+/* Strict: run from entry (24-bit) with the return address already pushed;
+   stop at the RTS/RTL that pulls S above its entry value. Fatal on anything
    unsupported. */
 void interp_call(CPU *c, uint32_t entry);
+
+/* System: execute one instruction at PB:PC. */
+void interp_step(CPU *c);
 
 #endif

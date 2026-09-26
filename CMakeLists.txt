@@ -69,12 +69,13 @@ target_compile_options(ct_gen PRIVATE ${CT_WARN} -Wno-unused-label)
 # ct_gen has no non-test consumer yet (pre-Title Screen); revisit when one exists.
 target_compile_definitions(ct_gen PRIVATE CT_TEST_BUILD)
 
-# ---- tests ----
-
-add_library(ct_interp STATIC test/interp.c)
-target_include_directories(ct_interp PUBLIC test)
+# ---- interpreter: strict test oracle, system mode from reset (interp.h) ----
+# Reads ct_gen's extern and jump-table tables, so it sits on top of ct_gen.
+add_library(ct_interp STATIC runtime/interp.c)
 target_link_libraries(ct_interp PUBLIC ct_gen)
 target_compile_options(ct_interp PRIVATE ${CT_WARN})
+
+# ---- tests ----
 
 add_executable(test_runtime test/test_runtime.c)
 target_link_libraries(test_runtime ct_gen ct_interp)
@@ -115,6 +116,11 @@ add_executable(test_snes_bus test/test_snes_bus.c)
 target_link_libraries(test_snes_bus ct_gen ct_interp)
 target_compile_options(test_snes_bus PRIVATE ${CT_WARN})
 add_test(NAME snes_bus COMMAND test_snes_bus)
+
+add_executable(test_interp_modes test/test_interp_modes.c)
+target_link_libraries(test_interp_modes ct_gen ct_interp)
+target_compile_options(test_interp_modes PRIVATE ${CT_WARN})
+add_test(NAME interp_modes COMMAND test_interp_modes)
 
 add_executable(test_diff test/test_diff.c)
 target_link_libraries(test_diff ct_gen ct_interp)

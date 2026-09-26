@@ -3303,7 +3303,7 @@ module = "bankc0"
 # destructive re-sync bug). Previously KNOWN_BAD/unresolved for a diff_all
 # "step budget exhausted" report; that was a test harness budget mismatch
 # (generated code's ct_budget was 100000, the interpreter's was 3000000),
-# not an emitter bug. Fixed by sharing CT_INTERP_BUDGET (test/interp.h);
+# not an emitter bug. Fixed by sharing CT_INTERP_BUDGET (runtime/interp.h);
 # diff_all now passes 2000/2000 trials.
 [[func]]
 name = "Map_BuildTilePropGrid"

@@ -124,7 +124,7 @@ KNOWN_BAD: dict[int, str] = {
                "the same bug as Map_BuildTilePropGrid: that one was a test "
                "harness step-budget mismatch (generated code's ct_budget "
                "and the interpreter's step cap now share CT_INTERP_BUDGET, "
-               "see test/interp.h), not an emitter bug -- fixed and pruned "
+               "see runtime/interp.h), not an emitter bug -- fixed and pruned "
                "from this list. This one needs the PHB/PLB and JSR "
                "push16/cpu_check_return bookkeeping across the "
                "$7000/$7040 (tile-props) call sites compared by hand "

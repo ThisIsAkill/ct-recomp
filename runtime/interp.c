@@ -57,8 +57,13 @@ static uint32_t rd_bank0_24(uint16_t a)
     return rd_bank0_16(a) | (uint32_t)read8((uint16_t)(a + 2)) << 16;
 }
 
-/* Shadow call stack: generated code requires every JSR'd callee to return
-   to its call site + 3, so the interpreter enforces the same. */
+/* Mode: 0 strict (interp_call), 1 system (interp_step). Only the strict
+   checks below look at it; everything else is shared. */
+static int sys;
+
+/* Shadow call stack (strict only): generated code requires every JSR'd
+   callee to return to its call site + 3, so the interpreter enforces the
+   same. */
 static struct {
     uint32_t site;
     uint32_t ret;   /* PB:PC expected after return */
@@ -66,9 +71,12 @@ static struct {
 } shadow[256];
 static int depth;
 
-/* Extern hook for a call target, or NULL. */
+/* Extern hook for a call target, or NULL. System mode runs the ROM's own
+   code, so it never takes one. */
 static void (*extern_hook(uint32_t addr, int kind))(CPU *)
 {
+    if (sys)
+        return 0;
     for (unsigned k = 0; k < ct_extern_count; k++)
         if (ct_externs[k].addr == addr) {
             if (ct_externs[k].kind != kind)
@@ -78,9 +86,12 @@ static void (*extern_hook(uint32_t addr, int kind))(CPU *)
     return 0;
 }
 
-/* Jump-table bounds from funcs.toml; same failure as generated code. */
+/* Jump-table bounds from funcs.toml; same failure as generated code.
+   Strict only. */
 static void table_index(const CPU *c, uint32_t at)
 {
+    if (sys)
+        return;
     for (unsigned k = 0; k < ct_jumptable_count; k++)
         if (ct_jumptables[k].site == at) {
             if ((c->X & 1) || c->X >= 2u * ct_jumptables[k].count)
@@ -554,11 +565,13 @@ static void step(CPU *c, uint32_t at, uint8_t op)
             hook(c);
             break;
         }
-        if (depth == 256)
-            ct_fatal("interp $%06X: call depth", at);
-        shadow[depth].site = at;
-        shadow[depth].is_long = 0;
-        shadow[depth++].ret = (uint32_t)c->PB << 16 | c->PC;
+        if (!sys) {
+            if (depth == 256)
+                ct_fatal("interp $%06X: call depth", at);
+            shadow[depth].site = at;
+            shadow[depth].is_long = 0;
+            shadow[depth++].ret = (uint32_t)c->PB << 16 | c->PC;
+        }
         c->PC = t;
         break;
     }
@@ -566,11 +579,13 @@ static void step(CPU *c, uint32_t at, uint8_t op)
         uint16_t p = (uint16_t)(fetch16(c) + c->X);
         pushw(c, (uint16_t)(c->PC - 1));
         table_index(c, at);
-        if (depth == 256)
-            ct_fatal("interp $%06X: call depth", at);
-        shadow[depth].site = at;
-        shadow[depth].is_long = 0;
-        shadow[depth++].ret = (uint32_t)c->PB << 16 | c->PC;
+        if (!sys) {
+            if (depth == 256)
+                ct_fatal("interp $%06X: call depth", at);
+            shadow[depth].site = at;
+            shadow[depth].is_long = 0;
+            shadow[depth++].ret = (uint32_t)c->PB << 16 | c->PC;
+        }
         c->PC = (uint16_t)(read8((uint32_t)c->PB << 16 | p) |
                            read8((uint32_t)c->PB << 16 | (uint16_t)(p + 1)) << 8);
         break;
@@ -585,18 +600,20 @@ static void step(CPU *c, uint32_t at, uint8_t op)
             hook(c);
             break;
         }
-        if (depth == 256)
-            ct_fatal("interp $%06X: call depth", at);
-        shadow[depth].site = at;
-        shadow[depth].is_long = 1;
-        shadow[depth++].ret = (uint32_t)c->PB << 16 | c->PC;
+        if (!sys) {
+            if (depth == 256)
+                ct_fatal("interp $%06X: call depth", at);
+            shadow[depth].site = at;
+            shadow[depth].is_long = 1;
+            shadow[depth++].ret = (uint32_t)c->PB << 16 | c->PC;
+        }
         c->PB = (uint8_t)(t >> 16);
         c->PC = (uint16_t)t;
         break;
     }
     case 0x60:
         c->PC = (uint16_t)(pullw(c) + 1);
-        if (depth > 0) {
+        if (!sys && depth > 0) {
             depth--;
             if (shadow[depth].is_long)
                 ct_fatal("interp $%06X: RTS returns from a JSL", at);
@@ -608,7 +625,7 @@ static void step(CPU *c, uint32_t at, uint8_t op)
     case 0x6B:
         c->PC = (uint16_t)(pullw(c) + 1);
         c->PB = pull(c);
-        if (depth > 0) {
+        if (!sys && depth > 0) {
             depth--;
             if (!shadow[depth].is_long)
                 ct_fatal("interp $%06X: RTL returns from a JSR", at);
@@ -636,6 +653,7 @@ static void step(CPU *c, uint32_t at, uint8_t op)
 
 void interp_call(CPU *c, uint32_t entry)
 {
+    sys = 0;
     if (c->e)
         ct_fatal("interp: emulation mode not supported");
     uint16_t s0 = c->S;
@@ -655,4 +673,17 @@ void interp_call(CPU *c, uint32_t entry)
         if ((op == 0x60 || op == 0x6B) && c->S > s0)
             return;
     }
+}
+
+void interp_step(CPU *c)
+{
+    sys = 1;
+    depth = 0;
+    interp_budget = 0;
+    if (c->e)
+        ct_fatal("interp: emulation mode not supported yet in system mode");
+    uint32_t at = (uint32_t)c->PB << 16 | c->PC;
+    if (ct_trace_hook)
+        ct_trace_hook(c, at);
+    step(c, at, fetch8(c));
 }
