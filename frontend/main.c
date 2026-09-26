@@ -2,14 +2,19 @@
  * under the frame scheduler, in a window.
  *
  * usage: ct_sdl [--scale N] [--frames N] [--dump DIR] [--needed-hw FILE] [--fast]
- *               [--require-render]
+ *               [--require-render] [--log-input]
  *
  * 256x224, integer scaled (--scale, default 3); paced to 60.0988 Hz
  * (NTSC) unless --fast; 48 kHz stereo audio; keyboard (arrows, Z=B X=A
  * A=Y S=X Q=L W=R, Enter=Start, Right Shift=Select) and the first game
  * controller on pad 1. Esc or closing the window quits. --frames, --dump
- * and --needed-hw work as in ct_boot. */
+ * and --needed-hw work as in ct_boot.
+ *
+ * Every exit prints its reason ("ct_sdl: exit: ..."); startup prints each
+ * joystick and the button mapping. --log-input prints every key and
+ * controller button event. */
 #include <setjmp.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,6 +41,45 @@ static void on_fatal(const char *msg)
     longjmp(fatal_jmp, 1);
 }
 
+/* Why the process is ending; printed by an atexit handler so no exit path
+   goes unexplained. */
+static char exit_reason[256] =
+    "exit() before the frame loop: see the message above (a ct: line is a fatal error)";
+static long exit_frame = -1;
+
+static void set_exit_reason(const char *fmt, ...) CT_PRINTF(1, 2);
+static void set_exit_reason(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(exit_reason, sizeof exit_reason, fmt, ap);
+    va_end(ap);
+}
+
+static void report_exit(void)
+{
+    fprintf(stderr, "ct_sdl: exit: %s (frame %ld)\n", exit_reason, exit_frame);
+}
+
+static void print_controllers(void)
+{
+    int n = SDL_NumJoysticks();
+    fprintf(stderr, "ct_sdl: %d joystick(s)\n", n);
+    for (int k = 0; k < n; k++) {
+        const char *name = SDL_JoystickNameForIndex(k);
+        fprintf(stderr, "ct_sdl:   #%d \"%s\" %s\n", k, name ? name : "?",
+                SDL_IsGameController(k) ? "(game controller)" : "(joystick only: not used)");
+        if (SDL_IsGameController(k)) {
+            char *m = SDL_GameControllerMappingForDeviceIndex(k);
+            fprintf(stderr, "ct_sdl:     SDL mapping: %s\n", m ? m : "?");
+            SDL_free(m);
+        }
+    }
+    fprintf(stderr, "ct_sdl: pad 1: keyboard arrows, Z=B X=A A=Y S=X Q=L W=R, Enter=Start, "
+                    "Right Shift=Select; controller south=B east=A west=Y north=X, "
+                    "shoulders=L/R, Start, Back=Select, d-pad/left stick. Esc quits.\n");
+}
+
 static int pad_button(void *ctx, SDL_GameControllerButton b)
 {
     return SDL_GameControllerGetButton(ctx, b);
@@ -57,7 +101,7 @@ static SDL_GameController *open_controller(void)
 int main(int argc, char **argv)
 {
     static long frames = -1;           /* static: survive the longjmp */
-    static int scale = 3, fast, require_render;
+    static int scale = 3, fast, require_render, log_input;
     static const char *dump, *needed;
     for (int k = 1; k < argc; k++) {
         if (!strcmp(argv[k], "--scale") && k + 1 < argc)
@@ -72,17 +116,21 @@ int main(int argc, char **argv)
             fast = 1;
         else if (!strcmp(argv[k], "--require-render"))
             require_render = 1;
+        else if (!strcmp(argv[k], "--log-input"))
+            log_input = 1;
         else {
             fprintf(stderr, "usage: ct_sdl [--scale N] [--frames N] [--dump DIR] "
-                            "[--needed-hw FILE] [--fast] [--require-render]\n");
+                            "[--needed-hw FILE] [--fast] [--require-render] [--log-input]\n");
             return 2;
         }
     }
     if (scale < 1)
         scale = 1;
+    atexit(report_exit);
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER)) {
         fprintf(stderr, "ct_sdl: SDL_Init: %s\n", SDL_GetError());
+        set_exit_reason("SDL_Init failed");
         return 1;
     }
     SDL_Window *win = SDL_CreateWindow("Chrono Trigger", SDL_WINDOWPOS_CENTERED,
@@ -96,6 +144,7 @@ int main(int argc, char **argv)
                                                SCHED_HEIGHT) : NULL;
     if (!tex) {
         fprintf(stderr, "ct_sdl: window: %s\n", SDL_GetError());
+        set_exit_reason("window or renderer creation failed");
         return 1;
     }
     SDL_RenderSetLogicalSize(ren, SCHED_WIDTH, SCHED_HEIGHT);
@@ -111,7 +160,10 @@ int main(int argc, char **argv)
         fprintf(stderr, "ct_sdl: no audio: %s\n", SDL_GetError());
     else
         SDL_PauseAudioDevice(audio, 0);
+    print_controllers();
     SDL_GameController *pad = open_controller();
+    if (pad)
+        fprintf(stderr, "ct_sdl: using \"%s\" on pad 1\n", SDL_GameControllerName(pad));
 
     static CPU cpu;
     bus_init(NULL);
@@ -123,6 +175,7 @@ int main(int argc, char **argv)
         snprintf(stop, sizeof stop, "frame %ld, line %d, PC $%02X%04X: %s", sched_frame_count(),
                  sched_line(), cpu.PB, cpu.PC, fatal_msg);
         fprintf(stderr, "ct_sdl: stopped in %s\n", stop);
+        set_exit_reason("fatal error: %s", stop);
         if (needed && hw_needed_write(needed, "ct_sdl", stop))
             fprintf(stderr, "ct_sdl: cannot write %s\n", needed);
         SDL_Quit();
@@ -132,12 +185,27 @@ int main(int argc, char **argv)
     uint64_t freq = SDL_GetPerformanceFrequency(), next = SDL_GetPerformanceCounter();
     int running = 1;
     for (long f = 0; running && (frames < 0 || f < frames); f++) {
+        exit_frame = f;
         SDL_Event ev;
         while (SDL_PollEvent(&ev)) {
-            if (ev.type == SDL_QUIT ||
-                (ev.type == SDL_KEYDOWN && ev.key.keysym.scancode == SDL_SCANCODE_ESCAPE))
+            if (log_input && (ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP) && !ev.key.repeat)
+                fprintf(stderr, "ct_sdl: frame %ld key %s %s (scancode %d)\n", f,
+                        SDL_GetScancodeName(ev.key.keysym.scancode),
+                        ev.type == SDL_KEYDOWN ? "down" : "up", ev.key.keysym.scancode);
+            if (log_input && (ev.type == SDL_CONTROLLERBUTTONDOWN || ev.type == SDL_CONTROLLERBUTTONUP))
+                fprintf(stderr, "ct_sdl: frame %ld controller button %s %s\n", f,
+                        SDL_GameControllerGetStringForButton(ev.cbutton.button),
+                        ev.type == SDL_CONTROLLERBUTTONDOWN ? "down" : "up");
+            if (ev.type == SDL_QUIT) {
+                set_exit_reason("SDL_QUIT event (window closed, or quit requested by the "
+                                "desktop or another program)");
                 running = 0;
-            else if (ev.type == SDL_CONTROLLERDEVICEADDED && !pad)
+            } else if (ev.type == SDL_KEYDOWN && ev.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
+                set_exit_reason("Escape key (scancode %d, key %s). Note: Steam Input's desktop "
+                                "layout can send Escape from a controller button",
+                                ev.key.keysym.scancode, SDL_GetKeyName(ev.key.keysym.sym));
+                running = 0;
+            } else if (ev.type == SDL_CONTROLLERDEVICEADDED && !pad)
                 pad = open_controller();
             else if (ev.type == SDL_CONTROLLERDEVICEREMOVED && pad &&
                      !SDL_GameControllerGetAttached(pad)) {
@@ -176,6 +244,9 @@ int main(int argc, char **argv)
         }
     }
 
+    if (running)
+        set_exit_reason("--frames %ld reached", frames);
+    exit_frame = sched_frame_count();
     int rendered = 0;
     const uint8_t *fb = sched_frame();
     for (size_t k = 0; k < (size_t)SCHED_WIDTH * SCHED_HEIGHT * 4 && !rendered; k += 4)
