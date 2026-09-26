@@ -11,6 +11,8 @@
  *
  * --min-nmis K     exit 1 unless at least K NMIs were taken
  * --require-render exit 1 if the last frame is all black
+ * --wav FILE       write the audio (48 kHz stereo) to FILE
+ * --require-audio  exit 1 if every audio sample of the run is zero
  *
  * On a fatal error the last 64 instruction addresses are printed.
  *
@@ -24,6 +26,7 @@
 #include "interp.h"
 #include "png.h"
 #include "sched.h"
+#include "wav.h"
 
 static jmp_buf fatal_jmp;
 static char fatal_msg[256];
@@ -49,14 +52,6 @@ static void trace(const CPU *c, uint32_t at)
     tail_n++;
 }
 
-static uint32_t hash(const uint8_t *p, size_t n)
-{
-    uint32_t h = 2166136261u;
-    for (size_t k = 0; k < n; k++)
-        h = (h ^ p[k]) * 16777619u;
-    return h;
-}
-
 static int nonblack(const uint8_t *p, size_t n)
 {
     for (size_t k = 0; k < n; k += 4)
@@ -68,7 +63,8 @@ static int nonblack(const uint8_t *p, size_t n)
 int main(int argc, char **argv)
 {
     static long frames = 60, min_nmis;    /* static: survive the longjmp */
-    static int require_render;
+    static int require_render, require_audio;
+    static const char *wav_path;
     static const char *dump, *needed;
     for (int k = 1; k < argc; k++) {
         if (!strcmp(argv[k], "--frames") && k + 1 < argc)
@@ -81,9 +77,14 @@ int main(int argc, char **argv)
             min_nmis = atol(argv[++k]);
         else if (!strcmp(argv[k], "--require-render"))
             require_render = 1;
+        else if (!strcmp(argv[k], "--require-audio"))
+            require_audio = 1;
+        else if (!strcmp(argv[k], "--wav") && k + 1 < argc)
+            wav_path = argv[++k];
         else {
             fprintf(stderr, "usage: ct_boot [--frames N] [--dump DIR] [--needed-hw FILE] "
-                            "[--min-nmis K] [--require-render]\n");
+                            "[--min-nmis K] [--require-render] [--wav FILE] "
+                            "[--require-audio]\n");
             return 2;
         }
     }
@@ -95,8 +96,12 @@ int main(int argc, char **argv)
     ct_fatal_hook = on_fatal;
     ct_trace_hook = trace;
 
-    static volatile long dumped;
-    static volatile uint32_t last;
+    static volatile long dumped, audible;
+    static FILE *wav;
+    if (wav_path && !(wav = wav_open(wav_path, 48000))) {
+        fprintf(stderr, "ct_boot: cannot write %s\n", wav_path);
+        return 2;
+    }
     if (setjmp(fatal_jmp)) {
         long f = sched_frame_count();
         int l = sched_line();
@@ -122,22 +127,28 @@ int main(int argc, char **argv)
         return 1;
     }
     for (long f = 0; f < frames; f++) {
+        static int16_t audio[800 * 2];   /* one frame at 48 kHz */
         sched_run_frame();
-        const uint8_t *fb = sched_frame();
-        size_t n = (size_t)SCHED_WIDTH * SCHED_HEIGHT * 4;
-        if (dump && nonblack(fb, n) && hash(fb, n) != last) {
-            char path[4096];
-            snprintf(path, sizeof path, "%s/frame_%05ld.png", dump, f + 1);
-            if (png_write_bgrx(path, fb, SCHED_WIDTH, SCHED_HEIGHT))
-                fprintf(stderr, "ct_boot: cannot write %s\n", path);
-            last = hash(fb, n);
+        sched_audio(audio, 800);
+        for (int k = 0; k < 800 * 2; k++)
+            if (audio[k]) {
+                audible++;
+                break;
+            }
+        if (wav)
+            wav_write(wav, audio, 800);
+        if (dump && png_dump_frame(dump, f + 1, sched_frame(), SCHED_WIDTH, SCHED_HEIGHT) > 0)
             dumped++;
-        }
     }
-    printf("ct_boot: %ld frames, %ld NMIs, %ld frames dumped, PC $%02X%04X\n",
-           sched_frame_count(), sched_nmi_count(), (long)dumped, cpu.PB, cpu.PC);
+    if (wav)
+        wav_close(wav);
+    printf("ct_boot: %ld frames, %ld NMIs, %ld frames dumped, %ld with audio, PC $%02X%04X\n",
+           sched_frame_count(), sched_nmi_count(), (long)dumped, (long)audible, cpu.PB, cpu.PC);
+    if (require_audio && !audible)
+        printf("ct_boot: no audio\n");
     int rendered = nonblack(sched_frame(), (size_t)SCHED_WIDTH * SCHED_HEIGHT * 4);
     if (require_render && !rendered)
         printf("ct_boot: last frame is black\n");
-    return sched_nmi_count() >= min_nmis && (rendered || !require_render) ? 0 : 1;
+    return sched_nmi_count() >= min_nmis && (rendered || !require_render) &&
+           (audible || !require_audio) ? 0 : 1;
 }

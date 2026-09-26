@@ -102,3 +102,31 @@ int png_write_bgrx(const char *path, const uint8_t *bgrx, int w, int h)
     free(z);
     return rc;
 }
+
+static uint32_t fnv(const uint8_t *p, size_t n)
+{
+    uint32_t h = 2166136261u;
+    for (size_t k = 0; k < n; k++)
+        h = (h ^ p[k]) * 16777619u;
+    return h;
+}
+
+int png_dump_frame(const char *dir, long frame, const uint8_t *bgrx, int w, int h)
+{
+    static uint32_t last;
+    size_t n = (size_t)w * h * 4;
+    int lit = 0;
+    for (size_t k = 0; k < n && !lit; k += 4)
+        lit = bgrx[k] | bgrx[k + 1] | bgrx[k + 2];
+    uint32_t hv = fnv(bgrx, n);
+    if (!lit || hv == last)
+        return 0;
+    last = hv;
+    char path[4096];
+    snprintf(path, sizeof path, "%s/frame_%05ld.png", dir, frame);
+    if (png_write_bgrx(path, bgrx, w, h)) {
+        fprintf(stderr, "cannot write %s\n", path);
+        return -1;
+    }
+    return 1;
+}

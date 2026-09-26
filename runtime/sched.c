@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "apu.h"
 #include "bus.h"
 #include "dma.h"
 #include "interp.h"
@@ -285,6 +286,11 @@ void sched_run_frame(void)
     }
     line = 0;
     frames++;
+}
+
+void sched_audio(int16_t *stereo, int samples)
+{
+    dsp_getSamples(snes_hw_apu()->dsp, stereo, samples, 2);
 }
 
 const uint8_t *sched_frame(void) { return fb; }

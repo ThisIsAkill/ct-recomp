@@ -32,6 +32,11 @@ void sched_init(CPU *cpu);
 /* Run one full frame, lines 0-261. */
 void sched_run_frame(void);
 
+/* The DSP output of the frame just run, resampled to `samples` stereo
+   frames (L R interleaved) at 32040 Hz * samples / 534. Call once per
+   frame: it also empties the DSP buffer, which otherwise stops filling. */
+void sched_audio(int16_t *stereo, int samples);
+
 /* Last rendered frame: SCHED_WIDTH x SCHED_HEIGHT pixels, bytes B G R 0. */
 const uint8_t *sched_frame(void);
 

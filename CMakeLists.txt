@@ -33,7 +33,7 @@ target_include_directories(ct_snes_vendor PUBLIC third_party/snes third_party)
 
 # ---- runtime ----
 add_library(ct_runtime STATIC runtime/cpu.c runtime/bus.c runtime/hooks.c
-    runtime/snes_adapter.c runtime/png.c)
+    runtime/snes_adapter.c runtime/png.c runtime/wav.c)
 target_include_directories(ct_runtime PUBLIC runtime)
 target_link_libraries(ct_runtime PUBLIC ct_snes_vendor)
 target_compile_options(ct_runtime PRIVATE ${CT_WARN})
@@ -142,8 +142,10 @@ target_compile_options(test_sched PRIVATE ${CT_WARN})
 add_test(NAME sched COMMAND test_sched)
 
 # Boot from reset in the interpreter to frame 1500, on the title screen:
-# no fatal, NMIs running (1394 by then, deterministic), frame not black.
-add_test(NAME boot_interp COMMAND ct_boot --frames 1500 --min-nmis 1394 --require-render)
+# no fatal, NMIs running (1394 by then, deterministic), frame not black,
+# audio produced.
+add_test(NAME boot_interp COMMAND ct_boot --frames 1500 --min-nmis 1394 --require-render
+    --require-audio)
 set_tests_properties(boot_interp PROPERTIES LABELS rom)
 
 add_executable(test_stack_guard test/test_stack_guard.c)
