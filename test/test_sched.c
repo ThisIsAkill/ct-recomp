@@ -99,5 +99,54 @@ int main(void)
     sched_init(&c);
     sched_run_frame();
     CHECK(bus_wram()[0x11] == 1, "IPL signature seen through $2140 within one frame");
+
+    /* H/V IRQ (#21) through the ROM vector ($FFEE -> JML $000504). The
+       handler acks $4211, latches the counters via $2137, and stores
+       OPVCT (low, high) and OPHCT (low, high). */
+    static const uint8_t irq_prog[] = {
+        0xA9, 0x64, 0x8D, 0x09, 0x42,   /* VTIME = 100 */
+        0x9C, 0x0A, 0x42,
+        0xA9, 0x64, 0x8D, 0x07, 0x42,   /* HTIME = 100 */
+        0x9C, 0x08, 0x42,
+        0xAD, 0x00, 0x1F,               /* LDA $1F00: NMITIMEN value */
+        0x8D, 0x00, 0x42,
+        0x58,                           /* CLI */
+        0xCB, 0x80, 0xFD,               /* idle: WAI / BRA idle */
+    };
+    static const uint8_t irq_handler[] = {
+        0xAD, 0x11, 0x42,               /* LDA $4211 (ack) */
+        0xE6, 0x20,                     /* INC $20 */
+        0xAD, 0x37, 0x21,               /* LDA $2137 (latch) */
+        0xAD, 0x3F, 0x21,               /* LDA $213F (reset flip-flops) */
+        0xAD, 0x3D, 0x21, 0x85, 0x21,   /* OPVCT low -> $21 */
+        0xAD, 0x3D, 0x21, 0x85, 0x22,   /* OPVCT high -> $22 */
+        0xAD, 0x3C, 0x21, 0x85, 0x23,   /* OPHCT low -> $23 */
+        0xAD, 0x3C, 0x21, 0x85, 0x24,   /* OPHCT high -> $24 */
+        0x40,                           /* RTI */
+    };
+    for (int mode = 0; mode < 2; mode++) {
+        bus_reset();
+        put(0x2200, irq_prog, sizeof irq_prog);
+        put(0x0504, irq_handler, sizeof irq_handler);
+        bus_wram()[0x1F00] = mode ? 0x30 : 0x20;   /* HV-IRQ / V-IRQ */
+        interp_reset(&c);
+        c.e = 0;
+        c.PB = 0x7E;
+        c.PC = 0x2200;
+        c.DB = 0x00;
+        c.m = c.x = 1;
+        c.S = 0x01FF;
+        sched_init(&c);
+        for (int f = 0; f < 3; f++)
+            sched_run_frame();
+        const uint8_t *z = bus_wram();
+        unsigned h = (unsigned)(z[0x23] | z[0x24] << 8), v = (unsigned)(z[0x21] | z[0x22] << 8);
+        CHECK(z[0x20] == 3, "mode %d: one IRQ per frame, got %u", mode, z[0x20]);
+        CHECK(v == 100, "mode %d: latched V = VTIME: %u", mode, v);
+        /* Latch at the start of LDA $2137: fire clock + 64 (IRQ entry) +
+           32 (ROM stub JML) + 32 (LDA $4211) + 40 (INC $20), in dots. */
+        unsigned want = ((mode ? 400u : 0u) + 64 + 32 + 32 + 40) / 4;
+        CHECK(h == want, "mode %d: latched H %u, want %u", mode, h, want);
+    }
     return th_report("sched");
 }

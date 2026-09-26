@@ -52,5 +52,7 @@ void interp_reset(CPU *c);
 unsigned interp_step(CPU *c);
 unsigned interp_interrupt(CPU *c, int nmi);
 int interp_waiting(void);
+/* End a WAI without taking an interrupt (IRQ asserted while I=1). */
+void interp_wake(void);
 
 #endif

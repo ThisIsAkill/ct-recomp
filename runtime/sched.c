@@ -21,8 +21,12 @@ static uint8_t nmitimen;        /* $4200 */
 static uint8_t rdnmi;           /* $4210 bit 7: NMI flag, cleared by read */
 static int in_vblank;
 static int autojoy_busy;
-static uint8_t wrio;            /* $4201, stored only */
-static uint8_t htime_vtime[4];  /* $4207-$420A, stored only; used by #21 */
+static uint8_t wrio;            /* $4201; bit 7 high->low latches H/V */
+static uint16_t htime, vtime;   /* $4207-$420A, 9 bits each */
+static uint8_t timeup;          /* $4211 bit 7: IRQ flag, the IRQ line */
+static uint16_t lat_h, lat_v;   /* latched H/V counters */
+static int lat_flag;            /* $213F bit 6 */
+static int ophct_hi, opvct_hi;  /* $213C/$213D read flip-flops */
 
 static void apu_sync(void);
 
@@ -31,25 +35,72 @@ static void apu_sync(void);
 static void nmitimen_write(uint16_t reg, uint8_t v)
 {
     (void)reg;
-    if (v & 0x30)
-        ct_fatal("NMITIMEN $%02X: H/V IRQ not implemented (#21)", v);
     /* Enabling NMI while the VBlank NMI flag is still set fires it. */
     if (!(nmitimen & 0x80) && (v & 0x80) && (rdnmi & 0x80))
         nmi_pending = 1;
+    if (!(v & 0x30))
+        timeup = 0;   /* disabling H/V IRQs drops a pending one */
     nmitimen = v;
 }
 
-/* Stored, no effect yet: WRIO's H/V counter latch and the IRQ timer
-   targets belong to #21, and IRQs cannot be enabled until then. */
+/* ---- H/V counters ---- */
+
+static void latch_counters(void)
+{
+    lat_h = (uint16_t)(hclock / 4 > 339 ? 339 : hclock / 4);
+    lat_v = (uint16_t)line;
+    lat_flag = 1;
+}
+
+static uint8_t slhv_read(uint16_t reg)
+{
+    (void)reg;
+    if (wrio & 0x80)
+        latch_counters();
+    return 0;   /* open bus, not modeled */
+}
+
+static uint8_t ophct_read(uint16_t reg)
+{
+    (void)reg;
+    uint8_t v = ophct_hi ? (uint8_t)(lat_h >> 8 & 1) : (uint8_t)lat_h;
+    ophct_hi ^= 1;
+    return v;
+}
+
+static uint8_t opvct_read(uint16_t reg)
+{
+    (void)reg;
+    uint8_t v = opvct_hi ? (uint8_t)(lat_v >> 8 & 1) : (uint8_t)lat_v;
+    opvct_hi ^= 1;
+    return v;
+}
+
+static uint8_t stat78_read(uint16_t reg)
+{
+    (void)reg;
+    uint8_t v = (uint8_t)(lat_flag << 6 | 3);   /* NTSC, no interlace, PPU2 version 3 */
+    lat_flag = 0;
+    ophct_hi = opvct_hi = 0;
+    return v;
+}
+
+/* WRIO: only the bit 7 counter latch is modeled (no I/O port devices). */
 static void wrio_write(uint16_t reg, uint8_t v)
 {
     (void)reg;
+    if ((wrio & 0x80) && !(v & 0x80))
+        latch_counters();
     wrio = v;
 }
 
 static void htime_vtime_write(uint16_t reg, uint8_t v)
 {
-    htime_vtime[reg - 0x4207] = v;
+    uint16_t *t = reg < 0x4209 ? &htime : &vtime;
+    if (reg & 1)
+        *t = (uint16_t)((*t & 0x100) | v);          /* $4207/$4209: low */
+    else
+        *t = (uint16_t)((*t & 0xFF) | (v & 1) << 8); /* $4208/$420A: bit 8 */
 }
 
 static uint8_t rdnmi_read(uint16_t reg)
@@ -63,7 +114,9 @@ static uint8_t rdnmi_read(uint16_t reg)
 static uint8_t timeup_read(uint16_t reg)
 {
     (void)reg;
-    return 0;   /* no IRQ source until #21 */
+    uint8_t v = timeup;
+    timeup = 0;
+    return v;
 }
 
 static uint8_t hvbjoy_read(uint16_t reg)
@@ -84,7 +137,10 @@ void sched_init(CPU *c)
     nmitimen = rdnmi = 0;
     in_vblank = autojoy_busy = 0;
     wrio = 0xFF;
-    memset(htime_vtime, 0, sizeof htime_vtime);
+    htime = vtime = 0x1FF;
+    timeup = 0;
+    lat_h = lat_v = 0;
+    lat_flag = ophct_hi = opvct_hi = 0;
     memset(fb, 0, sizeof fb);
     bus_hook(0x4200, NULL, nmitimen_write);
     bus_hook(0x4201, NULL, wrio_write);
@@ -93,6 +149,10 @@ void sched_init(CPU *c)
     bus_hook(0x4210, rdnmi_read, NULL);
     bus_hook(0x4211, timeup_read, NULL);
     bus_hook(0x4212, hvbjoy_read, NULL);
+    bus_hook(0x2137, slhv_read, NULL);
+    bus_hook(0x213C, ophct_read, NULL);
+    bus_hook(0x213D, opvct_read, NULL);
+    bus_hook(0x213F, stat78_read, NULL);
 }
 
 /* ---- APU ----
@@ -123,6 +183,13 @@ static void run_to(unsigned target)
             nmis++;
             hclock += interp_interrupt(cpu, 1);
             continue;
+        }
+        if (timeup && (nmitimen & 0x30)) {
+            if (!cpu->i) {
+                hclock += interp_interrupt(cpu, 0);   /* level: until $4211 is read */
+                continue;
+            }
+            interp_wake();   /* IRQ with I=1 still ends WAI */
         }
         if (interp_waiting()) {
             hclock = target;   /* WAI: nothing happens until the next event */
@@ -157,14 +224,38 @@ static void start_line(void)
         ppu_runLine(ppu, line);   /* line L draws row L-1 */
 }
 
+/* Master clock in this line where the H/V timer fires, or -1. HTIME is in
+   dots (4 master clocks); V-only fires at the start of line VTIME. The
+   mode is sampled at the start of the line. */
+static int irq_clock(void)
+{
+    int mode = nmitimen >> 4 & 3;
+    if (mode == 0 || (htime > 339 && mode != 2))
+        return -1;
+    if (mode == 1)
+        return htime * 4;
+    if (line != vtime)
+        return -1;
+    return mode == 2 ? 0 : htime * 4;
+}
+
 void sched_run_frame(void)
 {
     Dma *dma = snes_hw_dma();
     for (line = 0; line < SCHED_LINES; line++) {
         start_line();
+        int irq = irq_clock();
+        if (irq >= 0 && irq < SCHED_HBLANK_CLOCK) {
+            run_to((unsigned)irq);
+            timeup = 0x80;
+        }
         run_to(SCHED_HBLANK_CLOCK);
         if (line < SCHED_HEIGHT)
             dma_doHdma(dma);
+        if (irq >= SCHED_HBLANK_CLOCK) {
+            run_to((unsigned)irq);
+            timeup = 0x80;
+        }
         run_to(SCHED_CLOCKS_PER_LINE);
         apu_sync();
         hclock -= SCHED_CLOCKS_PER_LINE;

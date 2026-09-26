@@ -888,6 +888,8 @@ unsigned interp_interrupt(CPU *c, int nmi)
 
 int interp_waiting(void) { return waiting; }
 
+void interp_wake(void) { waiting = 0; }
+
 void interp_reset(CPU *c)
 {
     cpu_init(c);
