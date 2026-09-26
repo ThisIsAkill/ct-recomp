@@ -87,6 +87,20 @@ static uint8_t math_read(uint16_t reg)
     }
 }
 
+/* ---- $420D MEMSEL ----
+   Bit 0 selects FastROM for banks $80-$FF. The bus has no access timing;
+   the interpreter's cycle count reads it through bus_fastrom(). */
+
+static uint8_t memsel;
+
+static void memsel_write(uint16_t reg, uint8_t v)
+{
+    (void)reg;
+    memsel = v & 1;
+}
+
+int bus_fastrom(void) { return memsel; }
+
 /* ---- setup ---- */
 
 void bus_hook(uint16_t reg, hw_read_fn rd, hw_write_fn wr)
@@ -103,6 +117,7 @@ void bus_reset(void)
     memset(sram, 0, sizeof sram);
     memset(&alu, 0, sizeof alu);
     wram_port_addr = 0;
+    memsel = 0;
     snes_hw_reset();
 }
 
@@ -134,6 +149,7 @@ void bus_init(const char *path)
     bus_hook(0x2180, wram_port_read, wram_port_write);
     for (uint16_t r = 0x2181; r <= 0x2183; r++)
         bus_hook(r, NULL, wram_port_write);
+    bus_hook(0x420D, NULL, memsel_write);
     snes_hw_init();
     bus_reset();
 }

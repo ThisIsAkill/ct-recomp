@@ -29,6 +29,9 @@ void bus_hook(uint16_t reg, hw_read_fn rd, hw_write_fn wr);
    WRAM byte written, whatever the path (CPU store, WRAM data port, DMA). */
 extern void (*ct_wram_write_hook)(uint32_t off);
 
+/* $420D MEMSEL bit 0: FastROM enabled for banks $80-$FF. */
+int bus_fastrom(void);
+
 uint8_t *bus_wram(void);
 uint8_t *bus_sram(void);
 const uint8_t *bus_rom(void);

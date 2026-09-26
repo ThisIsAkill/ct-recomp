@@ -41,7 +41,16 @@
    unsupported. */
 void interp_call(CPU *c, uint32_t entry);
 
-/* System: execute one instruction at PB:PC. */
-void interp_step(CPU *c);
+/* System mode. interp_reset: power-on state (emulation mode, I=1) with
+   PC from the reset vector at $00FFFC. interp_step: execute one
+   instruction at PB:PC; returns master clocks used (approximate cycle
+   count, see interp.c). Fatal if called while waiting (WAI).
+   interp_interrupt: native NMI (nmi=1, vector $FFEA) or IRQ ($FFEE) entry,
+   ends a WAI; returns master clocks. The caller decides when interrupts
+   happen, including honoring I for IRQ. */
+void interp_reset(CPU *c);
+unsigned interp_step(CPU *c);
+unsigned interp_interrupt(CPU *c, int nmi);
+int interp_waiting(void);
 
 #endif

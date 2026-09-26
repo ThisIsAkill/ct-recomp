@@ -122,6 +122,11 @@ target_link_libraries(test_interp_modes ct_gen ct_interp)
 target_compile_options(test_interp_modes PRIVATE ${CT_WARN})
 add_test(NAME interp_modes COMMAND test_interp_modes)
 
+add_executable(test_interp_system test/test_interp_system.c)
+target_link_libraries(test_interp_system ct_gen ct_interp)
+target_compile_options(test_interp_system PRIVATE ${CT_WARN})
+add_test(NAME interp_system COMMAND test_interp_system)
+
 add_executable(test_stack_guard test/test_stack_guard.c)
 target_link_libraries(test_stack_guard ct_gen ct_interp)
 target_compile_options(test_stack_guard PRIVATE ${CT_WARN})

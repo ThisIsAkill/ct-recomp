@@ -139,7 +139,7 @@ static void test_shared_fatals(void)
     EXPECT_MSG(system_steps(&c, 2), "interp $7E2311: decimal mode");
     cpu_at(&c, 0x2300);
     c.e = 1;
-    EXPECT_MSG(system_steps(&c, 1), "interp: emulation mode not supported yet in system mode");
+    EXPECT_MSG(system_steps(&c, 1), "interp $7E2300: opcode $00 in emulation mode not implemented");
 }
 
 int main(void)
