@@ -1,6 +1,7 @@
 #include "snes_adapter.h"
 
 #include "bus.h"
+#include "cpu.h"
 #include "apu.h"
 #include "dma.h"
 #include "ppu.h"
@@ -39,8 +40,13 @@ void snes_writeBBus(Snes *snes, uint8_t adr, uint8_t val)
 
 /* ---- $2100-$213F PPU ---- */
 
+/* ppu_read only implements the mode-7 product ($2134-$2136) and returns
+   $FF for everything else. The counters ($2137, $213C, $213D, $213F) are
+   the frame scheduler's; any other PPU read is not implemented. */
 static uint8_t ppu_reg_read(uint16_t reg)
 {
+    if (reg < 0x2134 || reg > 0x2136)
+        ct_fatal("read8 $%04X: PPU register read not implemented", reg);
     return ppu_read(g_ppu, (uint8_t)(reg - 0x2100u));
 }
 
