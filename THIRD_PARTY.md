@@ -28,14 +28,27 @@ reads them to populate `funcs.toml` / `unresolved.toml`.
   debuggers/tracers during development. No code from any of them is in this
   repository.
 
-## Planned: `third_party/snes/`
+### `third_party/snes/`
 
-Not vendored yet (tracked as a Title Screen milestone issue). When it lands:
-
-- **snesrev/zelda3**, `snes/` subtree (MIT, snesrev + elzo_d/LakeSnes) — PPU,
-  DMA/HDMA, APU, SPC700, and DSP emulation, adapted via a thin runtime
-  interface. License headers are kept intact in every vendored file, and any
-  local patches are listed here with a short rationale.
+- **snesrev/zelda3**, `snes/` subtree, commit `fbbb3f967a51fafe642e6140d0753979e73b4090`
+  (MIT, snesrev + elzo_d) — PPU, DMA/HDMA, APU, SPC700, and DSP emulation.
+  Full license text and file list in `third_party/snes/README.md`.
+  `runtime/snes_adapter.c` bridges it into `bus.c`; `dma.c`/`dma.h` are
+  otherwise unmodified. Local patches to `ppu.c`/`ppu.h` (all marked
+  `ct-recomp:` in place):
+  - `OBSEL` ($2101): upstream asserted one fixed value and never actually
+    decoded it (`objSize`/`objTileAdr1/2` were hardcoded in `ppu_reset`).
+    Implemented the real decode.
+  - `BGMODE` ($2105) bit 3 (BG3 priority): upstream hardcoded "always on
+    for mode 1" instead of reading the bit. Added `Ppu.bg3Priority` and
+    read it for real.
+  - Asserts on `BGMODE`, `M7SEL`, `VMAIN`, `WBGLOG`/`WOBJLOG`, `CGWSEL`,
+    `SETINI`, `OAMADDH` restricted every value to what A Link to the Past
+    happens to use. Relaxed so Chrono Trigger's actual register writes
+    don't abort; several of the underlying features (window AND/XOR/XNOR
+    logic, VRAM address remapping, direct color mode, interlace/hi-res/
+    overscan) are still genuinely unimplemented, not just untested --
+    see issue #9's gap report for the full list.
 
 ## Auditing
 
