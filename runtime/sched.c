@@ -55,37 +55,52 @@ static void latch_counters(void)
     lat_flag = 1;
 }
 
+/* SLHV returns CPU open bus. OPHCT/OPVCT: low byte, then bit 8 with the
+   other bits PPU2 open bus. STAT78: bit 5 PPU2 open bus, NTSC, no
+   interlace, PPU2 version 3. (fullsnes; bsnes readIO) */
 static uint8_t slhv_read(uint16_t reg)
 {
-    (void)reg;
     if (wrio & 0x80)
         latch_counters();
-    return 0;   /* open bus, not modeled */
+    return bus_open_bus(reg);
+}
+
+static uint8_t counter_read(uint16_t v9, int *hi)
+{
+    uint8_t v = *hi ? (uint8_t)((snes_ppu2_mdr() & 0xFE) | (v9 >> 8 & 1)) : (uint8_t)v9;
+    *hi ^= 1;
+    snes_set_ppu2_mdr(v);
+    return v;
 }
 
 static uint8_t ophct_read(uint16_t reg)
 {
     (void)reg;
-    uint8_t v = ophct_hi ? (uint8_t)(lat_h >> 8 & 1) : (uint8_t)lat_h;
-    ophct_hi ^= 1;
-    return v;
+    return counter_read(lat_h, &ophct_hi);
 }
 
 static uint8_t opvct_read(uint16_t reg)
 {
     (void)reg;
-    uint8_t v = opvct_hi ? (uint8_t)(lat_v >> 8 & 1) : (uint8_t)lat_v;
-    opvct_hi ^= 1;
-    return v;
+    return counter_read(lat_v, &opvct_hi);
 }
 
 static uint8_t stat78_read(uint16_t reg)
 {
     (void)reg;
-    uint8_t v = (uint8_t)(lat_flag << 6 | 3);   /* NTSC, no interlace, PPU2 version 3 */
+    uint8_t v = (uint8_t)(lat_flag << 6 | (snes_ppu2_mdr() & 0x20) | 3);
     lat_flag = 0;
     ophct_hi = opvct_hi = 0;
+    snes_set_ppu2_mdr(v);
     return v;
+}
+
+/* RDIO: the I/O port pins; nothing is connected, so they read back what
+   WRIO drives (bsnes: io.pio). */
+static uint8_t rdio_read(uint16_t reg)
+{
+    (void)reg;
+    return wrio;
 }
 
 /* WRIO: only the bit 7 counter latch is modeled (no I/O port devices). */
@@ -170,10 +185,11 @@ void sched_init(CPU *c)
     bus_hook(0x4212, hvbjoy_read, bus_readonly_write);
     for (uint16_t r = 0x4218; r <= 0x421F; r++)
         bus_hook(r, joy_read, bus_readonly_write);
-    bus_hook(0x2137, slhv_read, NULL);
-    bus_hook(0x213C, ophct_read, NULL);
-    bus_hook(0x213D, opvct_read, NULL);
-    bus_hook(0x213F, stat78_read, NULL);
+    bus_hook(0x4213, rdio_read, bus_readonly_write);
+    bus_hook(0x2137, slhv_read, bus_readonly_write);
+    bus_hook(0x213C, ophct_read, bus_readonly_write);
+    bus_hook(0x213D, opvct_read, bus_readonly_write);
+    bus_hook(0x213F, stat78_read, bus_readonly_write);
 }
 
 /* ---- APU ----
@@ -235,6 +251,7 @@ static void start_line(void)
     if (line == SCHED_VBLANK_LINE) {
         in_vblank = 1;
         rdnmi = 0x80;
+        snes_oam_vblank_reload();
         autojoy_busy = nmitimen & 1;
         if (nmitimen & 1)
             memcpy(joy, pad, sizeof joy);   /* auto-read (results readable at once) */

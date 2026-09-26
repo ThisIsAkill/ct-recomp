@@ -67,6 +67,12 @@ void bus_readonly_write(uint16_t reg, uint8_t v)
     hw_note("write $%04X ignored: read-only register, hardware ignores it", reg);
 }
 
+void bus_unused_write(uint16_t reg, uint8_t v)
+{
+    (void)v;
+    hw_note("write $%04X ignored: unused address", reg);
+}
+
 void (*ct_wram_write_hook)(uint32_t off);
 
 static uint8_t wram_port_read(uint16_t reg)
@@ -169,8 +175,22 @@ void bus_init(const char *path)
         bus_hook(r, r >= 0x4214 && r <= 0x4217 ? math_read : NULL, bus_readonly_write);
     bus_hook(0x2180, wram_port_read, wram_port_write);
     for (uint16_t r = 0x2181; r <= 0x2183; r++)
-        bus_hook(r, NULL, wram_port_write);
+        bus_hook(r, bus_open_bus, wram_port_write);   /* WMADD: write-only */
+    /* Unused (fullsnes): CPU open bus, writes ignored. */
+    for (uint16_t r = 0x2184; r <= 0x21FF; r++)
+        bus_hook(r, bus_open_bus, bus_unused_write);
+    bus_hook(0x420E, bus_open_bus, bus_unused_write);
+    bus_hook(0x420F, bus_open_bus, bus_unused_write);
+    for (uint16_t r = 0x4220; r <= 0x42FF; r++)
+        bus_hook(r, bus_open_bus, bus_unused_write);
+    for (uint16_t r = 0x4380; r <= 0x43FF; r++)
+        bus_hook(r, bus_open_bus, bus_unused_write);
     bus_hook(0x420D, bus_open_bus, memsel_write);
+    /* Write-only timing registers: the frame scheduler adds their writes;
+       reads are open bus either way. */
+    for (uint16_t r = 0x4200; r <= 0x420A; r++)
+        if (r == 0x4200 || r == 0x4201 || r >= 0x4207)
+            bus_hook(r, bus_open_bus, NULL);
     snes_hw_init();
     bus_reset();
 }

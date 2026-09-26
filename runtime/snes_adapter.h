@@ -18,6 +18,15 @@ void snes_hw_reset(void);
 void snes_apu_run(uint32_t spc_cycles);
 extern void (*snes_apu_sync)(void);
 
+/* Start of VBlank: outside forced blank, the OAM address reloads from the
+   last OAMADD ($2102/$2103) write. Called by the frame scheduler. */
+void snes_oam_vblank_reload(void);
+
+/* PPU2 open bus (last value read from PPU2): the frame scheduler's
+   counter registers ($213C, $213D, $213F) read and set it. */
+uint8_t snes_ppu2_mdr(void);
+void snes_set_ppu2_mdr(uint8_t v);
+
 /* Test-only introspection, same idea as bus_wram()/bus_sram(). */
 typedef struct Ppu Ppu;
 typedef struct Dma Dma;

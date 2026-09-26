@@ -140,7 +140,11 @@ int main(void)
         for (int f = 0; f < 3; f++)
             sched_run_frame();
         const uint8_t *z = bus_wram();
-        unsigned h = (unsigned)(z[0x23] | z[0x24] << 8), v = (unsigned)(z[0x21] | z[0x22] << 8);
+        /* High reads: bit 8, bits 1-7 are PPU2 open bus (the low byte
+           just read from the same counter). */
+        unsigned h = (unsigned)(z[0x23] | (z[0x24] & 1) << 8), v = (unsigned)(z[0x21] | (z[0x22] & 1) << 8);
+        CHECK((z[0x22] & 0xFE) == (z[0x21] & 0xFE), "OPVCT high: PPU2 open bus bits $%02X",
+              z[0x22]);
         CHECK(z[0x20] == 3, "mode %d: one IRQ per frame, got %u", mode, z[0x20]);
         CHECK(v == 100, "mode %d: latched V = VTIME: %u", mode, v);
         /* Latch at the start of LDA $2137: fire clock + 64 (IRQ entry) +

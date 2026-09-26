@@ -40,6 +40,10 @@ uint8_t bus_open_bus(uint16_t reg);
    hardware; noted once per register (hwlog.h). */
 void bus_readonly_write(uint16_t reg, uint8_t v);
 
+/* Write handler for unused addresses ($2184-$21FF, $420E-$420F,
+   $4220-$42FF, $43xC-$43xE, $4380-$43FF): ignored, noted once. */
+void bus_unused_write(uint16_t reg, uint8_t v);
+
 /* $420D MEMSEL bit 0: FastROM enabled for banks $80-$FF. */
 int bus_fastrom(void);
 
