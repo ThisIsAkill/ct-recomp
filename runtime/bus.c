@@ -1,5 +1,6 @@
 #include "bus.h"
 #include "cpu.h"
+#include "snes_adapter.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,6 +46,32 @@ static void math_write(uint16_t reg, uint8_t v)
     }
 }
 
+/* ---- $2180-$2183 WRAM data port ---- */
+
+static uint32_t wram_port_addr;
+
+static uint8_t wram_port_read(uint16_t reg)
+{
+    (void)reg;
+    uint8_t v = wram[wram_port_addr & (CT_WRAM_SIZE - 1)];
+    wram_port_addr = (wram_port_addr + 1) & 0x1FFFFu;
+    return v;
+}
+
+static void wram_port_write(uint16_t reg, uint8_t v)
+{
+    switch (reg) {
+    case 0x2180:
+        wram[wram_port_addr & (CT_WRAM_SIZE - 1)] = v;
+        wram_port_addr = (wram_port_addr + 1) & 0x1FFFFu;
+        break;
+    case 0x2181: wram_port_addr = (wram_port_addr & 0x1FF00u) | v; break;
+    case 0x2182: wram_port_addr = (wram_port_addr & 0x100FFu) | ((uint32_t)v << 8); break;
+    case 0x2183: wram_port_addr = (wram_port_addr & 0x0FFFFu) | ((uint32_t)(v & 1) << 16); break;
+    default: ct_fatal("wram_port_write: bad register $%04X", reg);
+    }
+}
+
 static uint8_t math_read(uint16_t reg)
 {
     switch (reg) {
@@ -71,6 +98,8 @@ void bus_reset(void)
     memset(wram, 0, sizeof wram);
     memset(sram, 0, sizeof sram);
     memset(&alu, 0, sizeof alu);
+    wram_port_addr = 0;
+    snes_hw_reset();
 }
 
 void bus_init(const char *path)
@@ -98,6 +127,10 @@ void bus_init(const char *path)
         bus_hook(r, NULL, math_write);
     for (uint16_t r = 0x4214; r <= 0x4217; r++)
         bus_hook(r, math_read, NULL);
+    bus_hook(0x2180, wram_port_read, wram_port_write);
+    for (uint16_t r = 0x2181; r <= 0x2183; r++)
+        bus_hook(r, NULL, wram_port_write);
+    snes_hw_init();
     bus_reset();
 }
 

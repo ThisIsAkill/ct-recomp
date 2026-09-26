@@ -24,9 +24,18 @@ set(CT_WARN -Wall -Wextra -Wpedantic)
 
 enable_testing()
 
+# ---- vendored SNES core (third_party/snes/, see its README.md) ----
+add_library(ct_snes_vendor STATIC
+    third_party/snes/ppu.c third_party/snes/dma.c
+    third_party/snes/apu.c third_party/snes/spc.c third_party/snes/dsp.c)
+target_include_directories(ct_snes_vendor PUBLIC third_party/snes third_party)
+# Not our code; don't hold it to our warning flags.
+
 # ---- runtime ----
-add_library(ct_runtime STATIC runtime/cpu.c runtime/bus.c runtime/hooks.c)
+add_library(ct_runtime STATIC runtime/cpu.c runtime/bus.c runtime/hooks.c
+    runtime/snes_adapter.c)
 target_include_directories(ct_runtime PUBLIC runtime)
+target_link_libraries(ct_runtime PUBLIC ct_snes_vendor)
 target_compile_options(ct_runtime PRIVATE ${CT_WARN})
 
 # ---- generated code ----
@@ -76,7 +85,7 @@ foreach(f open_bus rom_write unhooked decimal entry)
 endforeach()
 set_tests_properties(runtime_fatal_open_bus PROPERTIES PASS_REGULAR_EXPRESSION "ct: read8 \\$006000: open bus")
 set_tests_properties(runtime_fatal_rom_write PROPERTIES PASS_REGULAR_EXPRESSION "ct: write8 \\$C10000: write to ROM")
-set_tests_properties(runtime_fatal_unhooked PROPERTIES PASS_REGULAR_EXPRESSION "ct: read8 \\$002100: unhooked")
+set_tests_properties(runtime_fatal_unhooked PROPERTIES PASS_REGULAR_EXPRESSION "ct: read8 \\$004200: unhooked")
 set_tests_properties(runtime_fatal_decimal PROPERTIES PASS_REGULAR_EXPRESSION "ct: \\$C10000: ADC with D=1")
 set_tests_properties(runtime_fatal_entry PROPERTIES PASS_REGULAR_EXPRESSION "ct: \\$C10089: entry state m0 x0 e0, expected m1 x0")
 
@@ -101,6 +110,11 @@ target_link_libraries(test_c1_ui ct_gen ct_interp)
 target_compile_options(test_c1_ui PRIVATE ${CT_WARN})
 add_test(NAME c1_ui_gauge COMMAND test_c1_ui)
 add_test(NAME interp_c1_ui_gauge COMMAND test_c1_ui interp)
+
+add_executable(test_snes_bus test/test_snes_bus.c)
+target_link_libraries(test_snes_bus ct_gen ct_interp)
+target_compile_options(test_snes_bus PRIVATE ${CT_WARN})
+add_test(NAME snes_bus COMMAND test_snes_bus)
 
 add_executable(test_diff test/test_diff.c)
 target_link_libraries(test_diff ct_gen ct_interp)
