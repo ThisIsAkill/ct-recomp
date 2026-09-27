@@ -2,9 +2,12 @@
 """Native vs interpreter lockstep check.
 
 Runs the headless probe twice on the same arguments, once with native
-dispatch and once with --interp-only, each writing a per-frame state hash
-(--hash-log: CPU, WRAM, SRAM, VRAM, CGRAM, OAM, frame, APU RAM and DSP
-registers at each frame edge), and compares them frame by frame.
+dispatch and once with --interp-only, each writing per-frame state hashes
+(--hash-log: CPU, WRAM, SRAM, VRAM, CGRAM, OAM, frame, APU at each frame
+edge), and compares them frame by frame. At the first divergent frame it
+names the components that differ, reruns both to that frame with --wram
+and --vram dumps, and lists the first differing WRAM, VRAM, CGRAM and OAM
+ranges.
 
 usage: lockstep.py PROBE [probe args...]
 
@@ -16,6 +19,57 @@ import os
 import subprocess
 import sys
 import tempfile
+
+
+def ranges(a, b):
+    out, start = [], None
+    for k in range(len(a) + 1):
+        d = k < len(a) and a[k] != b[k]
+        if d and start is None:
+            start = k
+        elif not d and start is not None:
+            out.append((start, k - 1))
+            start = None
+    return out
+
+
+def detail(probe, args, frame):
+    """Dump both runs at `frame` and print the first differing ranges."""
+    with tempfile.TemporaryDirectory() as tmp:
+        dumps = {}
+        for mode in ("native", "interp"):
+            w, v = os.path.join(tmp, mode + ".wram"), os.path.join(tmp, mode + ".vram")
+            cmd = [probe, *strip_frames(args), "--frames", str(frame), "--wram", w, "--vram", v]
+            if mode == "interp":
+                cmd.append("--interp-only")
+            subprocess.run(cmd, capture_output=True)
+            if not (os.path.exists(w) and os.path.exists(v)):
+                print(f"lockstep: could not dump the {mode} run at frame {frame}")
+                return
+            vv = open(v, "rb").read()
+            dumps[mode] = {"wram": open(w, "rb").read(), "vram": vv[:0x10000],
+                           "cgram": vv[0x10000:0x10200], "oam": vv[0x10200:]}
+    for name in ("wram", "vram", "cgram", "oam"):
+        a, b = dumps["native"][name], dumps["interp"][name]
+        rs = ranges(a, b)
+        if not rs:
+            continue
+        print(f"lockstep:   {name}: {sum(x != y for x, y in zip(a, b))} bytes in {len(rs)} ranges")
+        for lo, hi in rs[:8]:
+            print(f"lockstep:     ${lo:05X}-${hi:05X} native {a[lo:min(hi + 1, lo + 8)].hex(' ')}"
+                  f" interp {b[lo:min(hi + 1, lo + 8)].hex(' ')}")
+
+
+def strip_frames(args):
+    out, skip = [], False
+    for x in args:
+        if skip:
+            skip = False
+        elif x == "--frames":
+            skip = True
+        else:
+            out.append(x)
+    return out
 
 
 def main() -> int:
@@ -42,8 +96,10 @@ def main() -> int:
     nat, ref = hashes["native"], hashes["interp"]
     for k in range(min(len(nat), len(ref))):
         if nat[k] != ref[k]:
-            print(f"lockstep: first divergent frame {ref[k][0]}: native {nat[k][1]}, "
-                  f"interpreter {ref[k][1]}")
+            frame = ref[k][0]
+            parts = [a.split("=")[0] for a, b in zip(nat[k][1:], ref[k][1:]) if a != b]
+            print(f"lockstep: first divergent frame {frame}: {', '.join(parts)} differ")
+            detail(probe, args, int(frame))
             return 1
     last = {m: outs[m].strip().splitlines()[-1:] for m in outs}
     if len(nat) != len(ref) or codes["native"] != codes["interp"]:

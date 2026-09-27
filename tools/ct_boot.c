@@ -13,10 +13,11 @@
  *                  inclusive; repeatable). B: names joined by '+' (b y
  *                  select start up down left right a x l r) or a hex mask
  * --script FILE    --input specs from FILE, one per line ('#' comments)
- * --hash-log FILE  write "frame hash" per frame to FILE: FNV-1a 64 of the
- *                  CPU registers, WRAM, SRAM, VRAM, CGRAM, OAM, the frame,
- *                  and the APU RAM and DSP registers, taken at the frame
- *                  edge (native and interpreted runs must agree)
+ * --hash-log FILE  write per-frame state hashes to FILE, taken at the frame
+ *                  edge (native and interpreted runs must agree): "frame
+ *                  cpu=H wram=H sram=H vram=H cgram=H oam=H frame=H apu=H",
+ *                  FNV-1a 64 each; apu covers the SPC700 registers, ports,
+ *                  timers, its RAM and the DSP registers
  * --expect-pc ADDR exit 1 unless the instruction at ADDR (hex) ran
  *                  (repeatable)
  * --ref-log FILE  write "frame wram_hash frame_hash" per frame to FILE, the
@@ -95,25 +96,43 @@ static uint64_t fnv(uint64_t h, const void *p, size_t n)
 
 static CPU cpu;
 
-static uint64_t state_hash(void)
+#define HASH0 0xCBF29CE484222325ull
+
+/* One --hash-log line: frame, then an FNV-1a 64 hash per component, so a
+   divergence names what differs. */
+static void write_state_hashes(FILE *f, long frame)
 {
-    uint64_t h = 0xCBF29CE484222325ull;
     const CPU *c = &cpu;
     uint16_t r[] = {c->A, c->X, c->Y, c->S, c->DP, c->DB, c->PB, c->PC,
                     (uint16_t)(c->m | c->x << 1 | c->e << 2 | c->i << 3 | c->d << 4 | c->c << 5 |
                                c->z << 6 | c->v << 7 | c->n << 8)};
-    h = fnv(h, r, sizeof r);
-    h = fnv(h, bus_wram(), 0x20000);
-    h = fnv(h, bus_sram(), CT_SRAM_SIZE);
     Ppu *ppu = snes_hw_ppu();
-    h = fnv(h, ppu->vram, sizeof ppu->vram);
-    h = fnv(h, ppu->cgram, sizeof ppu->cgram);
-    h = fnv(h, ppu->oam, sizeof ppu->oam);
-    h = fnv(h, sched_frame(), (size_t)SCHED_WIDTH * SCHED_HEIGHT * 4);
     Apu *apu = snes_hw_apu();
-    h = fnv(h, apu->ram, sizeof apu->ram);
-    h = fnv(h, apu->dsp->ram, sizeof apu->dsp->ram);
-    return h;
+    const Spc *spc = apu->spc;
+    uint8_t apu_regs[] = {spc->a, spc->x, spc->y, spc->sp, (uint8_t)spc->pc, (uint8_t)(spc->pc >> 8),
+                          (uint8_t)(spc->c | spc->z << 1 | spc->v << 2 | spc->n << 3 | spc->i << 4 |
+                                    spc->h << 5 | spc->p << 6 | spc->b << 7),
+                          spc->stopped, apu->dspAdr, apu->romReadable,
+                          apu->inPorts[0], apu->inPorts[1], apu->inPorts[2], apu->inPorts[3],
+                          apu->outPorts[0], apu->outPorts[1], apu->outPorts[2], apu->outPorts[3]};
+    uint64_t h_apu = fnv(fnv(fnv(HASH0, apu_regs, sizeof apu_regs), apu->ram, sizeof apu->ram),
+                         apu->dsp->ram, sizeof apu->dsp->ram);
+    for (int t = 0; t < 3; t++) {
+        const Timer *tm = &apu->timer[t];
+        uint8_t v[] = {tm->cycles, tm->divider, tm->target, tm->counter, tm->enabled};
+        h_apu = fnv(h_apu, v, sizeof v);
+    }
+    fprintf(f,
+            "%ld cpu=%016llx wram=%016llx sram=%016llx vram=%016llx cgram=%016llx "
+            "oam=%016llx frame=%016llx apu=%016llx\n",
+            frame, (unsigned long long)fnv(HASH0, r, sizeof r),
+            (unsigned long long)fnv(HASH0, bus_wram(), 0x20000),
+            (unsigned long long)fnv(HASH0, bus_sram(), CT_SRAM_SIZE),
+            (unsigned long long)fnv(HASH0, ppu->vram, sizeof ppu->vram),
+            (unsigned long long)fnv(HASH0, ppu->cgram, sizeof ppu->cgram),
+            (unsigned long long)fnv(HASH0, ppu->oam, sizeof ppu->oam),
+            (unsigned long long)fnv(HASH0, sched_frame(), (size_t)SCHED_WIDTH * SCHED_HEIGHT * 4),
+            (unsigned long long)h_apu);
 }
 
 /* The frame as tools/mesen_ref.py hashes it: 256x224, each pixel a
@@ -159,7 +178,7 @@ static void on_frame(long f)
     if (dump && png_dump_frame(dump, f, sched_frame(), SCHED_WIDTH, SCHED_HEIGHT) > 0)
         dumped++;
     if (hash_log)
-        fprintf(hash_log, "%ld %016llx\n", f, (unsigned long long)state_hash());
+        write_state_hashes(hash_log, f);
     if (ref_log)
         fprintf(ref_log, "%ld %016llx %016llx\n", f,
                 (unsigned long long)fnv(0xCBF29CE484222325ull, bus_wram(), 0x20000),
