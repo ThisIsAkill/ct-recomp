@@ -51,7 +51,15 @@ a game controller works too. Ctrl+Q or closing the window quits.
 FILE` plays it back in the window. `ct_boot` also takes `--input F1-F2:BUTTONS`
 to script the pad, `--wav FILE` for audio, `--hash-log FILE` for per-frame
 state hashes (`tools/lockstep.py` compares native and interpreted runs with
-them), and `--needed-hw FILE` to report where emulation stops. Replays of a new
+them), and `--needed-hw FILE` to report where emulation stops.
+
+Reference comparison: `tools/ref_compare.py --probe build/ct_boot --mesen PATH
+--rom $CT_ROM --frames N [--script FILE]` runs the same input in
+[Mesen 2](https://github.com/SourMesen/Mesen2) (used as a tool, headless under
+`xvfb-run`, with a private settings folder) and reports the first frame where
+WRAM or the picture differs, with the differing WRAM ranges.
+`tools/tas_convert.py MOVIE OUT` turns a TASVideos BizHawk `.bk2` or lsnes
+`.lsmv` movie (from power-on) into an input script for both. Replays of a new
 game into Leene Square and into the first battle are in `game/ct/test/replay/`.
 
 The ROM is never committed, and CI never sees it.

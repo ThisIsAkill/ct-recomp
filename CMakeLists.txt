@@ -104,6 +104,9 @@ target_compile_definitions(test_native PRIVATE CT_TEST_ROM="${CT_TEST_ROM}")
 add_dependencies(test_native ct_test_rom)
 add_test(NAME native COMMAND test_native)
 
+# TAS movie converter on synthetic .bk2/.lsmv movies.
+add_test(NAME tas_convert COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_tas_convert.py)
+
 if(SDL2_FOUND)
     add_executable(test_input test/test_input.c)
     target_link_libraries(test_input ct_input)
