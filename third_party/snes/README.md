@@ -23,7 +23,9 @@ upstream.
 `dsp.c` deviations, each where fullsnes and bsnes (SPC_DSP) agree: GAIN
 increases saturate at 7FFh instead of wrapping to 0; BRR shift 13-15
 decodes to -800h/0 (upstream doubled it); key-on clears the voice's ENDX
-bit. `dsp_output_hook` hands every 32 kHz output sample to the host
+bit. Where the two disagree, bsnes as decided in #31: attack runs until the
+level passes 7FFh (upstream switched to decay at 7E0h), and ENDX powers on
+as 00h (upstream FFh). `dsp_output_hook` hands every 32 kHz output sample to the host
 (`runtime/sched.c`) instead of the fixed 534-sample frame buffer.
 
 ## License

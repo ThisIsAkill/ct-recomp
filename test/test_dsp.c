@@ -1,7 +1,8 @@
 /* Vendored S-DSP (third_party/snes/dsp.c) against fullsnes and bsnes
  * SPC_DSP where the two agree: GAIN increases saturate at 7FFh, BRR shift
  * 13-15 decodes as shift 12 with nibble SAR 3, and key-on clears the
- * voice's ENDX bit. Voice 0 plays a looping one-block BRR sample from its
+ * voice's ENDX bit; and, where they disagree, bsnes as decided in #31:
+ * attack runs until the level passes 7FFh, ENDX powers on as 00h. Voice 0 plays a looping one-block BRR sample from its
  * own 64 KB of APU RAM. */
 #include <stdlib.h>
 #include <string.h>
@@ -73,17 +74,37 @@ int main(void)
     CHECK(outx == -16, "shift 13 nibble -1 decodes to -800h: OUTX %d", outx);
     dsp_free(d);
 
-    /* ENDX: set by reset and by the looping end block; key-on clears it. */
+    /* ENDX: 00h at power-on; the looping end block sets a voice's bit;
+       key-on clears only that voice's. */
     d = voice(12, 1);
     dsp_write(d, V0ADSR1, 0x00);
     dsp_write(d, V0GAIN, 0x7F);
-    CHECK(dsp_read(d, ENDX) & 1, "ENDX.0 set after reset");
-    dsp_write(d, KON, 0x01);
-    CHECK(!(dsp_read(d, ENDX) & 1), "key-on clears ENDX.0");
-    CHECK((dsp_read(d, ENDX) & 0xFE) == 0xFE, "other voices' ENDX bits kept");
+    CHECK(dsp_read(d, ENDX) == 0x00, "ENDX 00h after reset: %02X", dsp_read(d, ENDX));
+    dsp_write(d, 0x14, 0);      /* V1SRCN: the same sample */
+    dsp_write(d, 0x13, 0x10);   /* V1PITCHH */
+    dsp_write(d, 0x15, 0x00);   /* V1ADSR1: GAIN */
+    dsp_write(d, 0x17, 0x7F);
+    dsp_write(d, KON, 0x03);
     for (int k = 0; k < 64; k++)
         dsp_cycle(d);
-    CHECK(dsp_read(d, ENDX) & 1, "end block sets ENDX.0 again");
+    CHECK((dsp_read(d, ENDX) & 3) == 3, "end block sets ENDX.0-1: %02X", dsp_read(d, ENDX));
+    dsp_write(d, KON, 0x01);
+    CHECK((dsp_read(d, ENDX) & 3) == 2, "key-on clears only ENDX.0: %02X", dsp_read(d, ENDX));
+    dsp_free(d);
+
+    /* Attack (ADSR, AR=Eh: +32 every other sample) runs to 7FFh before
+       decay; switching at 7E0h would peak at ENVX 7Eh. */
+    d = voice(12, 1);
+    dsp_write(d, V0ADSR1, 0x8E);   /* ADSR on, DR=0, AR=Eh */
+    dsp_write(d, V0ADSR2, 0xE0);   /* SL=7, SR=0 */
+    dsp_write(d, KON, 0x01);
+    int peak = 0;
+    for (int k = 0; k < 400; k++) {
+        dsp_cycle(d);
+        if (dsp_read(d, V0ENVX) > peak)
+            peak = dsp_read(d, V0ENVX);
+    }
+    CHECK(peak == 0x7F, "attack peaks at 7FFh: ENVX %02X", peak);
     dsp_free(d);
     return th_report("dsp");
 }

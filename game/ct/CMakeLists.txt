@@ -109,9 +109,9 @@ add_test(NAME manual_root COMMAND ${Python3_EXECUTABLE} ${GAME_DIR}/test/test_ma
 list(APPEND ct_game_tests sync_determinism manual_root)
 
 # Boot from reset in the interpreter to frame 1500, on the title screen:
-# no fatal, NMIs running (1394 by then, deterministic), frame not black,
+# no fatal, NMIs running (1393 by then, deterministic), frame not black,
 # audio produced.
-add_test(NAME boot_interp COMMAND ct_boot --frames 1500 --min-nmis 1394 --require-render
+add_test(NAME boot_interp COMMAND ct_boot --frames 1500 --min-nmis 1393 --require-render
     --require-audio)
 # Start on the title (frames 1500-1505): a new game opens the Battle Mode
 # menu through Menu_InitPpu ($C2940D), which writes the read-only

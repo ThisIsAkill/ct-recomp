@@ -50,8 +50,9 @@ void sched_profile_report(FILE *out, int top);
 long sched_run_frame(void);
 
 /* DSP output rate: the SPC700 at SCHED_SPC_HZ makes one stereo sample
-   per 32 cycles. */
-#define SCHED_SPC_HZ   1024000u
+   per 32 cycles. 32040 Hz, as bsnes has it from real consoles (fullsnes
+   gives the nominal 24.576 MHz crystal, 32000 Hz; decided for bsnes, #31). */
+#define SCHED_SPC_HZ   (32040u * 32)
 #define SCHED_AUDIO_HZ (SCHED_SPC_HZ / 32)
 
 /* Move up to `max` stereo samples (L R interleaved, SCHED_AUDIO_HZ) of DSP

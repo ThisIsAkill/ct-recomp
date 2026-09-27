@@ -24,9 +24,9 @@ opens its window on Linux) with a private home (XDG_CONFIG_HOME in a
 temporary folder, seeded with an empty settings.json so no first-run
 window waits for input), so its settings and save files never touch the
 user's own, and with WRAM
-powered on as zeros and the SPC700 at exactly 1.024 MHz (32000 Hz), as the
-frame scheduler has them. --setting passes more Mesen settings (e.g.
-Snes.SpcClockSpeedAdjustment=40). The Linux build carries a static
+powered on as zeros and the DSP at 32040 Hz (SpcClockSpeedAdjustment=40,
+Mesen's default, set explicitly), as the frame scheduler has them.
+--setting passes more Mesen settings. The Linux build carries a static
 libstdc++ that crashes in std::regex next to the system one; the system
 libstdc++ is preloaded to avoid that.
 """
@@ -170,7 +170,7 @@ def main() -> int:
                 "wram_out": lua_str(os.path.abspath(a.wram_out)) if a.wram_out else "",
             })
         settings = ["Debug.ScriptWindow.AllowIoOsAccess=true", "Snes.RamPowerOnState=AllZeros",
-                    "Snes.SpcClockSpeedAdjustment=0", *a.setting]
+                    "Snes.SpcClockSpeedAdjustment=40", *a.setting]
         env = dict(os.environ, XDG_CONFIG_HOME=home)
         env.pop("WAYLAND_DISPLAY", None)   # X11, inside Xvfb
         stdcxx = "/usr/lib/libstdc++.so.6"

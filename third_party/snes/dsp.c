@@ -72,7 +72,9 @@ void dsp_free(Dsp* dsp) {
 
 void dsp_reset(Dsp* dsp) {
   memset(dsp->ram, 0, sizeof(dsp->ram));
-  dsp->ram[ENDX] = 0xff; // set ENDX bit for all channels
+  // ct-recomp: ENDX powers on as 00h, like every register but FLG (bsnes
+  // SPC_DSP initial_regs; fullsnes gives both 00h and FFh -- decided for
+  // bsnes, #31). Upstream set FFh.
   for(int i = 0; i < 8; i++) {
     dsp->channel[i].pitch = 0;
     dsp->channel[i].pitchCounter = 0;
@@ -294,8 +296,13 @@ static void dsp_handleGain(Dsp* dsp, int ch) {
     case 0: { // attack
       uint16_t rate = dsp->channel[ch].adsrRates[dsp->channel[ch].adsrState];
       dsp->channel[ch].gain += rate == 1 ? 1024 : 32;
-      if(dsp->channel[ch].gain >= 0x7e0) dsp->channel[ch].adsrState = 1;
-      if(dsp->channel[ch].gain > 0x7ff) dsp->channel[ch].gain = 0x7ff;
+      // ct-recomp: attack runs until the level passes 7FFh, then clamps and
+      // switches to decay (bsnes SPC_DSP run_envelope; fullsnes switches at
+      // >=7E0h -- decided for bsnes, #31). Upstream switched at 7E0h.
+      if(dsp->channel[ch].gain > 0x7ff) {
+        dsp->channel[ch].gain = 0x7ff;
+        dsp->channel[ch].adsrState = 1;
+      }
       break;
     }
     case 1: { // decay
