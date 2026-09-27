@@ -246,8 +246,23 @@ static enum region decode_addr(uint32_t a, uint32_t *off)
     return R_ROM;
 }
 
+unsigned ct_bus_clocks, ct_bus_n;
+
+unsigned bus_access_clocks(uint32_t a)
+{
+    if (a & 0x408000)
+        return (a & 0x800000) && bus_fastrom() ? 6 : 8;
+    if ((a + 0x6000) & 0x4000)
+        return 8;
+    if ((a - 0x4000) & 0x7E00)
+        return 6;
+    return 12;
+}
+
 uint8_t read8(uint32_t a)
 {
+    ct_bus_clocks += bus_access_clocks(a & 0xFFFFFF);
+    ct_bus_n++;
     uint32_t off;
     a &= 0xFFFFFF;
     switch (decode_addr(a, &off)) {
@@ -265,6 +280,8 @@ uint8_t read8(uint32_t a)
 
 void write8(uint32_t a, uint8_t v)
 {
+    ct_bus_clocks += bus_access_clocks(a & 0xFFFFFF);
+    ct_bus_n++;
     bus_mdr = v;
     uint32_t off;
     a &= 0xFFFFFF;

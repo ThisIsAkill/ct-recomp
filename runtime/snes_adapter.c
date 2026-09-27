@@ -265,9 +265,12 @@ static void mdmaen_write(uint16_t reg, uint8_t v)
     (void)reg;
     if (v)
         cyc_stall(dma_clocks(v));
+    unsigned clocks = ct_bus_clocks, n = ct_bus_n;   /* DMA's accesses aren't the CPU's */
     dma_startDma(g_dma, v, false);
     while (g_dma->dmaBusy)
         dma_doDma(g_dma);
+    ct_bus_clocks = clocks;
+    ct_bus_n = n;
 }
 
 static void hdmaen_write(uint16_t reg, uint8_t v)

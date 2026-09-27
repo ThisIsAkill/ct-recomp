@@ -18,6 +18,9 @@ extern int ct_cyc_taken;
 extern long ct_cyc_moved;
 
 void cyc_begin(const CPU *c, uint32_t at, uint8_t op);
+/* The same for compiled code, whose operand bytes are never fetched:
+   they're charged from the instruction's length instead. */
+void cyc_begin_compiled(const CPU *c, uint32_t at, uint8_t op);
 /* Master clocks for the instruction begun last; 0 if none is pending. */
 unsigned cyc_finish(void);
 
@@ -25,7 +28,8 @@ unsigned cyc_finish(void);
    (general DMA started by its $420B write), charged by cyc_finish. */
 void cyc_stall(unsigned clocks);
 
-/* 6 for FastROM (banks $80-$FF ROM with MEMSEL bit 0), otherwise 8. */
+/* Opcode fetch speed at PB:PC: 6 for FastROM (banks $80-$FF ROM with
+   MEMSEL bit 0), otherwise 8. */
 unsigned cyc_master_per_cycle(uint8_t pb, uint16_t pc);
 
 #endif

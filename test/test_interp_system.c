@@ -52,8 +52,10 @@ static void test_reset_stub(void)
     CHECK(!fatal_msg[0], "reset stub ran: %s", fatal_msg);
     CHECK(!c.e && c.m && c.x && c.i, "native after XCE, M/X still 1");
     CHECK(c.PB == 0xC0 && c.PC == 0x8100, "JML out of the stub: $%02X%04X", c.PB, c.PC);
-    CHECK(t[0] == 16 && t[1] == 16 && t[2] == 16 && t[3] == 32,
-          "stub cycles %u %u %u %u (2 2 2 4 x 8)", t[0], t[1], t[2], t[3]);
+    /* Slow ROM fetches 8 clocks, internal cycles 6: SEI/CLC/XCE fetch +
+       idle, JML four fetches. */
+    CHECK(t[0] == 14 && t[1] == 14 && t[2] == 14 && t[3] == 32,
+          "stub cycles %u %u %u %u (8+6 x3, 4x8)", t[0], t[1], t[2], t[3]);
 
     at(&c, 0x2000);
     c.e = 1;
@@ -81,28 +83,33 @@ static void test_cycles(void)
         0xA0, 0x00,             /* $2018 LDY #$00        2           */
         0x54, 0x7E, 0x7E,       /* $201A MVN $7E,$7E     7 x 2 bytes */
     };
-    static const unsigned want[] = {2, 4, 5, 3, 3, 6, 3, 2, 3, 2, 2, 14};
+    /* Master clocks, each cycle at its own speed (bsnes CPU::wait): code
+       and data in WRAM 8, internal cycles 6. LDA $10: 2 fetches + DL idle
+       + read = 16+6+8; LDA abs,X cross: 24+6+8; REP: 16+6; STA abs,X M=0:
+       24+6+2x8; branch taken 16+6; MVN per byte: 3 fetches, read, write,
+       2 idle = 52. */
+    static const unsigned want[] = {16, 30, 38, 22, 24, 46, 22, 16, 24, 16, 16, 104};
     load(prog, sizeof prog, 0x2000);
     at(&c, 0x2000);
     c.DP = 0x0001;
     c.X = 1;
     for (unsigned k = 0; k < sizeof want / sizeof want[0]; k++) {
         unsigned got = step1(&c);
-        CHECK(got == want[k] * 8, "step %u at $%04X: %u master clocks, want %u", k, c.PC,
-              got, want[k] * 8);
+        CHECK(got == want[k], "step %u at $%04X: %u master clocks, want %u", k, c.PC, got,
+              want[k]);
     }
 
     /* FastROM: SEI at $C08000 (the test ROM's reset stub) */
     at(&c, 0x8000);
     c.PB = 0xC0;
-    CHECK(step1(&c) == 16, "bank $C0, MEMSEL=0: 8 clocks per cycle");
+    CHECK(step1(&c) == 14, "bank $C0, MEMSEL=0: fetch 8 + idle 6");
     write8(0x00420D, 1);
     at(&c, 0x8000);
     c.PB = 0xC0;
-    CHECK(step1(&c) == 12, "bank $C0, MEMSEL=1: 6 clocks per cycle");
+    CHECK(step1(&c) == 12, "bank $C0, MEMSEL=1: fetch 6 + idle 6");
     at(&c, 0x8000);
     c.PB = 0x00;
-    CHECK(step1(&c) == 16, "bank $00 stays slow with MEMSEL=1");
+    CHECK(step1(&c) == 14, "bank $00 stays slow with MEMSEL=1");
     write8(0x00420D, 0);
 }
 
@@ -116,16 +123,18 @@ static void test_nmi_rti_wai(void)
     at(&c, 0x2000);
     c.c = 1;
     c.i = 0;
-    CHECK(step1(&c) == 24 && interp_waiting(), "WAI: 3 cycles, then waiting");
+    CHECK(step1(&c) == 20 && interp_waiting(), "WAI: fetch + 2 idle, then waiting");
     CHECK(step1(&c) == 0 &&
           !strcmp(fatal_msg, "interp: step while waiting for an interrupt (WAI)"),
           "stepping while waiting is fatal: '%s'", fatal_msg);
 
-    CHECK(interp_interrupt(&c, 1) == 64 && !interp_waiting(), "NMI entry ends the wait");
+    /* Entry: fetch at PB:PC (WRAM 8), idle 6, 4 stack writes (WRAM 8),
+       2 vector reads (bank 0 ROM 8). */
+    CHECK(interp_interrupt(&c, 1) == 62 && !interp_waiting(), "NMI entry ends the wait");
     CHECK(c.PB == 0 && c.PC == 0x8010 && c.i && !c.d && c.S == 0x01EC,
           "NMI through $FFEA: $%02X%04X S $%04X", c.PB, c.PC, c.S);
     CHECK(step1(&c) == 32 && c.PB == 0 && c.PC == 0x0500, "ROM stub JML $000500");
-    CHECK(step1(&c) == 56, "RTI native: 7 cycles");
+    CHECK(step1(&c) == 52, "RTI native: fetch 8, 2 idle, 4 pulls (WRAM 8)");
     CHECK(c.PB == 0x7E && c.PC == 0x2001 && c.S == 0x01F0 && c.c && !c.i,
           "RTI back after the WAI: $%02X%04X S $%04X", c.PB, c.PC, c.S);
 }

@@ -34,8 +34,9 @@
  * --watch A[:N]    print every change to WRAM bytes A..A+N-1 (A a WRAM
  *                  offset in hex, 0-1FFFF; N default 2): frame, line, the
  *                  instruction that made it, old and new bytes (repeatable)
- * --at ADDR        print frame and line each time the instruction at ADDR
- *                  (hex) runs, the first 20 times (repeatable)
+ * --at ADDR        print frame, line and master clock each time the
+ *                  instruction at ADDR (hex) runs, the first 20 times
+ *                  (repeatable)
  * --interp-only    run everything in the interpreter (no native dispatch)
  *
  * --min-nmis K     exit 1 unless at least K NMIs were taken
@@ -119,7 +120,8 @@ static void trace(const CPU *c, uint32_t at)
 {
     for (int k = 0; k < n_at; k++)
         if (at == at_pc[k] && at_seen[k]++ < 20)
-            printf("at $%06X: frame %ld line %d\n", at, sched_frame_count(), sched_line());
+            printf("at $%06X: frame %ld line %d clock %llu\n", at, sched_frame_count(), sched_line(),
+                   (unsigned long long)sched_clock());
     if (n_watch)
         check_watch(at);
     for (int k = 0; k < n_expect; k++)

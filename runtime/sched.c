@@ -580,7 +580,7 @@ static void tick(CPU *c, uint32_t at, uint8_t op)
     if (op == 0x40)
         int_depth--;   /* this native RTI (charged at the next boundary) */
     prof_native++;
-    cyc_begin(c, at, op);
+    cyc_begin_compiled(c, at, op);
 }
 
 static void exec_one(void)

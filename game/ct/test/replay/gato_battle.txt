@@ -1,6 +1,6 @@
 # New game to the first battle: the Leene Square replay, then west out of
 # the bell plaza to Gato and accept his fight. Frames are 1-based; see
-# ct_boot --input. The battle starts near frame 10550; nothing is pressed
+# ct_boot --input. The battle starts near frame 10660; nothing is pressed
 # after that, so Gato attacks on his own.
 
 # (Frames 1-9200: identical to leene_square.txt.)
@@ -100,27 +100,29 @@
 8901-9060:up
 9061-9200:up
 
-# Bell plaza: west and down the west side staircase into the shop area.
-9201-9260:left
-9261-9330:down
-9331-9380:left
-9381-9480:down
+# Bell plaza: a step up to pass Marle (she wanders), west, down the west
+# side staircase into the shop area.
+9201-9215:up
+9216-9275:left
+9276-9345:down
+9346-9395:left
+9396-9495:down
 
 # Through the shops to the plaza's west exit (exit grid x=0, rows 5-9).
-9481-9600:left
-9601-9800:up
-9801-9950:left
+9496-9615:left
+9616-9850:up
+9851-9990:left
 
 # Gato's area: walk up beside him, face him, talk; the dialog runs into the fight.
-10000-10080:up
-10085-10092:left
-10100-10103:a
-10160-10163:a
-10205-10208:a
-10250-10253:a
-10295-10298:a
-10340-10343:a
-10385-10388:a
-10430-10433:a
-10475-10478:a
-10520-10523:a
+10100-10180:up
+10185-10192:left
+10200-10203:a
+10260-10263:a
+10305-10308:a
+10350-10353:a
+10395-10398:a
+10440-10443:a
+10485-10488:a
+10530-10533:a
+10575-10578:a
+10620-10623:a

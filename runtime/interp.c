@@ -752,6 +752,11 @@ unsigned interp_interrupt(CPU *c, int nmi)
 {
     if (c->e)
         ct_fatal("interp: interrupt in emulation mode not implemented");
+    /* bsnes CPU::interrupt: a fetch at PB:PC and an internal cycle, then
+       the pushes and the vector reads at their own speeds (the bus counts
+       them). */
+    unsigned fetch = cyc_master_per_cycle(c->PB, c->PC);
+    unsigned clocks0 = ct_bus_clocks;
     push(c, c->PB);
     pushw(c, c->PC);
     push(c, pack_p(c));
@@ -761,7 +766,7 @@ unsigned interp_interrupt(CPU *c, int nmi)
     uint16_t vec = nmi ? 0xFFEA : 0xFFEE;
     c->PC = (uint16_t)(read8(vec) | read8((uint16_t)(vec + 1)) << 8);
     waiting = 0;
-    return 8u * 8u;   /* 8 cycles: stack and vector accesses are slow-region */
+    return fetch + 6 + (ct_bus_clocks - clocks0);
 }
 
 int interp_waiting(void) { return waiting; }

@@ -206,11 +206,13 @@ int main(void)
               z[0x22]);
         CHECK(z[0x20] == 3, "mode %d: one IRQ per frame, got %u", mode, z[0x20]);
         CHECK(v == 100, "mode %d: latched V = VTIME: %u", mode, v);
-        /* Latch at the start of LDA $2137: fire clock + 64 (IRQ entry) +
-           32 (ROM stub JML) + 32 (LDA $4211) + 40 (INC $20), in dots; in
-           mode 1 (fire at 400) the handler also runs past the line's DRAM
-           refresh (531-538), 40 clocks with the CPU paused. */
-        unsigned want = ((mode ? 400u + 40 : 0u) + 64 + 32 + 32 + 40) / 4;
+        /* Latch at the start of LDA $2137: fire clock + 62 (IRQ entry:
+           fetch 8, idle 6, 4 pushes, 2 vector reads, 8 each) + 32 (ROM stub
+           JML) + 30 (LDA $4211: 3 WRAM fetches, I/O read 6) + 38 (INC $20:
+           2 fetches, read, idle 6, write), in dots; in mode 1 (fire at 400)
+           the handler also runs past the line's DRAM refresh (531-538), 40
+           clocks with the CPU paused. */
+        unsigned want = ((mode ? 400u + 40 : 0u) + 62 + 32 + 30 + 38) / 4;
         CHECK(h == want, "mode %d: latched H %u, want %u", mode, h, want);
     }
 

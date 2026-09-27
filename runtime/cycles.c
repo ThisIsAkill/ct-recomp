@@ -105,11 +105,30 @@ static unsigned stall;   /* cyc_stall clocks for the current instruction */
 
 void cyc_stall(unsigned clocks) { stall += clocks; }
 
+static const uint8_t op_size[256] = {   /* bytes with M=X=1 (recomp/decode.py) */
+    2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 1, 1, 3, 3, 3, 4,
+    2, 2, 2, 2, 2, 2, 2, 2, 1, 3, 1, 1, 3, 3, 3, 4,
+    3, 2, 4, 2, 2, 2, 2, 2, 1, 2, 1, 1, 3, 3, 3, 4,
+    2, 2, 2, 2, 2, 2, 2, 2, 1, 3, 1, 1, 3, 3, 3, 4,
+    1, 2, 2, 2, 3, 2, 2, 2, 1, 2, 1, 1, 3, 3, 3, 4,
+    2, 2, 2, 2, 3, 2, 2, 2, 1, 3, 1, 1, 4, 3, 3, 4,
+    1, 2, 3, 2, 2, 2, 2, 2, 1, 2, 1, 1, 3, 3, 3, 4,
+    2, 2, 2, 2, 2, 2, 2, 2, 1, 3, 1, 1, 3, 3, 3, 4,
+    2, 2, 3, 2, 2, 2, 2, 2, 1, 2, 1, 1, 3, 3, 3, 4,
+    2, 2, 2, 2, 2, 2, 2, 2, 1, 3, 1, 1, 3, 3, 3, 4,
+    2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 1, 1, 3, 3, 3, 4,
+    2, 2, 2, 2, 2, 2, 2, 2, 1, 3, 1, 1, 3, 3, 3, 4,
+    2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 1, 1, 3, 3, 3, 4,
+    2, 2, 2, 2, 2, 2, 2, 2, 1, 3, 1, 1, 3, 3, 3, 4,
+    2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 1, 1, 3, 3, 3, 4,
+    2, 2, 2, 2, 3, 2, 2, 2, 1, 3, 1, 1, 3, 3, 3, 4,
+};
+
 static struct {
-    int pending;
+    int pending, compiled;
     uint32_t at;
     uint8_t op, m16, x16, dl, native;
-    unsigned speed;
+    unsigned speed, size;
 } cur;
 
 void cyc_begin(const CPU *c, uint32_t at, uint8_t op)
@@ -126,8 +145,21 @@ void cyc_begin(const CPU *c, uint32_t at, uint8_t op)
     cur.dl = (c->DP & 0xFF) != 0;
     cur.native = !c->e;
     cur.speed = cyc_master_per_cycle((uint8_t)(at >> 16), (uint16_t)at);
+    cur.compiled = 0;
     ct_cyc_cross = ct_cyc_taken = 0;
     ct_cyc_moved = 0;
+    ct_bus_clocks = ct_bus_n = 0;   /* the interpreter's opcode fetch is before this */
+}
+
+void cyc_begin_compiled(const CPU *c, uint32_t at, uint8_t op)
+{
+    cyc_begin(c, at, op);
+    cur.compiled = 1;
+    cur.size = op_size[op];
+    if (cur.m16 && (op & 0x1F) == 0x09)   /* ORA AND EOR ADC BIT LDA CMP SBC #imm */
+        cur.size++;
+    if (cur.x16 && (op == 0xA0 || op == 0xA2 || op == 0xC0 || op == 0xE0))   /* LDY LDX CPY CPX */
+        cur.size++;
 }
 
 unsigned cyc_finish(void)
@@ -157,5 +189,20 @@ unsigned cyc_finish(void)
         ct_fatal("interp $%06X: no cycle count for opcode $%02X", cur.at, cur.op);
     unsigned extra = stall;
     stall = 0;
-    return n * cur.speed + extra;
+    /* Each cycle at its own speed: the opcode fetch (and, for compiled
+       code, the operand fetches it never makes) at the fetch speed, every
+       counted bus access at its address's speed, the rest as 6-clock
+       internal cycles. */
+    unsigned fetches = cur.compiled ? cur.size - 1 : 0;
+    if (pen & P_MV) {
+        /* Per byte: opcode and 2 operand fetches, read, write, 2 internal.
+           The interpreter fetched the operands once; the bus counted them. */
+        unsigned data = ct_bus_clocks - (cur.compiled ? 0 : 2 * cur.speed);
+        return (unsigned)ct_cyc_moved * (3 * cur.speed + 12) + data + extra;
+    }
+    unsigned used = 1 + fetches + ct_bus_n;
+    unsigned clocks = cur.speed * (1 + fetches) + ct_bus_clocks;
+    if (n > used)
+        clocks += (n - used) * 6;
+    return clocks + extra;
 }

@@ -49,6 +49,13 @@ void bus_unused_write(uint16_t reg, uint8_t v);
 /* $420D MEMSEL bit 0: FastROM enabled for banks $80-$FF. */
 int bus_fastrom(void);
 
+/* Master clocks and count of every read8/write8 since last cleared, each
+   access at its address's speed (bsnes CPU::wait): 6 for $2000-$3FFF,
+   $4200-$5FFF and FastROM, 8 for WRAM, SRAM and SlowROM, 12 for
+   $4000-$41FF. The cycle model (cycles.c) charges instructions from them. */
+extern unsigned ct_bus_clocks, ct_bus_n;
+unsigned bus_access_clocks(uint32_t a);
+
 uint8_t *bus_wram(void);
 uint8_t *bus_sram(void);
 const uint8_t *bus_rom(void);
