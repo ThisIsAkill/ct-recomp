@@ -25,7 +25,7 @@
  *
  * --min-nmis K     exit 1 unless at least K NMIs were taken
  * --require-render exit 1 if the last frame is all black
- * --wav FILE       write the audio (48 kHz stereo) to FILE
+ * --wav FILE       write the audio (the DSP output, 32 kHz stereo) to FILE
  * --require-audio  exit 1 if every audio sample of the run is zero
  *
  * On a fatal error the last 64 instruction addresses are printed.
@@ -128,16 +128,16 @@ static long dumped, audible;
    and hash. */
 static void on_frame(long f)
 {
-    static int16_t audio[800 * 2];   /* one frame at 48 kHz */
+    static int16_t audio[2048 * 2];   /* this frame's DSP output, 32 kHz */
     sched_set_joypad(0, replay_buttons(&input, f + 1));
-    sched_audio(audio, 800);
-    for (int k = 0; k < 800 * 2; k++)
+    int n = sched_audio_take(audio, 2048);
+    for (int k = 0; k < n * 2; k++)
         if (audio[k]) {
             audible++;
             break;
         }
     if (wav)
-        wav_write(wav, audio, 800);
+        wav_write(wav, audio, n);
     if (dump && png_dump_frame(dump, f, sched_frame(), SCHED_WIDTH, SCHED_HEIGHT) > 0)
         dumped++;
     if (hash_log)
@@ -201,7 +201,7 @@ int main(int argc, char **argv)
     ct_fatal_hook = on_fatal;
     ct_trace_hook = trace;
 
-    if (wav_path && !(wav = wav_open(wav_path, 48000))) {
+    if (wav_path && !(wav = wav_open(wav_path, SCHED_AUDIO_HZ))) {
         fprintf(stderr, "ct_boot: cannot write %s\n", wav_path);
         return 2;
     }

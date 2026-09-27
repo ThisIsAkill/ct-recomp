@@ -172,6 +172,34 @@ static uint8_t hvbjoy_read(uint16_t reg)
     return (uint8_t)(in_vblank << 7 | (hclock >= SCHED_HBLANK_CLOCK) << 6 | autojoy_busy);
 }
 
+/* DSP output at its own rate, one stereo pair per 32 SPC700 cycles, kept
+   until taken. A full ring drops the oldest samples. */
+#define AUDIO_RING 8192
+static int16_t ring[AUDIO_RING][2];
+static unsigned ring_head, ring_len;
+
+static void dsp_out(int16_t l, int16_t r)
+{
+    ring[ring_head][0] = l;
+    ring[ring_head][1] = r;
+    ring_head = (ring_head + 1) % AUDIO_RING;
+    if (ring_len < AUDIO_RING)
+        ring_len++;
+}
+
+int sched_audio_take(int16_t *stereo, int max)
+{
+    int n = (int)ring_len < max ? (int)ring_len : max;
+    unsigned at = (ring_head + AUDIO_RING - ring_len) % AUDIO_RING;
+    for (int k = 0; k < n; k++) {
+        stereo[2 * k] = ring[at][0];
+        stereo[2 * k + 1] = ring[at][1];
+        at = (at + 1) % AUDIO_RING;
+    }
+    ring_len -= (unsigned)n;
+    return n;
+}
+
 void sched_init(CPU *c)
 {
     cpu = c;
@@ -186,6 +214,8 @@ void sched_init(CPU *c)
     nmi_pending = 0;
     line_start = spc_done = 0;
     snes_apu_sync = apu_sync;
+    dsp_output_hook = dsp_out;
+    ring_head = ring_len = 0;
     nmitimen = rdnmi = 0;
     in_vblank = autojoy_busy = 0;
     wrio = 0xFF;
@@ -220,11 +250,10 @@ void sched_init(CPU *c)
    driver respond at a plausible pace. Deterministic. */
 
 #define MASTER_HZ 21477272u
-#define SPC_HZ    1024000u
 
 static void apu_sync(void)
 {
-    uint64_t want = (line_start + hclock) * SPC_HZ / MASTER_HZ;
+    uint64_t want = (line_start + hclock) * SCHED_SPC_HZ / MASTER_HZ;
     if (want > spc_done) {
         snes_apu_run((uint32_t)(want - spc_done));
         spc_done = want;
@@ -474,10 +503,6 @@ long sched_run_frame(void)
     return frames - f0;
 }
 
-void sched_audio(int16_t *stereo, int samples)
-{
-    dsp_getSamples(snes_hw_apu()->dsp, stereo, samples, 2);
-}
 
 const uint8_t *sched_frame(void) { return present; }
 long sched_frame_count(void) { return frames; }

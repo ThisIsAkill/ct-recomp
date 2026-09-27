@@ -40,10 +40,15 @@ void sched_set_native(int on);
    at the exact clock either way (sched_frame() is copied then). */
 long sched_run_frame(void);
 
-/* The DSP output of the frame just run, resampled to `samples` stereo
-   frames (L R interleaved) at 32040 Hz * samples / 534. Call once per
-   frame: it also empties the DSP buffer, which otherwise stops filling. */
-void sched_audio(int16_t *stereo, int samples);
+/* DSP output rate: the SPC700 at SCHED_SPC_HZ makes one stereo sample
+   per 32 cycles. */
+#define SCHED_SPC_HZ   1024000u
+#define SCHED_AUDIO_HZ (SCHED_SPC_HZ / 32)
+
+/* Move up to `max` stereo samples (L R interleaved, SCHED_AUDIO_HZ) of DSP
+   output not yet taken into `stereo`, oldest first; returns how many.
+   About 532.5 per frame. Up to 8192 are kept; older ones are dropped. */
+int sched_audio_take(int16_t *stereo, int max);
 
 /* Last rendered frame: SCHED_WIDTH x SCHED_HEIGHT pixels, bytes B G R 0. */
 const uint8_t *sched_frame(void);

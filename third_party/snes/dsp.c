@@ -129,6 +129,8 @@ void dsp_saveload(Dsp *dsp, SaveLoadFunc *func, void *ctx) {
   func(ctx, &dsp->ram, sizeof(Dsp) - offsetof(Dsp, ram));
 }
 
+void (*dsp_output_hook)(int16_t l, int16_t r);  // ct-recomp
+
 void dsp_cycle(Dsp* dsp) {
   int totalL = 0;
   int totalR = 0;
@@ -149,6 +151,10 @@ void dsp_cycle(Dsp* dsp) {
     totalR = 0;
   }
   dsp_handleNoise(dsp);
+  // ct-recomp: every output sample also goes to the host, which takes the
+  // exact count per frame (the buffer below holds 534 and reads back 534).
+  if (dsp_output_hook)
+    dsp_output_hook(totalL, totalR);
   // put it in the samplebuffer, if space
   if (dsp->sampleOffset < 534) {
     dsp->sampleBuffer[dsp->sampleOffset * 2] = totalL;
@@ -315,12 +321,15 @@ static void dsp_handleGain(Dsp* dsp, int ch) {
         }
         case 2: { // linear increase
           dsp->channel[ch].gain += 32;
-          if(dsp->channel[ch].gain > 0x7ff) dsp->channel[ch].gain = 0;
+          // ct-recomp: increases saturate at 0x7ff (fullsnes "clip E to 0
+          // or 0x7ff rather than wrapping"; bsnes SPC_DSP run_envelope);
+          // upstream wrapped them to 0.
+          if(dsp->channel[ch].gain > 0x7ff) dsp->channel[ch].gain = 0x7ff;
           break;
         }
         case 3: { // bent increase
           dsp->channel[ch].gain += dsp->channel[ch].gain < 0x600 ? 32 : 8;
-          if(dsp->channel[ch].gain > 0x7ff) dsp->channel[ch].gain = 0;
+          if(dsp->channel[ch].gain > 0x7ff) dsp->channel[ch].gain = 0x7ff; // ct-recomp: as above
           break;
         }
       }
@@ -386,7 +395,10 @@ static void dsp_decodeBrr(Dsp* dsp, int ch) {
     if(shift <= 0xc) {
       s = (s << shift) >> 1;
     } else {
-      s = (s >> 3) << 12;
+      // ct-recomp: shift 13-15 decodes as shift 12 with nibble SAR 3, so
+      // -800h or 0 (fullsnes BRR; bsnes SPC_DSP decode_brr); upstream
+      // omitted the final SAR 1.
+      s = ((s >> 3) << 12) >> 1;
     }
     switch(filter) {
       case 1: s += old + (-old >> 4); break;
@@ -543,6 +555,9 @@ void dsp_write(Dsp *dsp, uint8_t adr, uint8_t val) {
 
       if (dsp->channel[ch].keyOn) {
         dsp->channel[ch].keyOn = false;
+        // ct-recomp: key-on clears the voice's ENDX bit (fullsnes ENDX
+        // "0=Keyed ON"; bsnes SPC_DSP voice_V7).
+        dsp->ram[ENDX] &= ~(1 << ch);
         // restart current sample
         dsp->channel[ch].previousFlags = 0;
         uint16_t samplePointer = dsp->dirPage + 4 * dsp->channel[ch].srcn;

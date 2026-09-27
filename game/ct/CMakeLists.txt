@@ -143,7 +143,11 @@ if(SDL2_FOUND)
     # reproduce the run frame for frame in ct_boot.
     add_test(NAME sdl_record COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_record.py
         $<TARGET_FILE:ct_sdl> $<TARGET_FILE:ct_boot> ${GAME_DIR}/test/replay/leene_square.txt 9210)
-    list(APPEND ct_game_tests sdl_boot sdl_record)
+    # 60 s of boot in real time through the SDL audio queue (dummy driver,
+    # 960-sample buffer = 20 ms, which it consumes at the true rate): no
+    # underrun once playback starts.
+    add_test(NAME sdl_audio_60s COMMAND ct_sdl --frames 3606 --require-no-underrun)
+    list(APPEND ct_game_tests sdl_boot sdl_record sdl_audio_60s)
 endif()
 
 set_tests_properties(${ct_game_tests} PROPERTIES LABELS rom ENVIRONMENT

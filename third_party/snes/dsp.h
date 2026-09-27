@@ -92,6 +92,8 @@ Dsp* dsp_init(uint8_t *apu_ram);
 void dsp_free(Dsp* dsp);
 void dsp_reset(Dsp* dsp);
 void dsp_cycle(Dsp* dsp);
+// ct-recomp: called with each 32 kHz stereo output sample (NULL: none).
+extern void (*dsp_output_hook)(int16_t l, int16_t r);
 uint8_t dsp_read(Dsp* dsp, uint8_t adr);
 void dsp_write(Dsp* dsp, uint8_t adr, uint8_t val);
 void dsp_getSamples(Dsp* dsp, int16_t* sampleData, int samplesPerFrame, int numChannels);
