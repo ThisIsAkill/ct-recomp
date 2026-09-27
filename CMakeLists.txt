@@ -27,7 +27,7 @@ target_include_directories(ct_snes_vendor PUBLIC third_party/snes third_party)
 # ---- runtime ----
 add_library(ct_runtime STATIC runtime/cpu.c runtime/bus.c
     runtime/snes_adapter.c runtime/png.c runtime/wav.c runtime/hwlog.c
-    runtime/cycles.c)
+    runtime/cycles.c runtime/replay.c)
 target_include_directories(ct_runtime PUBLIC runtime)
 target_link_libraries(ct_runtime PUBLIC ct_snes_vendor)
 target_compile_options(ct_runtime PRIVATE ${CT_WARN})
@@ -90,7 +90,7 @@ set_tests_properties(runtime_fatal_unhooked PROPERTIES PASS_REGULAR_EXPRESSION "
 set_tests_properties(runtime_fatal_decimal PROPERTIES PASS_REGULAR_EXPRESSION "ct: \\$C10000: ADC with D=1")
 set_tests_properties(runtime_fatal_entry PROPERTIES PASS_REGULAR_EXPRESSION "ct: \\$C08100: entry state m0 x0 e0, expected m1 x0")
 
-foreach(t snes_bus hw_map interp_modes interp_system sched stack_guard)
+foreach(t snes_bus hw_map interp_modes interp_system sched stack_guard replay)
     ct_engine_test(test_${t} test/test_${t}.c)
     add_test(NAME ${t} COMMAND test_${t})
 endforeach()

@@ -40,6 +40,7 @@
 #include "hwlog.h"
 #include "interp.h"
 #include "png.h"
+#include "replay.h"
 #include "sched.h"
 #include "snes_adapter.h"
 #include "ppu.h"
@@ -78,73 +79,7 @@ static void trace(const CPU *c, uint32_t at)
     tail_n++;
 }
 
-#define MAX_INPUT 1024
-static struct {
-    long from, to;
-    uint16_t buttons;
-} input[MAX_INPUT];
-static int n_input;
-
-/* "F1-F2:start+a" or "F1-F2:0x1080"; returns 0 on success. */
-static int parse_input(const char *arg)
-{
-    static const struct { const char *name; uint16_t bit; } names[] = {
-        {"b", 0x8000}, {"y", 0x4000}, {"select", 0x2000}, {"start", 0x1000},
-        {"up", 0x0800}, {"down", 0x0400}, {"left", 0x0200}, {"right", 0x0100},
-        {"a", 0x0080}, {"x", 0x0040}, {"l", 0x0020}, {"r", 0x0010},
-    };
-    long from, to;
-    char spec[128];
-    if (n_input == MAX_INPUT || sscanf(arg, "%ld-%ld:%127s", &from, &to, spec) != 3 || from < 1 ||
-        to < from)
-        return -1;
-    uint16_t b = 0;
-    if (!strncmp(spec, "0x", 2)) {
-        b = (uint16_t)strtoul(spec, NULL, 16);
-    } else {
-        for (char *t = strtok(spec, "+"); t; t = strtok(NULL, "+")) {
-            unsigned k;
-            for (k = 0; k < sizeof names / sizeof names[0] && strcmp(t, names[k].name); k++)
-                ;
-            if (k == sizeof names / sizeof names[0])
-                return -1;
-            b |= names[k].bit;
-        }
-    }
-    input[n_input].from = from;
-    input[n_input].to = to;
-    input[n_input++].buttons = b;
-    return 0;
-}
-
-static uint16_t buttons_at(long frame)
-{
-    uint16_t b = 0;
-    for (int k = 0; k < n_input; k++)
-        if (frame >= input[k].from && frame <= input[k].to)
-            b |= input[k].buttons;
-    return b;
-}
-
-/* One --input spec per line; returns 0 on success. */
-static int parse_script(const char *path)
-{
-    FILE *f = fopen(path, "r");
-    if (!f)
-        return -1;
-    char buf[256];
-    int bad = 0;
-    while (!bad && fgets(buf, sizeof buf, f)) {
-        char *h = strchr(buf, '#');
-        if (h)
-            *h = 0;
-        char tok[160];
-        if (sscanf(buf, "%159s", tok) == 1)
-            bad = parse_input(tok) != 0;
-    }
-    fclose(f);
-    return bad ? -1 : 0;
-}
+static replay input;
 
 static uint64_t fnv(uint64_t h, const void *p, size_t n)
 {
@@ -194,7 +129,7 @@ static long dumped, audible;
 static void on_frame(long f)
 {
     static int16_t audio[800 * 2];   /* one frame at 48 kHz */
-    sched_set_joypad(0, buttons_at(f + 1));
+    sched_set_joypad(0, replay_buttons(&input, f + 1));
     sched_audio(audio, 800);
     for (int k = 0; k < 800 * 2; k++)
         if (audio[k]) {
@@ -231,12 +166,12 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[k], "--wav") && k + 1 < argc)
             wav_path = argv[++k];
         else if (!strcmp(argv[k], "--input") && k + 1 < argc) {
-            if (parse_input(argv[++k])) {
+            if (replay_add(&input, argv[++k])) {
                 fprintf(stderr, "ct_boot: bad --input %s\n", argv[k]);
                 return 2;
             }
         } else if (!strcmp(argv[k], "--script") && k + 1 < argc) {
-            if (parse_script(argv[++k])) {
+            if (replay_load(&input, argv[++k])) {
                 fprintf(stderr, "ct_boot: bad --script %s\n", argv[k]);
                 return 2;
             }
@@ -292,7 +227,7 @@ int main(int argc, char **argv)
         return 1;
     }
     sched_set_frame_hook(on_frame);
-    sched_set_joypad(0, buttons_at(1));
+    sched_set_joypad(0, replay_buttons(&input, 1));
     while (sched_frame_count() < frames)
         sched_run_frame();
     if (wav)

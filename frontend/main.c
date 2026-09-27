@@ -4,6 +4,7 @@
  *
  * usage: ct_sdl [--scale N] [--frames N] [--dump DIR] [--needed-hw FILE] [--fast]
  *               [--require-render] [--log-input] [--interp-only]
+ *               [--record FILE] [--script FILE]
  *
  * 256x224, integer scaled (--scale, default 3); paced to 60.0988 Hz
  * (NTSC) unless --fast; 48 kHz stereo audio; keyboard (arrows, Z=B X=A
@@ -13,6 +14,12 @@
  * is active, key presses within 2 frames of a controller button press are
  * ignored (key_filter in input.h). --frames, --dump
  * and --needed-hw work as in ct_boot.
+ *
+ * --record FILE writes pad 1's buttons per frame as an input script
+ * (replay.h), on every exit including Ctrl+Q and fatal errors: play to any
+ * point, then `ct_boot --script FILE --frames N` reproduces the run.
+ * --script FILE plays a script's buttons, combined with live input.
+ * Input is applied at the frame edge, as in ct_boot.
  *
  * Every exit prints its reason ("ct_sdl: exit: ..."); startup prints each
  * joystick and the button mapping. --log-input prints every key and
@@ -30,6 +37,7 @@
 #include "input.h"
 #include "interp.h"
 #include "png.h"
+#include "replay.h"
 #include "sched.h"
 
 #define RATE 48000
@@ -103,6 +111,23 @@ static SDL_GameController *open_controller(void)
     return NULL;
 }
 
+static replay script;
+static replay_rec rec;
+static uint16_t live_buttons;   /* polled by the main loop */
+
+/* Frame edge (sched_set_frame_hook): pad 1 for the next frame. */
+static void on_frame(long f)
+{
+    uint16_t b = live_buttons | replay_buttons(&script, f + 1);
+    sched_set_joypad(0, b);
+    replay_rec_frame(&rec, f + 1, b);
+}
+
+static void close_record(void)
+{
+    replay_rec_close(&rec);
+}
+
 int main(int argc, char **argv)
 {
     static long frames = -1;           /* static: survive the longjmp */
@@ -125,10 +150,21 @@ int main(int argc, char **argv)
             log_input = 1;
         else if (!strcmp(argv[k], "--interp-only"))
             sched_set_native(0);
-        else {
+        else if (!strcmp(argv[k], "--record") && k + 1 < argc) {
+            if (replay_rec_open(&rec, argv[++k], "ct_sdl --record")) {
+                fprintf(stderr, "ct_sdl: cannot write %s\n", argv[k]);
+                return 2;
+            }
+            atexit(close_record);
+        } else if (!strcmp(argv[k], "--script") && k + 1 < argc) {
+            if (replay_load(&script, argv[++k])) {
+                fprintf(stderr, "ct_sdl: bad --script %s\n", argv[k]);
+                return 2;
+            }
+        } else {
             fprintf(stderr, "usage: ct_sdl [--scale N] [--frames N] [--dump DIR] "
                             "[--needed-hw FILE] [--fast] [--require-render] [--log-input] "
-                            "[--interp-only]\n");
+                            "[--interp-only] [--record FILE] [--script FILE]\n");
             return 2;
         }
     }
@@ -182,6 +218,9 @@ int main(int argc, char **argv)
 
     interp_reset(&cpu);
     sched_init(&cpu);
+    sched_set_frame_hook(on_frame);
+    sched_set_joypad(0, replay_buttons(&script, 1));
+    replay_rec_frame(&rec, 1, replay_buttons(&script, 1));
     ct_fatal_hook = on_fatal;
     if (setjmp(fatal_jmp)) {
         static char stop[512];
@@ -199,7 +238,7 @@ int main(int argc, char **argv)
     key_filter_init(&keys);
     uint64_t freq = SDL_GetPerformanceFrequency(), next = SDL_GetPerformanceCounter();
     int running = 1;
-    for (long f = 0; running && (frames < 0 || f < frames); f++) {
+    for (long f = 0; running && (frames < 0 || sched_frame_count() < frames); f++) {
         exit_frame = f;
         keys.controller = pad != NULL;
         SDL_Event ev;
@@ -235,15 +274,17 @@ int main(int argc, char **argv)
         uint16_t buttons = input_keyboard(keys.held);
         if (pad)
             buttons |= input_controller(pad_button, pad_axis, pad);
-        sched_set_joypad(0, buttons);
+        live_buttons = buttons;
 
-        sched_run_frame();
+        long done = sched_run_frame();
 
-        static int16_t samples[SAMPLES_PER_FRAME * 2];
-        sched_audio(samples, SAMPLES_PER_FRAME);
-        /* Keep at most ~3 frames queued: drop rather than drift behind. */
-        if (audio && SDL_GetQueuedAudioSize(audio) < 3 * sizeof samples)
-            SDL_QueueAudio(audio, samples, sizeof samples);
+        for (long k = 0; k < done; k++) {
+            static int16_t samples[SAMPLES_PER_FRAME * 2];
+            sched_audio(samples, SAMPLES_PER_FRAME);
+            /* Keep at most ~3 frames queued: drop rather than drift behind. */
+            if (audio && SDL_GetQueuedAudioSize(audio) < 3 * sizeof samples)
+                SDL_QueueAudio(audio, samples, sizeof samples);
+        }
 
         const uint8_t *fb = sched_frame();   /* B G R x = ARGB8888 little-endian */
         SDL_UpdateTexture(tex, NULL, fb, SCHED_WIDTH * 4);
@@ -251,7 +292,7 @@ int main(int argc, char **argv)
         SDL_RenderCopy(ren, tex, NULL, NULL);
         SDL_RenderPresent(ren);
         if (dump)
-            png_dump_frame(dump, f + 1, fb, SCHED_WIDTH, SCHED_HEIGHT);
+            png_dump_frame(dump, sched_frame_count(), fb, SCHED_WIDTH, SCHED_HEIGHT);
 
         if (!fast) {
             next += freq * FRAME_NS / 1000000000ull;

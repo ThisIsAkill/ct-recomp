@@ -122,19 +122,28 @@ list(APPEND ct_game_tests boot_interp boot_menu)
 
 # Native dispatch vs the interpreter alone: per-frame state hashes taken at
 # the frame edge must match on every frame (tools/lockstep.py reports the
-# first divergent one). The boot to the title, and a new game through
-# Crono's house and the world map into Leene Square up to the bell.
+# first divergent one). The boot to the title; a new game through
+# Crono's house and the world map into Leene Square up to the bell; and on
+# from there into Gato's fight, the first battle ($C10089 Battle_Mul8 runs
+# only in battle).
 add_test(NAME lockstep_boot COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/lockstep.py
     $<TARGET_FILE:ct_boot> --frames 1500)
 add_test(NAME lockstep_leene_square COMMAND ${Python3_EXECUTABLE}
     ${CMAKE_SOURCE_DIR}/tools/lockstep.py $<TARGET_FILE:ct_boot> --frames 9210
     --script ${GAME_DIR}/test/replay/leene_square.txt --expect-pc C2940D)
-list(APPEND ct_game_tests lockstep_boot lockstep_leene_square)
+add_test(NAME lockstep_gato_battle COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_SOURCE_DIR}/tools/lockstep.py $<TARGET_FILE:ct_boot> --frames 11000
+    --script ${GAME_DIR}/test/replay/gato_battle.txt --expect-pc C10089)
+list(APPEND ct_game_tests lockstep_boot lockstep_leene_square lockstep_gato_battle)
 
 if(SDL2_FOUND)
     # The frontend itself, headless (SDL dummy drivers), unpaced.
     add_test(NAME sdl_boot COMMAND ct_sdl --frames 300 --fast --require-render)
-    list(APPEND ct_game_tests sdl_boot)
+    # --record while playing the Leene Square replay; the recording must
+    # reproduce the run frame for frame in ct_boot.
+    add_test(NAME sdl_record COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_record.py
+        $<TARGET_FILE:ct_sdl> $<TARGET_FILE:ct_boot> ${GAME_DIR}/test/replay/leene_square.txt 9210)
+    list(APPEND ct_game_tests sdl_boot sdl_record)
 endif()
 
 set_tests_properties(${ct_game_tests} PROPERTIES LABELS rom ENVIRONMENT

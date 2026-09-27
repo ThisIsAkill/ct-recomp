@@ -45,9 +45,14 @@ mkdir -p shots && build/ct_boot --frames 1500 --dump shots   # headless: PNGs of
 ```
 
 `ct_sdl` keys: arrows, Z=B, X=A, A=Y, S=X, Q=L, W=R, Enter=Start, Right Shift=Select;
-a game controller works too. Ctrl+Q or closing the window quits. `ct_boot` also
-takes `--input F1-F2:BUTTONS` to script the pad, `--wav FILE` for audio, and
-`--needed-hw FILE` to report where emulation stops.
+a game controller works too. Ctrl+Q or closing the window quits.
+`ct_sdl --record FILE` saves your pad input as a script; `ct_boot --script FILE
+--frames N` replays it exactly (N is on its last line), and `ct_sdl --script
+FILE` plays it back in the window. `ct_boot` also takes `--input F1-F2:BUTTONS`
+to script the pad, `--wav FILE` for audio, `--hash-log FILE` for per-frame
+state hashes (`tools/lockstep.py` compares native and interpreted runs with
+them), and `--needed-hw FILE` to report where emulation stops. Replays of a new
+game into Leene Square and into the first battle are in `game/ct/test/replay/`.
 
 The ROM is never committed, and CI never sees it.
 
