@@ -130,7 +130,11 @@ static uint8_t ppu_reg_read(uint16_t reg)
    table ($000-$1FF) latches the even byte and writes the pair on the odd
    one; the high table ($200-$21F, mirrored through $3FF) is written a
    byte at a time. The address wraps at $3FF. */
-static uint16_t oamadd_reload;   /* last OAMADD, reloaded at VBlank */
+/* OAMADD ($2102/$2103): a 9-bit reload value (word address) apart from the
+   internal address. A write to either half changes that half of the reload
+   value and copies the whole value to the address (fullsnes 2102h/2103h;
+   bsnes oamBaseAddress/oamAddressReset); VBlank reloads it too. */
+static uint16_t oamadd_reload;
 
 static void oam_write(uint8_t v)
 {
@@ -167,9 +171,15 @@ static void ppu_reg_write(uint16_t reg, uint8_t v)
         oam_write(v);
         return;
     }
+    if (reg == 0x2102 || reg == 0x2103) {
+        ppu_write(g_ppu, (uint8_t)(reg - 0x2100u), v);   /* priority bit: not modeled */
+        oamadd_reload = reg == 0x2102 ? (uint16_t)((oamadd_reload & 0x100) | v)
+                                      : (uint16_t)((oamadd_reload & 0xFF) | (v & 1) << 8);
+        g_ppu->oamAdr = oamadd_reload;   /* not the old address's other half */
+        g_ppu->oamSecondWrite = false;
+        return;
+    }
     ppu_write(g_ppu, (uint8_t)(reg - 0x2100u), v);
-    if (reg == 0x2102 || reg == 0x2103)
-        oamadd_reload = g_ppu->oamAdr;
     if (reg == 0x2116 || reg == 0x2117)
         vram_latch = g_ppu->vram[g_ppu->vramPointer & 0x7FFF];   /* prefetch after VMADD */
 }

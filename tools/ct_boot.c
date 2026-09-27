@@ -20,7 +20,8 @@
  * --expect-pc ADDR exit 1 unless the instruction at ADDR (hex) ran
  *                  (repeatable)
  * --wram FILE      write the 128 KB of WRAM to FILE at the end of the run
- * --vram FILE      likewise the 64 KB of VRAM, then 512 bytes of CGRAM
+ * --vram FILE      likewise the 64 KB of VRAM, then CGRAM (512 bytes) and
+ *                  OAM (544 bytes)
  * --interp-only    run everything in the interpreter (no native dispatch)
  *
  * --min-nmis K     exit 1 unless at least K NMIs were taken
@@ -238,7 +239,8 @@ int main(int argc, char **argv)
         Ppu *ppu = snes_hw_ppu();
         FILE *f = fopen(vram_path, "wb");
         if (!f || fwrite(ppu->vram, 1, sizeof ppu->vram, f) != sizeof ppu->vram ||
-            fwrite(ppu->cgram, 1, sizeof ppu->cgram, f) != sizeof ppu->cgram)
+            fwrite(ppu->cgram, 1, sizeof ppu->cgram, f) != sizeof ppu->cgram ||
+            fwrite(ppu->oam, 1, sizeof ppu->oam, f) != sizeof ppu->oam)
             fprintf(stderr, "ct_boot: cannot write %s\n", vram_path);
         if (f)
             fclose(f);

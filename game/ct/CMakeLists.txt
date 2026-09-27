@@ -136,6 +136,12 @@ add_test(NAME lockstep_gato_battle COMMAND ${Python3_EXECUTABLE}
     --script ${GAME_DIR}/test/replay/gato_battle.txt --expect-pc C10089)
 list(APPEND ct_game_tests lockstep_boot lockstep_leene_square lockstep_gato_battle)
 
+# Battle sprites must not drop out on alternate frames (Gato's fight from
+# its start; broken until OAMADD kept its own reload value, test_hw_map).
+add_test(NAME battle_no_flicker COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_flicker.py
+    $<TARGET_FILE:ct_boot> 10560 11000 --script ${GAME_DIR}/test/replay/gato_battle.txt)
+list(APPEND ct_game_tests battle_no_flicker)
+
 if(SDL2_FOUND)
     # The frontend itself, headless (SDL dummy drivers), unpaced.
     add_test(NAME sdl_boot COMMAND ct_sdl --frames 300 --fast --require-render)

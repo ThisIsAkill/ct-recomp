@@ -116,6 +116,27 @@ static void test_oam(void)
     write8(0x2104, 0x02);
     snes_oam_vblank_reload();
     CHECK(ppu->oamAdr == 4 && !ppu->oamSecondWrite, "OAM address reloaded: %u", ppu->oamAdr);
+    /* OAMADD is a reload value apart from the address: a $2102 write
+       keeps the reload value's bit 8 (from the last $2103 write), not the
+       address's. A game that writes only $2102=00 before each 544-byte
+       OAM DMA would otherwise start every other upload in the high table,
+       taking bit 8 from the word $110 the previous DMA left behind. */
+    write8(0x2103, 0x00);
+    write8(0x2102, 0x00);
+    for (int k = 0; k < 544; k++)
+        write8(0x2104, (uint8_t)k);
+    CHECK(ppu->oamAdr == 0x110, "544 bytes end at word $110: %03X", ppu->oamAdr);
+    write8(0x2102, 0x00);
+    CHECK(ppu->oamAdr == 0x000 && !ppu->oamSecondWrite, "$2102 reloads word $000: %03X",
+          ppu->oamAdr);
+    write8(0x2103, 0x01);
+    write8(0x2102, 0x08);
+    CHECK(ppu->oamAdr == 0x108, "$2103 bit 8 kept in the reload value: %03X", ppu->oamAdr);
+    write8(0x2103, 0x80);   /* priority rotation bit; address bit 8 = 0 */
+    CHECK(ppu->oamAdr == 0x008, "$2103 reloads the whole value: %03X", ppu->oamAdr);
+    write8(0x2102, 0x04);
+    write8(0x2103, 0x00);
+
     write8(0x2100, 0x80);   /* forced blank: no reload */
     write8(0x2104, 0x03);
     write8(0x2104, 0x04);
