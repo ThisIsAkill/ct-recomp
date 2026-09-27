@@ -33,7 +33,6 @@ struct Apu {
   uint8_t outPorts[4];
   Timer timer[3];
   uint8_t cpuCyclesLeft;
-  uint8_t opPending; // ct-recomp: opcode waiting for its last base cycle
   union {
     DspRegWriteHistory hist;
     void *padpad;
@@ -52,13 +51,15 @@ typedef struct Apu2 {
   uint8_t outPorts[4];
   Timer timer[3];
   uint8_t cpuCyclesLeft;
-  uint8_t opPending; // ct-recomp: opcode waiting for its last base cycle
 } Apu2;
 
 Apu* apu_init();
 void apu_free(Apu* apu);
 void apu_reset(Apu* apu);
 void apu_cycle(Apu* apu);
+// ct-recomp: one SPC700 cycle of everything but the SPC700 itself (DSP,
+// timers, the cycle count), for a host-driven cycle-accurate SPC700 core.
+void apu_tick(Apu* apu);
 // ct-recomp: if set, SPC700 reads of $F4-$F7 return this (the host decides
 // which CPU write the read sees, by time).
 extern uint8_t (*apu_inport_read)(Apu* apu, int port);

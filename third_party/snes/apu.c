@@ -52,34 +52,22 @@ void apu_reset(Apu* apu) {
     apu->timer[i].counter = 0;
     apu->timer[i].enabled = false;
   }
-  apu->cpuCyclesLeft = 0; // ct-recomp: the SPC700 starts at power-on (bsnes SMP::power); upstream waited 7 cycles
-  apu->opPending = 0;
+  apu->cpuCyclesLeft = 7;
   apu->hist.count = 0;
 }
 
 uint8_t (*apu_inport_read)(Apu* apu, int port); // ct-recomp
 
 void apu_cycle(Apu* apu) {
-  // ct-recomp: upstream ran each opcode (all its memory accesses) on its
-  // first cycle, then idled. Hardware makes the accesses on their own
-  // cycles; for the port polls and writes of CPU/SPC700 handshakes the
-  // read or write is the last cycle (bsnes SMP). So wait out the opcode's
-  // base cycles and run it on the last one; a taken branch's extra cycles
-  // follow.
-  if(apu->cpuCyclesLeft == 0 && !apu->opPending) {
-    uint16_t pc = apu->spc->pc;
-    uint8_t op = apu->romReadable && pc >= 0xffc0 ? bootRom[pc - 0xffc0] : apu->ram[pc];
-    apu->cpuCyclesLeft = apu->spc->stopped ? 1 : spc_opcodeCycles(op);
-    apu->opPending = 1;
+  if(apu->cpuCyclesLeft == 0) {
+    apu->cpuCyclesLeft = spc_runOpcode(apu->spc);
   }
   apu->cpuCyclesLeft--;
-  if(apu->opPending && apu->cpuCyclesLeft == 0) {
-    uint16_t pc = apu->spc->pc;
-    uint8_t op = apu->romReadable && pc >= 0xffc0 ? bootRom[pc - 0xffc0] : apu->ram[pc];
-    int base = apu->spc->stopped ? 1 : spc_opcodeCycles(op);
-    apu->cpuCyclesLeft = spc_runOpcode(apu->spc) - base;
-    apu->opPending = 0;
-  }
+  apu_tick(apu);
+}
+
+// ct-recomp: split out of apu_cycle, unchanged
+void apu_tick(Apu* apu) {
 
   if((apu->cycles & 0x1f) == 0) {
     // every 32 cycles

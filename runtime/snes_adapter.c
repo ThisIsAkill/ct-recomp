@@ -5,6 +5,7 @@
 #include "cpu.h"
 #include "cycles.h"
 #include "sched.h"
+#include "spc700_host.h"
 #include "hwlog.h"
 #include "apu.h"
 #include "dma.h"
@@ -210,12 +211,12 @@ uint64_t (*snes_master_clock)(void);
 
 static uint8_t port_prev[4];
 static uint64_t port_time[4];
-static uint64_t spc_cycle;   /* index of the SPC700 cycle being run */
 
 static uint8_t inport_read(Apu *apu, int port)
 {
-    /* Read at spc_cycle + 1/2, write at port_time: compare in master x SPC. */
-    if ((2 * spc_cycle + 1) * SCHED_MASTER_HZ < 2 * port_time[port] * (uint64_t)SCHED_SPC_HZ)
+    /* Read in the middle of the SPC700 cycle making it, the write at
+       port_time: compare in master x SPC units. */
+    if ((2 * spc_host_cycle() + 1) * SCHED_MASTER_HZ < 2 * port_time[port] * (uint64_t)SCHED_SPC_HZ)
         return port_prev[port];
     return apu->inPorts[port];
 }
@@ -231,10 +232,7 @@ static void apu_reg_write(uint16_t reg, uint8_t v)
 
 void snes_apu_run(uint32_t spc_cycles)
 {
-    while (spc_cycles--) {
-        apu_cycle(g_apu);
-        spc_cycle++;
-    }
+    spc_host_run(spc_cycles);
 }
 
 /* ---- $4300-$437F DMA channel registers ---- */
@@ -330,11 +328,11 @@ void snes_hw_reset(void)
     ppu1_mdr = ppu2_mdr = 0;
     vram_latch = 0;
     oamadd_reload = 0;
-    spc_cycle = 0;
     memset(port_prev, 0, sizeof port_prev);
     memset(port_time, 0, sizeof port_time);
     dma_reset(g_dma);
     apu_reset(g_apu);
+    spc_host_reset(g_apu);
 }
 
 Ppu *snes_hw_ppu(void) { return g_ppu; }

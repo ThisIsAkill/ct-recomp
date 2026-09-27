@@ -25,11 +25,11 @@ increases saturate at 7FFh instead of wrapping to 0; BRR shift 13-15
 decodes to -800h/0 (upstream doubled it); key-on clears the voice's ENDX
 bit. Where the two disagree, bsnes as decided in #31: attack runs until the
 level passes 7FFh (upstream switched to decay at 7E0h), and ENDX powers on
-as 00h (upstream FFh). `apu.c`/`spc.c`: the SPC700 runs each opcode on the last of its base
-cycles instead of the first (port reads and writes of the CPU handshake
-land on that cycle, bsnes SMP), starts at power-on without upstream's 7
-idle cycles, and asks the host (`apu_inport_read`) what $F4-$F7 read, so a
-CPU write landing after the middle of the reading cycle isn't seen yet.
+as 00h (upstream FFh). `apu.c`: the SPC700 instruction core here (`spc.c`) is no longer run --
+ares's cycle-accurate core (`third_party/ares`) is, one `apu_tick` (DSP,
+timers, cycle count: the non-CPU half of `apu_cycle`) per SPC700 cycle;
+and $F4-$F7 reads go through the host (`apu_inport_read`), so a CPU write
+landing after the middle of the reading cycle isn't seen yet.
 `dsp_output_hook` hands every 32 kHz output sample to the host
 (`runtime/sched.c`) instead of the fixed 534-sample frame buffer.
 

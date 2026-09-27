@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
-project(ct_recomp C)
+project(ct_recomp C CXX)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
@@ -27,9 +29,12 @@ target_include_directories(ct_snes_vendor PUBLIC third_party/snes third_party)
 # ---- runtime ----
 add_library(ct_runtime STATIC runtime/cpu.c runtime/bus.c
     runtime/snes_adapter.c runtime/png.c runtime/wav.c runtime/hwlog.c
-    runtime/cycles.c runtime/replay.c runtime/resample.c)
+    runtime/cycles.c runtime/replay.c runtime/resample.c
+    runtime/spc700_host.cpp)
 target_include_directories(ct_runtime PUBLIC runtime)
 target_link_libraries(ct_runtime PUBLIC ct_snes_vendor m)
+# ares's SPC700 core (ISC), compiled inside runtime/spc700_host.cpp.
+target_include_directories(ct_runtime PRIVATE third_party/ares/spc700)
 target_compile_options(ct_runtime PRIVATE ${CT_WARN})
 
 # Function tables (func_table.h): a game's generated ct_funcs.c, or these

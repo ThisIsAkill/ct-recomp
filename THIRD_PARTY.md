@@ -28,6 +28,17 @@ reads them to populate `funcs.toml` / `unresolved.toml`.
   debuggers/tracers during development. No code from any of them is in this
   repository.
 
+### `third_party/ares/`
+
+- **ares-emulator/ares**, `ares/component/processor/spc700/`, commit
+  `4cb8d92b441557cb6bcaf133c4cbc7f6819b1122` (ISC, "ares team, Near et al"; the repository's
+  `LICENSE` is copied whole as `third_party/ares/LICENSE`) — the
+  cycle-accurate SPC700 CPU core, vendored unmodified. `runtime/spc700_host.cpp`
+  compiles it (without its disassembler and serializer) against a small
+  `nall` stand-in (`runtime/nall_shim.hpp`, our code) and drives it against
+  the zelda3 APU's memory map, DSP and timers. Details in
+  `third_party/ares/README.md`.
+
 ### `third_party/snes/`
 
 - **snesrev/zelda3**, `snes/` subtree, commit `fbbb3f967a51fafe642e6140d0753979e73b4090`

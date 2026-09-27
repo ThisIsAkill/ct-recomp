@@ -40,7 +40,6 @@ Spc* spc_init(Apu* apu);
 void spc_free(Spc* spc);
 void spc_reset(Spc* spc);
 int spc_runOpcode(Spc* spc);
-int spc_opcodeCycles(uint8_t opcode); // ct-recomp: base cycles of an opcode
 void spc_saveload(Spc *spc, SaveLoadFunc *func, void *ctx);
 
 #endif

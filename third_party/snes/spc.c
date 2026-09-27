@@ -87,10 +87,6 @@ void spc_saveload(Spc *spc, SaveLoadFunc *func, void *ctx) {
   func(ctx, &spc->a, offsetof(Spc, cyclesUsed) - offsetof(Spc, a));
 }
 
-int spc_opcodeCycles(uint8_t opcode) { // ct-recomp
-  return cyclesPerOpcode[opcode];
-}
-
 int spc_runOpcode(Spc* spc) {
   spc->cyclesUsed = 0;
   if(spc->stopped) return 1;

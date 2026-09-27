@@ -61,6 +61,7 @@
 #include "replay.h"
 #include "sched.h"
 #include "snes_adapter.h"
+#include "spc700_host.h"
 #include "ppu.h"
 #include "apu.h"
 #include "dsp.h"
@@ -165,11 +166,10 @@ static void write_state_hashes(FILE *f, long frame)
                                c->z << 6 | c->v << 7 | c->n << 8)};
     Ppu *ppu = snes_hw_ppu();
     Apu *apu = snes_hw_apu();
-    const Spc *spc = apu->spc;
-    uint8_t apu_regs[] = {spc->a, spc->x, spc->y, spc->sp, (uint8_t)spc->pc, (uint8_t)(spc->pc >> 8),
-                          (uint8_t)(spc->c | spc->z << 1 | spc->v << 2 | spc->n << 3 | spc->i << 4 |
-                                    spc->h << 5 | spc->p << 6 | spc->b << 7),
-                          spc->stopped, apu->dspAdr, apu->romReadable,
+    uint8_t spc[8];
+    spc_host_regs(spc);
+    uint8_t apu_regs[] = {spc[0], spc[1], spc[2], spc[3], spc[4], spc[5], spc[6],
+                          spc[7], apu->dspAdr, apu->romReadable,
                           apu->inPorts[0], apu->inPorts[1], apu->inPorts[2], apu->inPorts[3],
                           apu->outPorts[0], apu->outPorts[1], apu->outPorts[2], apu->outPorts[3]};
     uint64_t h_apu = fnv(fnv(fnv(HASH0, apu_regs, sizeof apu_regs), apu->ram, sizeof apu->ram),
