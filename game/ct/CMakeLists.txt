@@ -142,6 +142,13 @@ add_test(NAME battle_no_flicker COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR
     $<TARGET_FILE:ct_boot> 10560 11000 --script ${GAME_DIR}/test/replay/gato_battle.txt)
 list(APPEND ct_game_tests battle_no_flicker)
 
+# Native coverage must not regress: share of instructions run natively
+# through the first battle (50.6% when added; ct_boot --profile N lists
+# the functions the rest ran in).
+add_test(NAME native_coverage COMMAND ct_boot --frames 11000 --min-native 50
+    --script ${GAME_DIR}/test/replay/gato_battle.txt)
+list(APPEND ct_game_tests native_coverage)
+
 if(SDL2_FOUND)
     # The frontend itself, headless (SDL dummy drivers), unpaced.
     add_test(NAME sdl_boot COMMAND ct_sdl --frames 300 --fast --require-render)

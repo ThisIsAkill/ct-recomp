@@ -47,6 +47,16 @@ static int frame_done;
 static void (*frame_hook)(long frame);
 /* Interrupts entered minus RTIs executed, native or interpreted. */
 static long int_depth;
+/* Native coverage profile state (see sched_profile_report). */
+#define PROF_SLOTS 8192   /* power of two */
+#define PROF_DEPTH 256
+static uint64_t prof_native, prof_interp;
+static struct {
+    uint32_t key;   /* PB:PC | M << 24 | X << 25 | E << 26 | 1 << 31 (used) */
+    uint64_t count;
+} prof[PROF_SLOTS];
+static uint32_t shadow[PROF_DEPTH];
+static int shadow_n;
 
 /* ---- registers ---- */
 
@@ -211,6 +221,9 @@ void sched_init(CPU *c)
     frame_done = 0;
     frames = nmis = 0;
     int_depth = 0;
+    prof_native = prof_interp = 0;
+    shadow_n = 0;
+    memset(prof, 0, sizeof prof);
     nmi_pending = 0;
     line_start = spc_done = 0;
     snes_apu_sync = apu_sync;
@@ -393,6 +406,104 @@ static void native_build(void)
     qsort(native, n_native, sizeof *native, by_addr);
 }
 
+/* ---- native coverage profile ----
+   Instructions run natively (one tick each) and interpreted. Interpreted
+   ones are charged to the function they run in: the target of the last
+   interpreted JSR/JSL/JSR (a,X) or interrupt entry not yet returned from,
+   with the M, X and E it was entered with (a shadow stack; a native
+   function's own calls and returns never reach it). */
+
+static uint32_t entry_key(const CPU *c)
+{
+    return (uint32_t)c->PB << 16 | c->PC | (uint32_t)c->m << 24 | (uint32_t)c->x << 25 |
+           (uint32_t)c->e << 26 | 1u << 31;
+}
+
+static void shadow_push(const CPU *c)
+{
+    if (shadow_n < PROF_DEPTH)
+        shadow[shadow_n] = entry_key(c);
+    shadow_n++;
+}
+
+static void shadow_pop(void)
+{
+    if (shadow_n > 0)
+        shadow_n--;
+}
+
+static void prof_charge(void)
+{
+    uint32_t key = shadow_n > 0 && shadow_n <= PROF_DEPTH ? shadow[shadow_n - 1] : 1u << 31;
+    unsigned k = (key * 2654435761u) & (PROF_SLOTS - 1);
+    for (unsigned n = 0; n < PROF_SLOTS; n++, k = (k + 1) & (PROF_SLOTS - 1)) {
+        if (prof[k].key == key || !prof[k].key) {
+            prof[k].key = key;
+            prof[k].count++;
+            return;
+        }
+    }
+}
+
+uint64_t sched_native_insns(void) { return prof_native; }
+uint64_t sched_interp_insns(void) { return prof_interp; }
+
+/* Why the function at this key didn't run natively. */
+static const char *not_native_reason(uint32_t key)
+{
+    uint32_t addr = key & 0xFFFFFF;
+    int m = key >> 24 & 1, x = key >> 25 & 1, e = key >> 26 & 1;
+    if ((key & 0xFFFFFF) == 0 && !(key & 0x7F000000))
+        return "outside any call (reset code, main loop)";
+    if (e)
+        return "emulation mode";
+    int any = 0, ext = 0, state = 0;
+    for (unsigned k = 0; k < ct_func_count; k++) {
+        const ct_func *f = &ct_funcs[k];
+        if (f->addr != addr || !f->fn)
+            continue;
+        any = 1;
+        if (f->calls_extern)
+            ext = 1;
+        else if (f->m == m && f->x == x)
+            state = 1;
+    }
+    if (!any)
+        return "not recompiled";
+    if (state)
+        return "recompiled, but DB/DP differ from the recompiled entry";
+    if (ext)
+        return "recompiled, but can reach an extern hook";
+    return "recompiled only for another M/X";
+}
+
+void sched_profile_report(FILE *out, int top)
+{
+    uint64_t total = prof_native + prof_interp;
+    fprintf(out, "profile: %llu instructions, %.2f%% native (%llu native, %llu interpreted)\n",
+            (unsigned long long)total, total ? 100.0 * (double)prof_native / (double)total : 0.0,
+            (unsigned long long)prof_native, (unsigned long long)prof_interp);
+    for (int n = 0; n < top; n++) {
+        int best = -1;
+        for (int k = 0; k < PROF_SLOTS; k++)
+            if (prof[k].key && prof[k].count && (best < 0 || prof[k].count > prof[best].count))
+                best = k;
+        if (best < 0)
+            break;
+        uint32_t key = prof[best].key;
+        const char *name = "";
+        for (unsigned k = 0; k < ct_func_count; k++)
+            if (ct_funcs[k].addr == (key & 0xFFFFFF)) {
+                name = ct_funcs[k].name;
+                break;
+            }
+        fprintf(out, "profile: %6.2f%%  $%06X m%dx%de%d %-28s %s\n",
+                100.0 * (double)prof[best].count / (double)(total ? total : 1), key & 0xFFFFFF,
+                key >> 24 & 1, key >> 25 & 1, key >> 26 & 1, name, not_native_reason(key));
+        prof[best].count = 0;   /* report consumes the table */
+    }
+}
+
 static const ct_func *native_lookup(const CPU *c)
 {
     if (!native_on || c->e || !n_native)
@@ -442,6 +553,7 @@ static void tick(CPU *c, uint32_t at, uint8_t op)
         CPU before = *c;
         long depth = int_depth++;
         advance(interp_interrupt(c, nmi));
+        shadow_push(c);
         while (int_depth > depth)
             exec_one();
         if (c->PB != before.PB || c->PC != before.PC || c->S != before.S || c->m != before.m ||
@@ -454,6 +566,7 @@ static void tick(CPU *c, uint32_t at, uint8_t op)
     }
     if (op == 0x40)
         int_depth--;   /* this native RTI (charged at the next boundary) */
+    prof_native++;
     cyc_begin(c, at, op);
 }
 
@@ -464,12 +577,14 @@ static void exec_one(void)
         nmis++;
         int_depth++;
         advance(interp_interrupt(cpu, 1));
+        shadow_push(cpu);
         return;
     }
     if (timeup && (nmitimen & 0x30)) {
         if (!cpu->i) {
             int_depth++;
             advance(interp_interrupt(cpu, 0));   /* level: until $4211 is read */
+            shadow_push(cpu);
             return;
         }
         interp_wake();   /* IRQ with I=1 still ends WAI */
@@ -480,13 +595,23 @@ static void exec_one(void)
     }
     const ct_func *f = native_lookup(cpu);
     if (f) {
+        uint32_t entry = entry_key(cpu);
         f->fn(cpu);
+        if (shadow_n > 0 && shadow_n <= PROF_DEPTH && shadow[shadow_n - 1] == entry)
+            shadow_pop();   /* the interpreted JSR/JSL that called it */
         advance(cyc_finish());   /* its last instruction (RTS/RTL) */
         return;
     }
+    prof_interp++;
+    prof_charge();
     unsigned clocks = interp_step(cpu);
-    if (interp_last_op() == 0x40)
+    uint8_t op = interp_last_op();
+    if (op == 0x40)
         int_depth--;
+    if (op == 0x20 || op == 0x22 || op == 0xFC)
+        shadow_push(cpu);   /* JSR, JSL, JSR (a,X): now at the callee */
+    else if (op == 0x60 || op == 0x6B || op == 0x40)
+        shadow_pop();
     advance(clocks);
 }
 

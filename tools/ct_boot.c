@@ -26,6 +26,11 @@
  * --wram FILE      write the 128 KB of WRAM to FILE at the end of the run
  * --vram FILE      likewise the 64 KB of VRAM, then CGRAM (512 bytes) and
  *                  OAM (544 bytes)
+ * --profile N      at the end, print the native share of instructions and
+ *                  the N functions most interpreted instructions ran in,
+ *                  with why each didn't run natively
+ * --min-native P   exit 1 unless at least P percent of instructions ran
+ *                  natively
  * --interp-only    run everything in the interpreter (no native dispatch)
  *
  * --min-nmis K     exit 1 unless at least K NMIs were taken
@@ -190,6 +195,8 @@ int main(int argc, char **argv)
     static long frames = 60, min_nmis;    /* static: survive the longjmp */
     static int require_render, require_audio;
     static const char *wav_path, *hash_path, *wram_path, *vram_path;
+    static int profile_top = -1;
+    static double min_native = -1;
     static const char *needed;
     for (int k = 1; k < argc; k++) {
         if (!strcmp(argv[k], "--frames") && k + 1 < argc)
@@ -227,6 +234,10 @@ int main(int argc, char **argv)
             }
         } else if (!strcmp(argv[k], "--hash-log") && k + 1 < argc) {
             hash_path = argv[++k];
+        } else if (!strcmp(argv[k], "--min-native") && k + 1 < argc) {
+            min_native = atof(argv[++k]);
+        } else if (!strcmp(argv[k], "--profile") && k + 1 < argc) {
+            profile_top = atoi(argv[++k]);
         } else if (!strcmp(argv[k], "--interp-only")) {
             sched_set_native(0);
         } else if (!strcmp(argv[k], "--expect-pc") && k + 1 < argc && n_expect < MAX_EXPECT)
@@ -235,7 +246,7 @@ int main(int argc, char **argv)
             fprintf(stderr, "usage: ct_boot [--frames N] [--dump DIR] [--needed-hw FILE] "
                             "[--min-nmis K] [--require-render] [--wav FILE] "
                             "[--require-audio] [--input F1-F2:BUTTONS] [--script FILE] "
-                            "[--expect-pc ADDR] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--interp-only]\n");
+                            "[--expect-pc ADDR] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--profile N] [--min-native P] [--interp-only]\n");
             return 2;
         }
     }
@@ -305,6 +316,12 @@ int main(int argc, char **argv)
         printf("ct_boot: no audio\n");
     for (unsigned k = 0; k < hw_note_count(); k++)
         printf("ct_boot: stubbed: %s\n", hw_note_text(k));
+    uint64_t nat = sched_native_insns(), all = nat + sched_interp_insns();
+    double native_pct = all ? 100.0 * (double)nat / (double)all : 0.0;
+    if (profile_top >= 0)
+        sched_profile_report(stdout, profile_top);
+    if (min_native >= 0 && native_pct < min_native)
+        printf("ct_boot: %.2f%% native, below --min-native %.2f\n", native_pct, min_native);
     if (needed && hw_needed_write(needed, "ct_boot", NULL))
         fprintf(stderr, "ct_boot: cannot write %s\n", needed);
     int reached = 1;
@@ -317,5 +334,6 @@ int main(int argc, char **argv)
     if (require_render && !rendered)
         printf("ct_boot: last frame is black\n");
     return sched_nmi_count() >= min_nmis && (rendered || !require_render) &&
+           (min_native < 0 || native_pct >= min_native) &&
            (audible || !require_audio) && reached ? 0 : 1;
 }

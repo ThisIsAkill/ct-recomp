@@ -15,6 +15,7 @@
 #define CT_SCHED_H
 
 #include <stdint.h>
+#include <stdio.h>
 
 #include "cpu.h"
 
@@ -32,6 +33,14 @@ void sched_init(CPU *cpu);
 /* Native dispatch of recompiled functions (default on); off runs
    everything in the interpreter. */
 void sched_set_native(int on);
+
+/* Native coverage since sched_init: instructions run natively and in the
+   interpreter, and a report of the functions the interpreted ones ran in
+   (top `top` by count, with why each didn't run natively). The report
+   consumes the counts it prints. */
+uint64_t sched_native_insns(void);
+uint64_t sched_interp_insns(void);
+void sched_profile_report(FILE *out, int top);
 
 /* Run until at least one frame has completed; returns how many did. It
    is one unless a native function was still running at the frame edge:

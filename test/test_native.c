@@ -59,7 +59,8 @@ const ct_jumptable ct_jumptables[] = {{0, 0}};
 const unsigned ct_jumptable_count = 0;
 
 typedef struct {
-    uint64_t clock;
+    uint64_t clock, native_insns, interp_insns;
+    char profile[1024];
     long nmis;
     uint8_t w10, w11, w12;
     CPU cpu;
@@ -103,7 +104,23 @@ static Outcome run_with(uint16_t target, int native, const uint8_t *nmi, size_t 
     while (sched_frame_count() < 6)
         sched_run_frame();
     CHECK(sched_frame_count() == 6, "stopped at frame %ld", sched_frame_count());
-    Outcome o = {sched_clock(), sched_nmi_count(), w[0x10], w[0x11], w[0x12], c};
+    Outcome o = {0};
+    o.clock = sched_clock();
+    o.native_insns = sched_native_insns();
+    o.interp_insns = sched_interp_insns();
+    FILE *f = tmpfile();
+    if (f) {
+        sched_profile_report(f, 3);
+        rewind(f);
+        size_t n = fread(o.profile, 1, sizeof o.profile - 1, f);
+        o.profile[n] = 0;
+        fclose(f);
+    }
+    o.nmis = sched_nmi_count();
+    o.w10 = w[0x10];
+    o.w11 = w[0x11];
+    o.w12 = w[0x12];
+    o.cpu = c;
     return o;
 }
 
@@ -146,6 +163,19 @@ int main(void)
     CHECK(same(&ref, &nat), "native == interpreter: clock %llu vs %llu, nmis %ld vs %ld",
           (unsigned long long)nat.clock, (unsigned long long)ref.clock, nat.nmis, ref.nmis);
     CHECK(nat.w11 == ref.w11, "NMI handler count %u vs %u", nat.w11, ref.w11);
+
+    /* Coverage: the loop's 3 x $4000 instructions run natively in one run;
+       in the interpreter-only run they're charged to the function they run
+       in, $7E2100. Both runs execute the same instructions in total. */
+    CHECK(ref.native_insns == 0 && ref.interp_insns > 3 * 0x4000,
+          "interpreter only: %llu native, %llu interpreted", (unsigned long long)ref.native_insns,
+          (unsigned long long)ref.interp_insns);
+    CHECK(nat.native_insns >= 3 * 0x4000 && nat.native_insns + nat.interp_insns ==
+              ref.interp_insns, "native run: %llu native + %llu interpreted vs %llu",
+          (unsigned long long)nat.native_insns, (unsigned long long)nat.interp_insns,
+          (unsigned long long)ref.interp_insns);
+    CHECK(strstr(ref.profile, "$7E2100 m1x0e0") != NULL,
+          "interpreted loop charged to its entry:\n%s", ref.profile);
 
     /* DB assumption: TestLoopDB55 says DB=$55, the CPU has DB=$00. */
     ran_native = 0;
