@@ -95,6 +95,15 @@ foreach(t snes_bus hw_map interp_modes interp_system sched stack_guard)
     add_test(NAME ${t} COMMAND test_${t})
 endforeach()
 
+# Native dispatch: provides its own function table instead of the empty one.
+add_executable(test_native test/test_native.c)
+target_include_directories(test_native PRIVATE test)
+target_link_libraries(test_native ct_sched)
+target_compile_options(test_native PRIVATE ${CT_WARN})
+target_compile_definitions(test_native PRIVATE CT_TEST_ROM="${CT_TEST_ROM}")
+add_dependencies(test_native ct_test_rom)
+add_test(NAME native COMMAND test_native)
+
 if(SDL2_FOUND)
     add_executable(test_input test/test_input.c)
     target_link_libraries(test_input ct_input)

@@ -6,6 +6,7 @@
 
 #include "bus.h"
 #include "cpu.h"
+#include "cycles.h"
 
 /* ---- flags ---- */
 
@@ -75,13 +76,17 @@ static inline void ct_trace(const CPU *c, uint32_t at)
         ct_trace_hook(c, at);
 }
 
-/* Start of each generated instruction: the data bus holds the
-   instruction's last byte, as after the interpreter's fetch of it (open-bus
-   reads return it). */
-static inline void ct_insn(const CPU *c, uint32_t at, uint8_t last)
+/* Start of each generated instruction, in the interpreter's order: the
+   scheduler's tick (charge the previous instruction, events, due
+   interrupts, begin this one), the trace hook, then the fetch, which
+   leaves the instruction's last byte on the data bus (open-bus reads
+   return it). */
+static inline void ct_insn(CPU *c, uint32_t at, uint8_t op, uint8_t last)
 {
-    bus_mdr = last;
+    if (ct_tick_hook)
+        ct_tick_hook(c, at, op);
     ct_trace(c, at);
+    bus_mdr = last;
 }
 
 /* ---- mode checks ---- */
@@ -121,14 +126,21 @@ static inline uint32_t ea_dp(const CPU *c, uint8_t d)  { return (uint16_t)(c->DP
 static inline uint32_t ea_abs(const CPU *c, uint16_t a) { return (uint32_t)c->DB << 16 | a; }
 
 /* Indexed absolute/long addresses carry into the next bank. */
+/* Indexed reads cost a cycle more when the index crosses a page; the
+   addressing helpers record it for the cycle model (cycles.h), exactly
+   where the interpreter does. */
 static inline uint32_t ea_abs_x(const CPU *c, uint16_t a)
 {
-    return (((uint32_t)c->DB << 16 | a) + c->X) & 0xFFFFFF;
+    uint32_t b = (uint32_t)c->DB << 16 | a;
+    ct_cyc_cross = ((b ^ (b + c->X)) & 0xFF00) != 0;
+    return (b + c->X) & 0xFFFFFF;
 }
 
 static inline uint32_t ea_abs_y(const CPU *c, uint16_t a)
 {
-    return (((uint32_t)c->DB << 16 | a) + c->Y) & 0xFFFFFF;
+    uint32_t b = (uint32_t)c->DB << 16 | a;
+    ct_cyc_cross = ((b ^ (b + c->Y)) & 0xFF00) != 0;
+    return (b + c->Y) & 0xFFFFFF;
 }
 
 static inline uint32_t ea_long_x(const CPU *c, uint32_t a) { return (a + c->X) & 0xFFFFFF; }
@@ -162,7 +174,9 @@ static inline uint32_t ea_dp_x_ind(const CPU *c, uint8_t d)
 
 static inline uint32_t ea_dp_ind_y(const CPU *c, uint8_t d)
 {
-    return (ea_dp_ind(c, d) + c->Y) & 0xFFFFFF;
+    uint32_t b = ea_dp_ind(c, d);
+    ct_cyc_cross = ((b ^ (b + c->Y)) & 0xFF00) != 0;
+    return (b + c->Y) & 0xFFFFFF;
 }
 
 static inline uint32_t ea_dp_ind_long(const CPU *c, uint8_t d)
@@ -327,6 +341,7 @@ static inline void mvn16(CPU *c, uint8_t dst, uint8_t src)
         c->X = (uint16_t)(c->X + 1);
         c->Y = (uint16_t)(c->Y + 1);
         c->A = (uint16_t)(c->A - 1);
+        ct_cyc_moved++;
     } while (c->A != 0xFFFF);
 }
 

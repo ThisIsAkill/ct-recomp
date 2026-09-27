@@ -725,6 +725,10 @@ static int emulation_ok(uint8_t op)
     }
 }
 
+static uint8_t last_op;
+
+uint8_t interp_last_op(void) { return last_op; }
+
 unsigned interp_step(CPU *c)
 {
     sys = 1;
@@ -736,6 +740,7 @@ unsigned interp_step(CPU *c)
     if (ct_trace_hook)
         ct_trace_hook(c, at);
     uint8_t op = fetch8(c);
+    last_op = op;
     if (c->e && !emulation_ok(op))
         ct_fatal("interp $%06X: opcode $%02X in emulation mode not implemented", at, op);
     cyc_begin(c, at, op);

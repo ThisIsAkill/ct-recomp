@@ -29,8 +29,16 @@
    caller, usually with interp_reset). bus_init must have run. */
 void sched_init(CPU *cpu);
 
-/* Run one full frame, lines 0-261. */
-void sched_run_frame(void);
+/* Native dispatch of recompiled functions (default on); off runs
+   everything in the interpreter. */
+void sched_set_native(int on);
+
+/* Run until at least one frame has completed; returns how many did. It
+   is one unless a native function was still running at the frame edge:
+   control returns at the next top-level instruction boundary, so a long
+   native call can complete several frames. Frame edges themselves happen
+   at the exact clock either way (sched_frame() is copied then). */
+long sched_run_frame(void);
 
 /* The DSP output of the frame just run, resampled to `samples` stereo
    frames (L R interleaved) at 32040 Hz * samples / 534. Call once per
@@ -46,6 +54,14 @@ const uint8_t *sched_frame(void);
 void sched_set_joypad(int port, uint16_t buttons);
 
 long sched_frame_count(void);
+/* Called at each frame edge (line 261 ends), inside the frame run, with
+   the number of frames completed: sched_frame() holds that frame, the
+   DSP has its audio, and joypad changes made here are read by the next
+   frame's auto-read. Same clock native or interpreted, so per-frame input
+   and state capture belong here, not after sched_run_frame. */
+void sched_set_frame_hook(void (*fn)(long frame));
+/* Master clocks since sched_init, at the last instruction boundary. */
+uint64_t sched_clock(void);
 long sched_nmi_count(void);
 int sched_line(void);
 

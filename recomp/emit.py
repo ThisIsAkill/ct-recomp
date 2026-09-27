@@ -322,6 +322,8 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
             dest = label(tgt, post)
             cond = _BRANCH[i.mnemonic]
             tick = f'ct_loop(0x{i.addr:06X}); ' if tgt <= i.addr else ''
+            if i.mnemonic != 'BRL':
+                tick = 'ct_cyc_taken = 1; ' + tick   # cycle model: taken branch (not BRL)
             if cond:
                 t = lambda i, dest=dest, cond=cond, tick=tick: [f'if ({cond}) {{ {tick}goto {dest}; }}']
             else:
@@ -347,7 +349,7 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
                 body.append(f'goto {label(i.next_addr, post)};')
         lines.append(f'{label(i.addr, i.key[1:])}: /* {i.text()} */')
         last = i.opcode if i.size == 1 else (i.operand >> (8 * (i.size - 2))) & 0xFF
-        lines.append(f'    ct_insn(cpu, 0x{i.addr:06X}, 0x{last:02X});')
+        lines.append(f'    ct_insn(cpu, 0x{i.addr:06X}, 0x{i.opcode:02X}, 0x{last:02X});')
         if len(body) == 1:
             lines.append(f'    {{ {body[0]} }}')
         else:
@@ -389,6 +391,25 @@ def emit_module(reg: funcs.Registry, metas: list[funcs.FuncMeta], module: str) -
     return '\n'.join(c), '\n'.join(h)
 
 
+def calls_extern(reg: funcs.Registry, addr: int, st: decode.State, memo: dict) -> bool:
+    """Can (addr, st) reach an extern hook through its calls, tail calls, or
+    jump tables? Hooks stand in for ROM code the translation doesn't run,
+    so a function that reaches one is interpreted in system mode."""
+    key = (addr,) + st.key()
+    if key in memo:
+        return memo[key]
+    memo[key] = False   # a cycle adds nothing
+    fn = reg.function(addr, st)
+    targets = [t for t, _ in fn.calls.values()] + [t for t, _ in fn.tails.values()]
+    targets += [t for ts, _ in fn.tables.values() for t in ts]
+    edges = [(t, s) for t, s in fn.calls.values()] + [(t, s) for t, s in fn.tails.values()]
+    edges += [(t, s) for ts, s in fn.tables.values() for t in ts]
+    result = any(t in reg.externs for t in targets) or any(
+        calls_extern(reg, t, s, memo) for t, s in edges if t not in reg.externs)
+    memo[key] = result
+    return result
+
+
 def emit_prototypes(reg: funcs.Registry, metas: list[funcs.FuncMeta]) -> tuple[str, str]:
     """ct_funcs.h (all prototypes) and ct_funcs.c (the tables declared in
     runtime/func_table.h)."""
@@ -396,6 +417,7 @@ def emit_prototypes(reg: funcs.Registry, metas: list[funcs.FuncMeta]) -> tuple[s
          '#include "cpu.h"', '#include "func_table.h"', '']
     c = [HEADER, '#include "ct_funcs.h"', '', 'const ct_func ct_funcs[] = {']
     n = 0
+    ext_memo: dict = {}
     for fm in metas:
         for st in fm.entry_states():
             name = c_name(fm.addr, st)
@@ -403,8 +425,9 @@ def emit_prototypes(reg: funcs.Registry, metas: list[funcs.FuncMeta]) -> tuple[s
             h.append(f'void {name}(CPU *cpu);  /* {fm.name} */')
             db = fm.db if fm.db is not None else -1
             dp = fm.dp if fm.dp is not None else -1
+            ext = int(calls_extern(reg, fm.addr, st, ext_memo))
             c.append(f'    {{"{fm.name}", 0x{fm.addr:06X}, {int(st.m)}, {int(st.x)}, {fn.size}, '
-                     f'{db}, {dp}, {name}}},')
+                     f'{db}, {dp}, {ext}, {name}}},')
             n += 1
     h += ['', '#endif', '']
     c += ['};', f'const unsigned ct_func_count = {n};', '']

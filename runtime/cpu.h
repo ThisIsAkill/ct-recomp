@@ -41,4 +41,9 @@ extern long ct_test_cap;
    interp_call()) with the CPU state on entry to it, if set (test use). */
 extern void (*ct_trace_hook)(const CPU *cpu, uint32_t addr);
 
+/* Called at the start of every generated instruction when set (the frame
+   scheduler's tick: charges the previous instruction, runs due events and
+   interrupts, begins this one). NULL outside the scheduler. */
+extern void (*ct_tick_hook)(CPU *cpu, uint32_t addr, uint8_t op);
+
 #endif

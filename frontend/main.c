@@ -3,7 +3,7 @@
  * header.
  *
  * usage: ct_sdl [--scale N] [--frames N] [--dump DIR] [--needed-hw FILE] [--fast]
- *               [--require-render] [--log-input]
+ *               [--require-render] [--log-input] [--interp-only]
  *
  * 256x224, integer scaled (--scale, default 3); paced to 60.0988 Hz
  * (NTSC) unless --fast; 48 kHz stereo audio; keyboard (arrows, Z=B X=A
@@ -123,9 +123,12 @@ int main(int argc, char **argv)
             require_render = 1;
         else if (!strcmp(argv[k], "--log-input"))
             log_input = 1;
+        else if (!strcmp(argv[k], "--interp-only"))
+            sched_set_native(0);
         else {
             fprintf(stderr, "usage: ct_sdl [--scale N] [--frames N] [--dump DIR] "
-                            "[--needed-hw FILE] [--fast] [--require-render] [--log-input]\n");
+                            "[--needed-hw FILE] [--fast] [--require-render] [--log-input] "
+                            "[--interp-only]\n");
             return 2;
         }
     }

@@ -51,6 +51,8 @@ void interp_call(CPU *c, uint32_t entry);
 void interp_reset(CPU *c);
 unsigned interp_step(CPU *c);
 unsigned interp_interrupt(CPU *c, int nmi);
+/* Opcode of the instruction the last interp_step executed. */
+uint8_t interp_last_op(void);
 int interp_waiting(void);
 /* End a WAI without taking an interrupt (IRQ asserted while I=1). */
 void interp_wake(void);

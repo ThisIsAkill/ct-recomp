@@ -12,8 +12,16 @@
  * --input F1-F2:B  hold buttons B on pad 1 for frames F1..F2 (1-based,
  *                  inclusive; repeatable). B: names joined by '+' (b y
  *                  select start up down left right a x l r) or a hex mask
+ * --script FILE    --input specs from FILE, one per line ('#' comments)
+ * --hash-log FILE  write "frame hash" per frame to FILE: FNV-1a 64 of the
+ *                  CPU registers, WRAM, SRAM, VRAM, CGRAM, OAM, the frame,
+ *                  and the APU RAM and DSP registers, taken at the frame
+ *                  edge (native and interpreted runs must agree)
  * --expect-pc ADDR exit 1 unless the instruction at ADDR (hex) ran
  *                  (repeatable)
+ * --wram FILE      write the 128 KB of WRAM to FILE at the end of the run
+ * --vram FILE      likewise the 64 KB of VRAM, then 512 bytes of CGRAM
+ * --interp-only    run everything in the interpreter (no native dispatch)
  *
  * --min-nmis K     exit 1 unless at least K NMIs were taken
  * --require-render exit 1 if the last frame is all black
@@ -33,6 +41,10 @@
 #include "interp.h"
 #include "png.h"
 #include "sched.h"
+#include "snes_adapter.h"
+#include "ppu.h"
+#include "apu.h"
+#include "dsp.h"
 #include "wav.h"
 
 static jmp_buf fatal_jmp;
@@ -66,7 +78,7 @@ static void trace(const CPU *c, uint32_t at)
     tail_n++;
 }
 
-#define MAX_INPUT 32
+#define MAX_INPUT 1024
 static struct {
     long from, to;
     uint16_t buttons;
@@ -114,6 +126,57 @@ static uint16_t buttons_at(long frame)
     return b;
 }
 
+/* One --input spec per line; returns 0 on success. */
+static int parse_script(const char *path)
+{
+    FILE *f = fopen(path, "r");
+    if (!f)
+        return -1;
+    char buf[256];
+    int bad = 0;
+    while (!bad && fgets(buf, sizeof buf, f)) {
+        char *h = strchr(buf, '#');
+        if (h)
+            *h = 0;
+        char tok[160];
+        if (sscanf(buf, "%159s", tok) == 1)
+            bad = parse_input(tok) != 0;
+    }
+    fclose(f);
+    return bad ? -1 : 0;
+}
+
+static uint64_t fnv(uint64_t h, const void *p, size_t n)
+{
+    const uint8_t *b = p;
+    for (size_t k = 0; k < n; k++)
+        h = (h ^ b[k]) * 0x100000001B3ull;
+    return h;
+}
+
+static CPU cpu;
+
+static uint64_t state_hash(void)
+{
+    uint64_t h = 0xCBF29CE484222325ull;
+    const CPU *c = &cpu;
+    uint16_t r[] = {c->A, c->X, c->Y, c->S, c->DP, c->DB, c->PB, c->PC,
+                    (uint16_t)(c->m | c->x << 1 | c->e << 2 | c->i << 3 | c->d << 4 | c->c << 5 |
+                               c->z << 6 | c->v << 7 | c->n << 8)};
+    h = fnv(h, r, sizeof r);
+    h = fnv(h, bus_wram(), 0x20000);
+    h = fnv(h, bus_sram(), CT_SRAM_SIZE);
+    Ppu *ppu = snes_hw_ppu();
+    h = fnv(h, ppu->vram, sizeof ppu->vram);
+    h = fnv(h, ppu->cgram, sizeof ppu->cgram);
+    h = fnv(h, ppu->oam, sizeof ppu->oam);
+    h = fnv(h, sched_frame(), (size_t)SCHED_WIDTH * SCHED_HEIGHT * 4);
+    Apu *apu = snes_hw_apu();
+    h = fnv(h, apu->ram, sizeof apu->ram);
+    h = fnv(h, apu->dsp->ram, sizeof apu->dsp->ram);
+    return h;
+}
+
 static int nonblack(const uint8_t *p, size_t n)
 {
     for (size_t k = 0; k < n; k += 4)
@@ -122,12 +185,36 @@ static int nonblack(const uint8_t *p, size_t n)
     return 0;
 }
 
+static const char *dump;
+static FILE *wav, *hash_log;
+static long dumped, audible;
+
+/* Frame edge: input for the next frame, then this frame's audio, dump
+   and hash. */
+static void on_frame(long f)
+{
+    static int16_t audio[800 * 2];   /* one frame at 48 kHz */
+    sched_set_joypad(0, buttons_at(f + 1));
+    sched_audio(audio, 800);
+    for (int k = 0; k < 800 * 2; k++)
+        if (audio[k]) {
+            audible++;
+            break;
+        }
+    if (wav)
+        wav_write(wav, audio, 800);
+    if (dump && png_dump_frame(dump, f, sched_frame(), SCHED_WIDTH, SCHED_HEIGHT) > 0)
+        dumped++;
+    if (hash_log)
+        fprintf(hash_log, "%ld %016llx\n", f, (unsigned long long)state_hash());
+}
+
 int main(int argc, char **argv)
 {
     static long frames = 60, min_nmis;    /* static: survive the longjmp */
     static int require_render, require_audio;
-    static const char *wav_path;
-    static const char *dump, *needed;
+    static const char *wav_path, *hash_path, *wram_path, *vram_path;
+    static const char *needed;
     for (int k = 1; k < argc; k++) {
         if (!strcmp(argv[k], "--frames") && k + 1 < argc)
             frames = atol(argv[++k]);
@@ -148,17 +235,30 @@ int main(int argc, char **argv)
                 fprintf(stderr, "ct_boot: bad --input %s\n", argv[k]);
                 return 2;
             }
+        } else if (!strcmp(argv[k], "--script") && k + 1 < argc) {
+            if (parse_script(argv[++k])) {
+                fprintf(stderr, "ct_boot: bad --script %s\n", argv[k]);
+                return 2;
+            }
+        } else if (!strcmp(argv[k], "--vram") && k + 1 < argc) {
+            vram_path = argv[++k];
+        } else if (!strcmp(argv[k], "--wram") && k + 1 < argc) {
+            wram_path = argv[++k];
+        } else if (!strcmp(argv[k], "--hash-log") && k + 1 < argc) {
+            hash_path = argv[++k];
+        } else if (!strcmp(argv[k], "--interp-only")) {
+            sched_set_native(0);
         } else if (!strcmp(argv[k], "--expect-pc") && k + 1 < argc && n_expect < MAX_EXPECT)
             expect_pc[n_expect++] = (uint32_t)strtoul(argv[++k], NULL, 16);
         else {
             fprintf(stderr, "usage: ct_boot [--frames N] [--dump DIR] [--needed-hw FILE] "
                             "[--min-nmis K] [--require-render] [--wav FILE] "
-                            "[--require-audio] [--input F1-F2:BUTTONS] [--expect-pc ADDR]\n");
+                            "[--require-audio] [--input F1-F2:BUTTONS] [--script FILE] "
+                            "[--expect-pc ADDR] [--hash-log FILE] [--wram FILE] [--vram FILE] [--interp-only]\n");
             return 2;
         }
     }
 
-    static CPU cpu;
     static char stop[512];
     bus_init(NULL);
     interp_reset(&cpu);
@@ -166,10 +266,12 @@ int main(int argc, char **argv)
     ct_fatal_hook = on_fatal;
     ct_trace_hook = trace;
 
-    static volatile long dumped, audible;
-    static FILE *wav;
     if (wav_path && !(wav = wav_open(wav_path, 48000))) {
         fprintf(stderr, "ct_boot: cannot write %s\n", wav_path);
+        return 2;
+    }
+    if (hash_path && !(hash_log = fopen(hash_path, "w"))) {
+        fprintf(stderr, "ct_boot: cannot write %s\n", hash_path);
         return 2;
     }
     if (setjmp(fatal_jmp)) {
@@ -189,23 +291,30 @@ int main(int argc, char **argv)
             fprintf(stderr, "ct_boot: cannot write %s\n", needed);
         return 1;
     }
-    for (long f = 0; f < frames; f++) {
-        static int16_t audio[800 * 2];   /* one frame at 48 kHz */
-        sched_set_joypad(0, buttons_at(f + 1));
+    sched_set_frame_hook(on_frame);
+    sched_set_joypad(0, buttons_at(1));
+    while (sched_frame_count() < frames)
         sched_run_frame();
-        sched_audio(audio, 800);
-        for (int k = 0; k < 800 * 2; k++)
-            if (audio[k]) {
-                audible++;
-                break;
-            }
-        if (wav)
-            wav_write(wav, audio, 800);
-        if (dump && png_dump_frame(dump, f + 1, sched_frame(), SCHED_WIDTH, SCHED_HEIGHT) > 0)
-            dumped++;
-    }
     if (wav)
         wav_close(wav);
+    if (hash_log)
+        fclose(hash_log);
+    if (vram_path) {
+        Ppu *ppu = snes_hw_ppu();
+        FILE *f = fopen(vram_path, "wb");
+        if (!f || fwrite(ppu->vram, 1, sizeof ppu->vram, f) != sizeof ppu->vram ||
+            fwrite(ppu->cgram, 1, sizeof ppu->cgram, f) != sizeof ppu->cgram)
+            fprintf(stderr, "ct_boot: cannot write %s\n", vram_path);
+        if (f)
+            fclose(f);
+    }
+    if (wram_path) {
+        FILE *f = fopen(wram_path, "wb");
+        if (!f || fwrite(bus_wram(), 1, 0x20000, f) != 0x20000)
+            fprintf(stderr, "ct_boot: cannot write %s\n", wram_path);
+        if (f)
+            fclose(f);
+    }
     printf("ct_boot: %ld frames, %ld NMIs, %ld frames dumped, %ld with audio, PC $%02X%04X\n",
            sched_frame_count(), sched_nmi_count(), (long)dumped, (long)audible, cpu.PB, cpu.PC);
     if (require_audio && !audible)

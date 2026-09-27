@@ -2,7 +2,7 @@
  * without any game's generated code. */
 #include "func_table.h"
 
-const ct_func ct_funcs[] = {{0, 0, 0, 0, 0, -1, -1, 0}};
+const ct_func ct_funcs[] = {{0, 0, 0, 0, 0, -1, -1, 0, 0}};
 const unsigned ct_func_count = 0;
 const ct_extern ct_externs[] = {{0, 0, 0}};
 const unsigned ct_extern_count = 0;

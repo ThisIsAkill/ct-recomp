@@ -2,9 +2,13 @@
 
 #include <string.h>
 
+#include <stdlib.h>
+
 #include "apu.h"
 #include "bus.h"
+#include "cycles.h"
 #include "dma.h"
+#include "func_table.h"
 #include "interp.h"
 #include "ppu.h"
 #include "snes_adapter.h"
@@ -33,11 +37,16 @@ static uint16_t pad[4];         /* current buttons per port (sched_set_joypad) *
 static uint16_t joy[4];         /* $4218-$421F: last auto-read result */
 
 static void apu_sync(void);
+static void native_build(void);
+static void tick(CPU *c, uint32_t at, uint8_t op);
 
 static int irq_at;               /* this line's H/V timer clock, or -1 */
 static int irq_done, hblank_done;
 static int need_start;           /* line 0 not started yet (sched_init) */
 static int frame_done;
+static void (*frame_hook)(long frame);
+/* Interrupts entered minus RTIs executed, native or interpreted. */
+static long int_depth;
 
 /* ---- registers ---- */
 
@@ -166,11 +175,14 @@ static uint8_t hvbjoy_read(uint16_t reg)
 void sched_init(CPU *c)
 {
     cpu = c;
+    native_build();
+    ct_tick_hook = tick;
     line = 0;
     hclock = 0;
     need_start = 1;
     frame_done = 0;
     frames = nmis = 0;
+    int_depth = 0;
     nmi_pending = 0;
     line_start = spc_done = 0;
     snes_apu_sync = apu_sync;
@@ -310,6 +322,8 @@ static void advance(unsigned clocks)
                 line = 0;
                 frames++;
                 frame_done = 1;
+                if (frame_hook)
+                    frame_hook(frames);
             }
             begin_line();
         } else {
@@ -320,16 +334,112 @@ static void advance(unsigned clocks)
 
 /* One step at an instruction boundary: take a due interrupt, sit out a
    WAI until the next event, or run one instruction. */
+/* ---- native dispatch ----
+   At an instruction boundary, a recompiled function whose entry is PB:PC
+   runs natively if the CPU matches its entry state: native mode, its M/X
+   variant, and the DB/DP funcs.toml says it assumes (when it says). A
+   function that can reach an extern hook never runs natively: the hook
+   stands in for ROM code that system mode runs for real. Native code
+   charges cycles through the tick hook, per instruction, with the same
+   model as the interpreter. */
+
+static int native_on = 1;
+static const ct_func **native;   /* sorted by address */
+static unsigned n_native;
+
+static int by_addr(const void *a, const void *b)
+{
+    uint32_t x = (*(const ct_func *const *)a)->addr, y = (*(const ct_func *const *)b)->addr;
+    return x < y ? -1 : x > y;
+}
+
+static void native_build(void)
+{
+    free(native);
+    native = malloc((ct_func_count + 1) * sizeof *native);
+    n_native = 0;
+    for (unsigned k = 0; k < ct_func_count; k++)
+        if (ct_funcs[k].fn && !ct_funcs[k].calls_extern)
+            native[n_native++] = &ct_funcs[k];
+    qsort(native, n_native, sizeof *native, by_addr);
+}
+
+static const ct_func *native_lookup(const CPU *c)
+{
+    if (!native_on || c->e || !n_native)
+        return NULL;
+    uint32_t at = (uint32_t)c->PB << 16 | c->PC;
+    unsigned lo = 0, hi = n_native;
+    while (lo < hi) {
+        unsigned mid = (lo + hi) / 2;
+        if (native[mid]->addr < at)
+            lo = mid + 1;
+        else
+            hi = mid;
+    }
+    for (; lo < n_native && native[lo]->addr == at; lo++) {
+        const ct_func *f = native[lo];
+        if (f->m == c->m && f->x == c->x && (f->db < 0 || f->db == c->DB) &&
+            (f->dp < 0 || f->dp == c->DP))
+            return f;
+    }
+    return NULL;
+}
+
+void sched_set_native(int on) { native_on = on; }
+
+static void exec_one(void);
+
+/* Start of each native instruction (ct_insn): charge the previous one,
+   run events, take a due interrupt at this boundary, begin this one. An
+   interrupt enters with PB:PC at this instruction and runs (natively or
+   interpreted, nested interrupts included) until its own RTI; a handler
+   may switch to a stack of its own in between. After that RTI the CPU
+   must be exactly in the interrupted context (PB:PC, S, M, X, E); anything
+   else is fatal, and native code never resumes in a changed one. */
+static void tick(CPU *c, uint32_t at, uint8_t op)
+{
+    c->PB = (uint8_t)(at >> 16);   /* as the interpreter has it at a boundary */
+    c->PC = (uint16_t)at;
+    advance(cyc_finish());
+    for (;;) {
+        int nmi = nmi_pending;
+        if (!nmi && !(timeup && (nmitimen & 0x30) && !c->i))
+            break;
+        if (nmi) {
+            nmi_pending = 0;
+            nmis++;
+        }
+        CPU before = *c;
+        long depth = int_depth++;
+        advance(interp_interrupt(c, nmi));
+        while (int_depth > depth)
+            exec_one();
+        if (c->PB != before.PB || c->PC != before.PC || c->S != before.S || c->m != before.m ||
+            c->x != before.x || c->e != before.e)
+            ct_fatal("$%06X: %s did not return to the interrupted native code: "
+                     "RTI went to $%02X%04X S=%04X m%dx%de%d, interrupted at $%02X%04X S=%04X m%dx%de%d",
+                     at, nmi ? "NMI" : "IRQ", c->PB, c->PC, c->S, c->m, c->x, c->e, before.PB,
+                     before.PC, before.S, before.m, before.x, before.e);
+        advance(cyc_finish());
+    }
+    if (op == 0x40)
+        int_depth--;   /* this native RTI (charged at the next boundary) */
+    cyc_begin(c, at, op);
+}
+
 static void exec_one(void)
 {
     if (nmi_pending) {
         nmi_pending = 0;
         nmis++;
+        int_depth++;
         advance(interp_interrupt(cpu, 1));
         return;
     }
     if (timeup && (nmitimen & 0x30)) {
         if (!cpu->i) {
+            int_depth++;
             advance(interp_interrupt(cpu, 0));   /* level: until $4211 is read */
             return;
         }
@@ -339,18 +449,29 @@ static void exec_one(void)
         advance(next_event() - hclock);
         return;
     }
-    advance(interp_step(cpu));
+    const ct_func *f = native_lookup(cpu);
+    if (f) {
+        f->fn(cpu);
+        advance(cyc_finish());   /* its last instruction (RTS/RTL) */
+        return;
+    }
+    unsigned clocks = interp_step(cpu);
+    if (interp_last_op() == 0x40)
+        int_depth--;
+    advance(clocks);
 }
 
-void sched_run_frame(void)
+long sched_run_frame(void)
 {
     if (need_start) {
         need_start = 0;
         begin_line();
     }
+    long f0 = frames;
     frame_done = 0;
     while (!frame_done)
         exec_one();
+    return frames - f0;
 }
 
 void sched_audio(int16_t *stereo, int samples)
@@ -360,5 +481,7 @@ void sched_audio(int16_t *stereo, int samples)
 
 const uint8_t *sched_frame(void) { return present; }
 long sched_frame_count(void) { return frames; }
+void sched_set_frame_hook(void (*fn)(long frame)) { frame_hook = fn; }
+uint64_t sched_clock(void) { return line_start + hclock; }
 long sched_nmi_count(void) { return nmis; }
 int sched_line(void) { return line; }

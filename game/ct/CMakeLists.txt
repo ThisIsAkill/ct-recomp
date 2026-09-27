@@ -120,6 +120,17 @@ add_test(NAME boot_menu COMMAND ct_boot --frames 1700 --input 1500-1505:start
     --expect-pc C2940D --require-render)
 list(APPEND ct_game_tests boot_interp boot_menu)
 
+# Native dispatch vs the interpreter alone: per-frame state hashes taken at
+# the frame edge must match on every frame (tools/lockstep.py reports the
+# first divergent one). The boot to the title, and a new game through
+# Crono's house and the world map into Leene Square up to the bell.
+add_test(NAME lockstep_boot COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/lockstep.py
+    $<TARGET_FILE:ct_boot> --frames 1500)
+add_test(NAME lockstep_leene_square COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_SOURCE_DIR}/tools/lockstep.py $<TARGET_FILE:ct_boot> --frames 9210
+    --script ${GAME_DIR}/test/replay/leene_square.txt --expect-pc C2940D)
+list(APPEND ct_game_tests lockstep_boot lockstep_leene_square)
+
 if(SDL2_FOUND)
     # The frontend itself, headless (SDL dummy drivers), unpaced.
     add_test(NAME sdl_boot COMMAND ct_sdl --frames 300 --fast --require-render)
