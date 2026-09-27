@@ -42,6 +42,12 @@ static void tick(CPU *c, uint32_t at, uint8_t op);
 
 static int irq_at;               /* this line's H/V timer clock, or -1 */
 static int irq_done, hblank_done;
+/* DRAM refresh: once per line the CPU (and any DMA) is paused for 40
+   master clocks (fullsnes CPU Clock Notes), starting at clock
+   530 + 8 - (line start & 7) (bsnes CPU revision 2, scanline()). */
+#define REFRESH_CLOCKS 40
+static unsigned refresh_at;
+static int refresh_done;
 static int need_start;           /* line 0 not started yet (sched_init) */
 static int frame_done;
 static void (*frame_hook)(long frame);
@@ -227,6 +233,7 @@ void sched_init(CPU *c)
     nmi_pending = 0;
     line_start = spc_done = 0;
     snes_apu_sync = apu_sync;
+    snes_master_clock = sched_clock;
     dsp_output_hook = dsp_out;
     ring_head = ring_len = 0;
     nmitimen = rdnmi = 0;
@@ -320,8 +327,9 @@ static int irq_clock(void)
 /* ---- clock and events ----
    The clock advances by whole instructions and interrupt entries. An event
    fires at the first instruction boundary at or past its clock, in time
-   order: an H/V timer IRQ before HBlank, HBlank (HDMA), an H/V timer IRQ
-   at or after HBlank, then the end of the line. Line 0 starts as soon as
+   order: the DRAM refresh pause (40 clocks pass with the CPU stopped), an
+   H/V timer IRQ before HBlank, HBlank (HDMA), an H/V timer IRQ at or after
+   HBlank, then the end of the line. Line 0 starts as soon as
    line 261 ends, so a frame boundary never waits on the caller. */
 
 static void begin_line(void)
@@ -330,6 +338,8 @@ static void begin_line(void)
     irq_at = irq_clock();
     irq_done = irq_at < 0;
     hblank_done = 0;
+    refresh_at = 530 + 8 - (unsigned)(line_start & 7);
+    refresh_done = 0;
 }
 
 static unsigned next_event(void)
@@ -346,7 +356,10 @@ static void advance(unsigned clocks)
 {
     hclock += clocks;
     for (;;) {
-        if (!irq_done && irq_at < SCHED_HBLANK_CLOCK && hclock >= (unsigned)irq_at) {
+        if (!refresh_done && hclock >= refresh_at) {
+            hclock += REFRESH_CLOCKS;   /* paused: time passes, no CPU work */
+            refresh_done = 1;
+        } else if (!irq_done && irq_at < SCHED_HBLANK_CLOCK && hclock >= (unsigned)irq_at) {
             timeup = 0x80;
             irq_done = 1;
         } else if (!hblank_done && hclock >= SCHED_HBLANK_CLOCK) {

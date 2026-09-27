@@ -21,6 +21,10 @@ void cyc_begin(const CPU *c, uint32_t at, uint8_t op);
 /* Master clocks for the instruction begun last; 0 if none is pending. */
 unsigned cyc_finish(void);
 
+/* Add master clocks the CPU spends paused during the current instruction
+   (general DMA started by its $420B write), charged by cyc_finish. */
+void cyc_stall(unsigned clocks);
+
 /* 6 for FastROM (banks $80-$FF ROM with MEMSEL bit 0), otherwise 8. */
 unsigned cyc_master_per_cycle(uint8_t pb, uint16_t pc);
 

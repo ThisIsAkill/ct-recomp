@@ -101,6 +101,10 @@ unsigned cyc_master_per_cycle(uint8_t pb, uint16_t pc)
 }
 
 /* The instruction begun and not yet charged. */
+static unsigned stall;   /* cyc_stall clocks for the current instruction */
+
+void cyc_stall(unsigned clocks) { stall += clocks; }
+
 static struct {
     int pending;
     uint32_t at;
@@ -151,5 +155,7 @@ unsigned cyc_finish(void)
         n += 1;
     if (!n)
         ct_fatal("interp $%06X: no cycle count for opcode $%02X", cur.at, cur.op);
-    return n * cur.speed;
+    unsigned extra = stall;
+    stall = 0;
+    return n * cur.speed + extra;
 }

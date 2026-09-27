@@ -18,6 +18,10 @@ void snes_hw_reset(void);
 void snes_apu_run(uint32_t spc_cycles);
 extern void (*snes_apu_sync)(void);
 
+/* Master clocks since power-on at the current instruction boundary (the
+   frame scheduler sets it; general DMA aligns to it). */
+extern uint64_t (*snes_master_clock)(void);
+
 /* Start of VBlank: outside forced blank, the OAM address reloads from the
    last OAMADD ($2102/$2103) write. Called by the frame scheduler. */
 void snes_oam_vblank_reload(void);

@@ -31,6 +31,11 @@
  *                  with why each didn't run natively
  * --min-native P   exit 1 unless at least P percent of instructions ran
  *                  natively
+ * --watch A[:N]    print every change to WRAM bytes A..A+N-1 (A a WRAM
+ *                  offset in hex, 0-1FFFF; N default 2): frame, line, the
+ *                  instruction that made it, old and new bytes (repeatable)
+ * --at ADDR        print frame and line each time the instruction at ADDR
+ *                  (hex) runs, the first 20 times (repeatable)
  * --interp-only    run everything in the interpreter (no native dispatch)
  *
  * --min-nmis K     exit 1 unless at least K NMIs were taken
@@ -79,8 +84,44 @@ static unsigned tail_n;
 static uint32_t expect_pc[MAX_EXPECT];
 static int expect_hit[MAX_EXPECT], n_expect;
 
+#define MAX_WATCH 8
+static struct {
+    uint32_t at, len;
+    uint8_t last[16];
+} watch[MAX_WATCH];
+static int n_watch;
+static uint32_t prev_at;   /* the instruction before this one */
+
+static void check_watch(uint32_t at)
+{
+    const uint8_t *w = bus_wram();
+    for (int k = 0; k < n_watch; k++) {
+        if (!memcmp(watch[k].last, w + watch[k].at, watch[k].len))
+            continue;
+        printf("watch $%05X: frame %ld line %d after $%06X:", watch[k].at, sched_frame_count(),
+               sched_line(), prev_at);
+        for (uint32_t b = 0; b < watch[k].len; b++)
+            printf(" %02X", watch[k].last[b]);
+        printf(" ->");
+        for (uint32_t b = 0; b < watch[k].len; b++)
+            printf(" %02X", w[watch[k].at + b]);
+        printf("  (now at $%06X)\n", at);
+        memcpy(watch[k].last, w + watch[k].at, watch[k].len);
+    }
+    prev_at = at;
+}
+
+#define MAX_AT 8
+static uint32_t at_pc[MAX_AT];
+static int at_seen[MAX_AT], n_at;
+
 static void trace(const CPU *c, uint32_t at)
 {
+    for (int k = 0; k < n_at; k++)
+        if (at == at_pc[k] && at_seen[k]++ < 20)
+            printf("at $%06X: frame %ld line %d\n", at, sched_frame_count(), sched_line());
+    if (n_watch)
+        check_watch(at);
     for (int k = 0; k < n_expect; k++)
         if (at == expect_pc[k])
             expect_hit[k] = 1;
@@ -238,6 +279,17 @@ int main(int argc, char **argv)
             min_native = atof(argv[++k]);
         } else if (!strcmp(argv[k], "--profile") && k + 1 < argc) {
             profile_top = atoi(argv[++k]);
+        } else if (!strcmp(argv[k], "--watch") && k + 1 < argc && n_watch < MAX_WATCH) {
+            unsigned a = 0, n = 2;
+            if (sscanf(argv[++k], "%x:%u", &a, &n) < 1 || a > 0x1FFFF || !n || n > 16 ||
+                a + n > 0x20000) {
+                fprintf(stderr, "ct_boot: bad --watch %s\n", argv[k]);
+                return 2;
+            }
+            watch[n_watch].at = a;
+            watch[n_watch++].len = n;
+        } else if (!strcmp(argv[k], "--at") && k + 1 < argc && n_at < MAX_AT) {
+            at_pc[n_at++] = (uint32_t)strtoul(argv[++k], NULL, 16);
         } else if (!strcmp(argv[k], "--interp-only")) {
             sched_set_native(0);
         } else if (!strcmp(argv[k], "--expect-pc") && k + 1 < argc && n_expect < MAX_EXPECT)
@@ -246,7 +298,7 @@ int main(int argc, char **argv)
             fprintf(stderr, "usage: ct_boot [--frames N] [--dump DIR] [--needed-hw FILE] "
                             "[--min-nmis K] [--require-render] [--wav FILE] "
                             "[--require-audio] [--input F1-F2:BUTTONS] [--script FILE] "
-                            "[--expect-pc ADDR] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--profile N] [--min-native P] [--interp-only]\n");
+                            "[--expect-pc ADDR] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--interp-only]\n");
             return 2;
         }
     }

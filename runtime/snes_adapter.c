@@ -2,6 +2,7 @@
 
 #include "bus.h"
 #include "cpu.h"
+#include "cycles.h"
 #include "hwlog.h"
 #include "apu.h"
 #include "dma.h"
@@ -238,9 +239,32 @@ static void dma_reg_write(uint16_t reg, uint8_t v)
  * need the scanline loop #11 will add, so HDMA registers hold correct
  * state but do nothing until then. */
 
+uint64_t (*snes_master_clock)(void);
+
+/* The CPU is paused while general DMA runs; charge that time to the
+   instruction that wrote $420B (bsnes CPU::dmaEdge/dmaRun): sync to the
+   8-clock DMA counter, 8 clocks overhead, per enabled channel 8 clocks
+   plus 8 per byte (size 0 = 65536), then back to the CPU cycle in
+   progress, the 6-clock I/O write. */
+static unsigned dma_clocks(uint8_t channels)
+{
+    uint64_t t = snes_master_clock ? snes_master_clock() : 0;
+    unsigned n = 8 - (unsigned)(t & 7) + 8;
+    for (int c = 0; c < 8; c++) {
+        if (!(channels & (1 << c)))
+            continue;
+        unsigned size = dma_read(g_dma, (uint16_t)(c * 16 + 5)) |
+                        dma_read(g_dma, (uint16_t)(c * 16 + 6)) << 8;
+        n += 8 + 8 * (size ? size : 0x10000);
+    }
+    return n + 6 - n % 6;   /* 1-6: bsnes steps clockCount - n % clockCount */
+}
+
 static void mdmaen_write(uint16_t reg, uint8_t v)
 {
     (void)reg;
+    if (v)
+        cyc_stall(dma_clocks(v));
     dma_startDma(g_dma, v, false);
     while (g_dma->dmaBusy)
         dma_doDma(g_dma);

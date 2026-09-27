@@ -9,9 +9,68 @@ static void put(uint16_t at, const uint8_t *p, unsigned n)
     memcpy(bus_wram() + at, p, n);
 }
 
+/* Master clock at the start of each instruction, via the trace hook. */
+static uint64_t clk_at[64];
+static uint32_t pc_at[64];
+static int n_at;
+
+static void clock_trace(const CPU *c, uint32_t at)
+{
+    (void)c;
+    if (n_at < 64) {
+        pc_at[n_at] = at;
+        clk_at[n_at++] = sched_clock();
+    }
+}
+
+/* General DMA pauses the CPU (bsnes dmaEdge/dmaRun): sync to 8 clocks,
+   8 overhead, 8 per channel plus 8 per byte, re-align 1-6 clocks; plus
+   the line's DRAM refresh if the pause runs past it. */
+static void test_dma_timing(void)
+{
+    static const uint8_t prog[] = {
+        0xA9, 0x80, 0x8D, 0x00, 0x43,   /* LDA #$80 / STA $4300: B->A, 1 register */
+        0xA9, 0x34, 0x8D, 0x01, 0x43,   /* LDA #$34 / STA $4301: from $2134 */
+        0x9C, 0x02, 0x43,               /* STZ $4302 */
+        0xA9, 0x30, 0x8D, 0x03, 0x43,   /* LDA #$30 / STA $4303: to $xx3000 */
+        0xA9, 0x7E, 0x8D, 0x04, 0x43,   /* LDA #$7E / STA $4304: bank $7E */
+        0xA9, 0x40, 0x8D, 0x05, 0x43,   /* LDA #$40 / STA $4305: $0040 bytes */
+        0x9C, 0x06, 0x43,               /* STZ $4306 */
+        0xA9, 0x01, 0x8D, 0x0B, 0x42,   /* LDA #$01 / STA $420B: go */
+        0xEA,                           /* NOP */
+        0xCB, 0x80, 0xFD,               /* WAI / BRA */
+    };
+    static CPU c;
+    bus_reset();
+    put(0x2400, prog, sizeof prog);
+    interp_reset(&c);
+    c.e = 0;
+    c.PB = 0x7E;
+    c.PC = 0x2400;
+    c.DB = 0x00;
+    c.m = c.x = 1;
+    c.S = 0x01FF;
+    sched_init(&c);
+    n_at = 0;
+    ct_trace_hook = clock_trace;
+    sched_run_frame();
+    ct_trace_hook = NULL;
+    int k;
+    for (k = 0; k + 1 < n_at && pc_at[k] != 0x7E2421; k++)
+        ;
+    CHECK(k + 1 < n_at, "STA $420B traced");
+    /* STA abs: 4 cycles (opcode+2 operand fetches from WRAM, 8 each; the
+       $420B write, 6). */
+    uint64_t d = clk_at[k + 1] - clk_at[k], sta = 3 * 8 + 6;
+    uint64_t lo = sta + 1 + 8 + 8 + 8 * 0x40 + 1, hi = sta + 8 + 8 + 8 + 8 * 0x40 + 6 + 40;
+    CHECK(d >= lo && d <= hi, "STA $420B + $40-byte DMA: %llu clocks, want %llu-%llu",
+          (unsigned long long)d, (unsigned long long)lo, (unsigned long long)hi);
+}
+
 int main(void)
 {
     th_bus_init();
+    test_dma_timing();
 
     /* HDMA channel 7, mode 3 (4 bytes to $2121 $2121 $2122 $2122): every
        line sets CGRAM[0] (the backdrop) to red = row & 31. */
@@ -148,8 +207,10 @@ int main(void)
         CHECK(z[0x20] == 3, "mode %d: one IRQ per frame, got %u", mode, z[0x20]);
         CHECK(v == 100, "mode %d: latched V = VTIME: %u", mode, v);
         /* Latch at the start of LDA $2137: fire clock + 64 (IRQ entry) +
-           32 (ROM stub JML) + 32 (LDA $4211) + 40 (INC $20), in dots. */
-        unsigned want = ((mode ? 400u : 0u) + 64 + 32 + 32 + 40) / 4;
+           32 (ROM stub JML) + 32 (LDA $4211) + 40 (INC $20), in dots; in
+           mode 1 (fire at 400) the handler also runs past the line's DRAM
+           refresh (531-538), 40 clocks with the CPU paused. */
+        unsigned want = ((mode ? 400u + 40 : 0u) + 64 + 32 + 32 + 40) / 4;
         CHECK(h == want, "mode %d: latched H %u, want %u", mode, h, want);
     }
 
