@@ -105,6 +105,8 @@ static unsigned stall;   /* cyc_stall clocks for the current instruction */
 
 void cyc_stall(unsigned clocks) { stall += clocks; }
 
+static unsigned elapsed_fetches(void);
+
 static const uint8_t op_size[256] = {   /* bytes with M=X=1 (recomp/decode.py) */
     2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 1, 1, 3, 3, 3, 4,
     2, 2, 2, 2, 2, 2, 2, 2, 1, 3, 1, 1, 3, 3, 3, 4,
@@ -160,6 +162,18 @@ void cyc_begin_compiled(const CPU *c, uint32_t at, uint8_t op)
         cur.size++;
     if (cur.x16 && (op == 0xA0 || op == 0xA2 || op == 0xC0 || op == 0xE0))   /* LDY LDX CPY CPX */
         cur.size++;
+}
+
+static unsigned elapsed_fetches(void)
+{
+    return cur.compiled ? cur.size - 1 : 0;
+}
+
+unsigned cyc_elapsed(void)
+{
+    if (!cur.pending)
+        return 0;
+    return cur.speed * (1 + elapsed_fetches()) + ct_bus_clocks;
 }
 
 unsigned cyc_finish(void)

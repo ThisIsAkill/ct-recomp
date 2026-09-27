@@ -28,6 +28,11 @@ unsigned cyc_finish(void);
    (general DMA started by its $420B write), charged by cyc_finish. */
 void cyc_stall(unsigned clocks);
 
+/* Master clocks into the current instruction at the access being made:
+   its opcode fetch, compiled code's operand fetches, and the bus accesses
+   so far (internal cycles in between aren't known; see cycles.c). */
+unsigned cyc_elapsed(void);
+
 /* Opcode fetch speed at PB:PC: 6 for FastROM (banks $80-$FF ROM with
    MEMSEL bit 0), otherwise 8. */
 unsigned cyc_master_per_cycle(uint8_t pb, uint16_t pc);

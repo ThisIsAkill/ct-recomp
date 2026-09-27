@@ -53,6 +53,7 @@ long sched_run_frame(void);
    per 32 cycles. 32040 Hz, as bsnes has it from real consoles (fullsnes
    gives the nominal 24.576 MHz crystal, 32000 Hz; decided for bsnes, #31). */
 #define SCHED_SPC_HZ   (32040u * 32)
+#define SCHED_MASTER_HZ 21477272u   /* NTSC master clock */
 #define SCHED_AUDIO_HZ (SCHED_SPC_HZ / 32)
 
 /* Move up to `max` stereo samples (L R interleaved, SCHED_AUDIO_HZ) of DSP

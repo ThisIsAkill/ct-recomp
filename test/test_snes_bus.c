@@ -7,6 +7,7 @@
 #include "ppu.h"
 #include "apu.h"
 #include "dma.h"
+#include "sched.h"
 #include "snes_adapter.h"
 
 static void test_ppu_registers(void)
@@ -128,6 +129,32 @@ static void test_readonly_writes(void)
           hw_note_text(before));
 }
 
+/* SPC700 reads of $F4-$F7 happen mid-cycle (bsnes SMP::read): a CPU
+   write that lands after the middle of the SPC cycle doing the read isn't
+   seen by it. Master clock as the adapter sees it, set by the test. */
+static uint64_t fake_clock;
+static uint64_t test_clock(void) { return fake_clock; }
+
+static void test_port_write_timing(void)
+{
+    bus_reset();
+    snes_master_clock = test_clock;
+    Apu *apu = snes_hw_apu();
+    snes_apu_run(100);   /* SPC cycles 0-99 done; the next is cycle 100 */
+    /* Cycle 100 spans master clocks [100, 101) * SCHED_MASTER_HZ / SPC_HZ;
+       its middle is at 100.5 of those units. */
+    double unit = (double)SCHED_MASTER_HZ / SCHED_SPC_HZ;
+    fake_clock = (uint64_t)(100.75 * unit);   /* after the middle */
+    write8(0x2140, 0x5A);
+    CHECK(apu_inport_read(apu, 0) != 0x5A, "write after the read's middle: not seen yet");
+    snes_apu_run(1);                          /* now in cycle 101 */
+    CHECK(apu_inport_read(apu, 0) == 0x5A, "seen in the next cycle");
+    fake_clock = (uint64_t)(101.25 * unit);   /* before cycle 101's middle */
+    write8(0x2140, 0x77);
+    CHECK(apu_inport_read(apu, 0) == 0x77, "write before the read's middle: seen");
+    snes_master_clock = NULL;
+}
+
 int main(void)
 {
     th_bus_init();
@@ -136,5 +163,6 @@ int main(void)
     test_dma_to_vram();
     test_wram_port();
     test_apu_ports();
+    test_port_write_timing();
     return th_report("snes_bus");
 }

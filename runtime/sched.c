@@ -36,7 +36,7 @@ static int ophct_hi, opvct_hi;  /* $213C/$213D read flip-flops */
 static uint16_t pad[4];         /* current buttons per port (sched_set_joypad) */
 static uint16_t joy[4];         /* $4218-$421F: last auto-read result */
 
-static void apu_sync(void);
+static void apu_sync(unsigned early);
 static void native_build(void);
 static void tick(CPU *c, uint32_t at, uint8_t op);
 
@@ -49,6 +49,7 @@ static int irq_done, hblank_done;
 static unsigned refresh_at;
 static int refresh_done;
 static int need_start;           /* line 0 not started yet (sched_init) */
+static unsigned start_delay;     /* clocks before the first instruction */
 static int frame_done;
 static void (*frame_hook)(long frame);
 /* Interrupts entered minus RTIs executed, native or interpreted. */
@@ -224,6 +225,14 @@ void sched_init(CPU *c)
     line = 0;
     hclock = 0;
     need_start = 1;
+    /* From power-on (emulation mode), the reset sequence runs before the
+       first instruction (bsnes CPU::main resetPending): 22 x 6 clocks,
+       then the interrupt sequence: a fetch at the old PB:PC, an internal
+       cycle, 3 stack cycles and the 2 vector reads at their speeds. 186
+       clocks with PC=0 and SlowROM. */
+    start_delay = c->e ? 132 + bus_access_clocks(0) + 6 + 3 * bus_access_clocks(0x0100) +
+                             bus_access_clocks(0xFFFC) + bus_access_clocks(0xFFFD)
+                       : 0;
     frame_done = 0;
     frames = nmis = 0;
     int_depth = 0;
@@ -269,11 +278,11 @@ void sched_init(CPU *c)
    time) and at the end of each line, so the upload handshake sees the
    driver respond at a plausible pace. Deterministic. */
 
-#define MASTER_HZ 21477272u
-
-static void apu_sync(void)
+static void apu_sync(unsigned early)
 {
-    uint64_t want = (line_start + hclock) * SCHED_SPC_HZ / MASTER_HZ;
+    /* To the access being made, not the start of its instruction. */
+    uint64_t at = line_start + hclock + cyc_elapsed();
+    uint64_t want = (at > early ? at - early : 0) * SCHED_SPC_HZ / SCHED_MASTER_HZ;
     if (want > spc_done) {
         snes_apu_run((uint32_t)(want - spc_done));
         spc_done = want;
@@ -370,7 +379,7 @@ static void advance(unsigned clocks)
             timeup = 0x80;
             irq_done = 1;
         } else if (hclock >= SCHED_CLOCKS_PER_LINE) {
-            apu_sync();
+            apu_sync(0);
             hclock -= SCHED_CLOCKS_PER_LINE;
             line_start += SCHED_CLOCKS_PER_LINE;
             if (++line == SCHED_LINES) {
@@ -633,6 +642,7 @@ long sched_run_frame(void)
     if (need_start) {
         need_start = 0;
         begin_line();
+        advance(start_delay);
     }
     long f0 = frames;
     frame_done = 0;

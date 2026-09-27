@@ -12,11 +12,14 @@ void snes_hw_init(void);
 /* Reset PPU/DMA/APU state. Called from bus_reset(). */
 void snes_hw_reset(void);
 
-/* APU: run the SPC700 for n cycles (1.024 MHz). snes_apu_sync, if set, is
-   called before every CPU access to $2140-$2143 so the SPC700 can be
-   brought up to CPU time first (the frame scheduler sets it). */
+/* APU: run the SPC700 for n cycles. snes_apu_sync, if set, is called
+   before every CPU access to $2140-$2143 so the SPC700 can be brought up
+   to the moment of the access (the frame scheduler sets it): `early`
+   clocks before the end of the access cycle -- a read samples the bus 4
+   clocks before the cycle ends, a write lands at its end (bsnes
+   CPU::read/write). */
 void snes_apu_run(uint32_t spc_cycles);
-extern void (*snes_apu_sync)(void);
+extern void (*snes_apu_sync)(unsigned early);
 
 /* Master clocks since power-on at the current instruction boundary (the
    frame scheduler sets it; general DMA aligns to it). */

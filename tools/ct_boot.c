@@ -23,7 +23,7 @@
  * --ref-log FILE  write "frame wram_hash frame_hash" per frame to FILE, the
  *                  hashes tools/mesen_ref.py logs from a reference emulator:
  *                  FNV-1a 64 of WRAM, and of the frame as 15-bit pixels
- * --wram FILE      write the 128 KB of WRAM to FILE at the end of the run
+ * --wram FILE      write the 128 KB of WRAM to FILE at the last frame edge
  * --vram FILE      likewise the 64 KB of VRAM, then CGRAM (512 bytes) and
  *                  OAM (544 bytes)
  * --profile N      at the end, print the native share of instructions and
@@ -37,6 +37,8 @@
  * --at ADDR        print frame, line and master clock each time the
  *                  instruction at ADDR (hex) runs, the first 20 times
  *                  (repeatable)
+ * --first-exec F   write "ADDR clock" to F the first time each instruction
+ *                  address runs (for timing comparisons against a reference)
  * --interp-only    run everything in the interpreter (no native dispatch)
  *
  * --min-nmis K     exit 1 unless at least K NMIs were taken
@@ -116,8 +118,15 @@ static void check_watch(uint32_t at)
 static uint32_t at_pc[MAX_AT];
 static int at_seen[MAX_AT], n_at;
 
+static FILE *first_exec;
+static uint8_t *seen_pc;   /* one bit per 24-bit address */
+
 static void trace(const CPU *c, uint32_t at)
 {
+    if (first_exec && !(seen_pc[at >> 3] & 1 << (at & 7))) {
+        seen_pc[at >> 3] |= (uint8_t)(1 << (at & 7));
+        fprintf(first_exec, "%06X %llu\n", at, (unsigned long long)sched_clock());
+    }
     for (int k = 0; k < n_at; k++)
         if (at == at_pc[k] && at_seen[k]++ < 20)
             printf("at $%06X: frame %ld line %d clock %llu\n", at, sched_frame_count(), sched_line(),
@@ -207,6 +216,33 @@ static int nonblack(const uint8_t *p, size_t n)
 
 static const char *dump;
 static FILE *wav, *hash_log, *ref_log;
+static const char *wram_path, *vram_path;
+static long last_frame;
+static int dumped_state;
+
+/* --wram / --vram: WRAM, then VRAM, CGRAM and OAM, as they are at the
+   last frame edge (a native call still running there doesn't move it). */
+static void dump_state(void)
+{
+    dumped_state = 1;
+    if (vram_path) {
+        Ppu *ppu = snes_hw_ppu();
+        FILE *f = fopen(vram_path, "wb");
+        if (!f || fwrite(ppu->vram, 1, sizeof ppu->vram, f) != sizeof ppu->vram ||
+            fwrite(ppu->cgram, 1, sizeof ppu->cgram, f) != sizeof ppu->cgram ||
+            fwrite(ppu->oam, 1, sizeof ppu->oam, f) != sizeof ppu->oam)
+            fprintf(stderr, "ct_boot: cannot write %s\n", vram_path);
+        if (f)
+            fclose(f);
+    }
+    if (wram_path) {
+        FILE *f = fopen(wram_path, "wb");
+        if (!f || fwrite(bus_wram(), 1, 0x20000, f) != 0x20000)
+            fprintf(stderr, "ct_boot: cannot write %s\n", wram_path);
+        if (f)
+            fclose(f);
+    }
+}
 static long dumped, audible;
 
 /* Frame edge: input for the next frame, then this frame's audio, dump
@@ -227,6 +263,8 @@ static void on_frame(long f)
         dumped++;
     if (hash_log)
         write_state_hashes(hash_log, f);
+    if (f == last_frame && (wram_path || vram_path))
+        dump_state();
     if (ref_log)
         fprintf(ref_log, "%ld %016llx %016llx\n", f,
                 (unsigned long long)fnv(0xCBF29CE484222325ull, bus_wram(), 0x20000),
@@ -237,7 +275,7 @@ int main(int argc, char **argv)
 {
     static long frames = 60, min_nmis;    /* static: survive the longjmp */
     static int require_render, require_audio;
-    static const char *wav_path, *hash_path, *wram_path, *vram_path;
+    static const char *wav_path, *hash_path;
     static int profile_top = -1;
     static double min_native = -1;
     static const char *needed;
@@ -292,6 +330,11 @@ int main(int argc, char **argv)
             watch[n_watch++].len = n;
         } else if (!strcmp(argv[k], "--at") && k + 1 < argc && n_at < MAX_AT) {
             at_pc[n_at++] = (uint32_t)strtoul(argv[++k], NULL, 16);
+        } else if (!strcmp(argv[k], "--first-exec") && k + 1 < argc) {
+            if (!(first_exec = fopen(argv[++k], "w")) || !(seen_pc = calloc(1 << 21, 1))) {
+                fprintf(stderr, "ct_boot: cannot write %s\n", argv[k]);
+                return 2;
+            }
         } else if (!strcmp(argv[k], "--interp-only")) {
             sched_set_native(0);
         } else if (!strcmp(argv[k], "--expect-pc") && k + 1 < argc && n_expect < MAX_EXPECT)
@@ -300,7 +343,7 @@ int main(int argc, char **argv)
             fprintf(stderr, "usage: ct_boot [--frames N] [--dump DIR] [--needed-hw FILE] "
                             "[--min-nmis K] [--require-render] [--wav FILE] "
                             "[--require-audio] [--input F1-F2:BUTTONS] [--script FILE] "
-                            "[--expect-pc ADDR] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--interp-only]\n");
+                            "[--expect-pc ADDR] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--first-exec FILE] [--interp-only]\n");
             return 2;
         }
     }
@@ -337,6 +380,7 @@ int main(int argc, char **argv)
             fprintf(stderr, "ct_boot: cannot write %s\n", needed);
         return 1;
     }
+    last_frame = frames;
     sched_set_frame_hook(on_frame);
     sched_set_joypad(0, replay_buttons(&input, 1));
     while (sched_frame_count() < frames)
@@ -345,25 +389,12 @@ int main(int argc, char **argv)
         wav_close(wav);
     if (hash_log)
         fclose(hash_log);
+    if (first_exec)
+        fclose(first_exec);
     if (ref_log)
         fclose(ref_log);
-    if (vram_path) {
-        Ppu *ppu = snes_hw_ppu();
-        FILE *f = fopen(vram_path, "wb");
-        if (!f || fwrite(ppu->vram, 1, sizeof ppu->vram, f) != sizeof ppu->vram ||
-            fwrite(ppu->cgram, 1, sizeof ppu->cgram, f) != sizeof ppu->cgram ||
-            fwrite(ppu->oam, 1, sizeof ppu->oam, f) != sizeof ppu->oam)
-            fprintf(stderr, "ct_boot: cannot write %s\n", vram_path);
-        if (f)
-            fclose(f);
-    }
-    if (wram_path) {
-        FILE *f = fopen(wram_path, "wb");
-        if (!f || fwrite(bus_wram(), 1, 0x20000, f) != 0x20000)
-            fprintf(stderr, "ct_boot: cannot write %s\n", wram_path);
-        if (f)
-            fclose(f);
-    }
+    if ((wram_path || vram_path) && !dumped_state)
+        dump_state();   /* stopped before the last frame edge (fatal) */
     printf("ct_boot: %ld frames, %ld NMIs, %ld frames dumped, %ld with audio, PC $%02X%04X\n",
            sched_frame_count(), sched_nmi_count(), (long)dumped, (long)audible, cpu.PB, cpu.PC);
     if (require_audio && !audible)

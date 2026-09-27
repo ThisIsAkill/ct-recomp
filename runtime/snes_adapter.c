@@ -1,8 +1,10 @@
+#include <string.h>
 #include "snes_adapter.h"
 
 #include "bus.h"
 #include "cpu.h"
 #include "cycles.h"
+#include "sched.h"
 #include "hwlog.h"
 #include "apu.h"
 #include "dma.h"
@@ -190,26 +192,49 @@ static void ppu_reg_write(uint16_t reg, uint8_t v)
  * $F4-$F7), reads return its output ports (what it wrote there).
  * apu_cpuRead/apu_cpuWrite are the SPC700's own memory map, not this. */
 
-void (*snes_apu_sync)(void);
+void (*snes_apu_sync)(unsigned early);
 
 static uint8_t apu_reg_read(uint16_t reg)
 {
     if (snes_apu_sync)
-        snes_apu_sync();
+        snes_apu_sync(4);
     return g_apu->outPorts[reg & 3];
+}
+
+/* The SPC700 reads its input ports mid-cycle (bsnes SMP::read: half a
+   wait, the read, half a wait); a CPU write that lands later in that
+   cycle isn't seen yet. The SPC700 runs whole instructions, so each port
+   keeps its previous value and when the new one arrived (master clocks),
+   and a read before then returns the previous value. */
+uint64_t (*snes_master_clock)(void);
+
+static uint8_t port_prev[4];
+static uint64_t port_time[4];
+static uint64_t spc_cycle;   /* index of the SPC700 cycle being run */
+
+static uint8_t inport_read(Apu *apu, int port)
+{
+    /* Read at spc_cycle + 1/2, write at port_time: compare in master x SPC. */
+    if ((2 * spc_cycle + 1) * SCHED_MASTER_HZ < 2 * port_time[port] * (uint64_t)SCHED_SPC_HZ)
+        return port_prev[port];
+    return apu->inPorts[port];
 }
 
 static void apu_reg_write(uint16_t reg, uint8_t v)
 {
     if (snes_apu_sync)
-        snes_apu_sync();
+        snes_apu_sync(0);
+    port_prev[reg & 3] = g_apu->inPorts[reg & 3];
+    port_time[reg & 3] = (snes_master_clock ? snes_master_clock() : 0) + cyc_elapsed();
     g_apu->inPorts[reg & 3] = v;
 }
 
 void snes_apu_run(uint32_t spc_cycles)
 {
-    while (spc_cycles--)
+    while (spc_cycles--) {
         apu_cycle(g_apu);
+        spc_cycle++;
+    }
 }
 
 /* ---- $4300-$437F DMA channel registers ---- */
@@ -239,7 +264,6 @@ static void dma_reg_write(uint16_t reg, uint8_t v)
  * need the scanline loop #11 will add, so HDMA registers hold correct
  * state but do nothing until then. */
 
-uint64_t (*snes_master_clock)(void);
 
 /* The CPU is paused while general DMA runs; charge that time to the
    instruction that wrote $420B (bsnes CPU::dmaEdge/dmaRun): sync to the
@@ -286,6 +310,7 @@ void snes_hw_init(void)
         g_apu = apu_init();
         g_dma = dma_init(&g_snes_stub);
     }
+    apu_inport_read = inport_read;
 
     for (uint16_t r = 0x2100; r <= 0x213F; r++)
         bus_hook(r, ppu_reg_read, ppu_reg_write);
@@ -305,6 +330,9 @@ void snes_hw_reset(void)
     ppu1_mdr = ppu2_mdr = 0;
     vram_latch = 0;
     oamadd_reload = 0;
+    spc_cycle = 0;
+    memset(port_prev, 0, sizeof port_prev);
+    memset(port_time, 0, sizeof port_time);
     dma_reset(g_dma);
     apu_reset(g_apu);
 }
