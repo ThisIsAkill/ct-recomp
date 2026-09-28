@@ -2,8 +2,9 @@
 """Close the call graph of funcs.toml.
 
 Decodes every registered routine. Each JSR/JSL to an unregistered target
-(or registered without the caller's M/X) becomes a candidate whose entry
-state is the caller's state at the call site. Repeats until no new targets
+(or registered without the caller's M/X) -- an interpreter call in the
+generated code (#30), or a far jump the decoder rejects -- becomes a
+candidate whose entry state is the caller's state at the call site. Repeats until no new targets
 appear or --max candidates exist. Names: ChronoRET label, else second
 disassembly label, else Sub_XXXXXX.
 
@@ -27,6 +28,7 @@ sys.path.insert(0, os.path.join(GAME, 'tools'))
 
 import check_meta  # noqa: E402
 import decode  # noqa: E402
+import emit  # noqa: E402
 import import_chronoret  # noqa: E402
 import funcs  # noqa: E402
 
@@ -92,7 +94,13 @@ def main() -> int:
         for fm in metas + list(cands.values()):
             for st in fm.entry_states():
                 try:
-                    reg.function(fm.addr, st)
+                    fn = reg.function(fm.addr, st)
+                    guessed = decode.assumed_calls(fn)
+                    for key, (target, cst) in fn.interp_calls.items():   # runs interpreted (#30)
+                        if key in guessed:
+                            continue   # its M/X rest on an earlier callee keeping them
+                        known = reg.by_addr.get(target)
+                        missing.add((target, cst.tag(), known.name if known else None))
                 except funcs.MissingTarget as ex:
                     missing.add((ex.target, ex.state.tag(), ex.name))
                 except decode.DecodeError as ex:
@@ -123,18 +131,51 @@ def main() -> int:
         if not new:
             break
 
-    reg = funcs.Registry(rom, metas + list(cands.values()), FUNCS_TOML)
-    ok = []
-    for fm in cands.values():
-        good = []
-        for st in fm.entry_states():
+    # Keep only what decodes and emits: a call-site state can come from code
+    # after an interpreter call, where M/X are assumed unchanged. Dropping
+    # one can break another that relied on it, so repeat until stable.
+    base = {m.name: m for m in funcs.load(FUNCS_TOML)}
+    ok = list(cands.values())
+    while True:
+        cur = [funcs.FuncMeta(m.name, m.addr,
+                              base[m.name].states + tuple(sorted(add_states.get(m.name, ()))),
+                              m.e, m.dp, m.db, m.module, m.manual) if m.name in base else m
+               for m in metas]
+        reg = funcs.Registry(rom, cur + ok, FUNCS_TOML)
+        emit._EXTERNS.clear()
+        emit._EXTERNS.update(reg.externs)
+        failures.clear()
+
+        def emits(fm, st) -> bool:
             try:
-                reg.function(fm.addr, st)
-                good.append(st.tag())
-            except decode.DecodeError as ex:
+                emit.emit_function(fm, reg.function(fm.addr, st))
+                return True
+            except (decode.DecodeError, emit.EmitError) as ex:
                 failures[(fm.name, st.tag())] = str(ex)
-        if good:
-            ok.append(funcs.FuncMeta(fm.name, fm.addr, tuple(good), 0, 0, None, fm.module))
+                return False
+
+        new_ok = []
+        for fm in ok:
+            good = [st.tag() for st in fm.entry_states() if emits(fm, st)]
+            if good:
+                new_ok.append(funcs.FuncMeta(fm.name, fm.addr, tuple(good), 0, 0, None, fm.module))
+        new_add = {}
+        for m in cur:
+            extra = add_states.get(m.name)
+            if not extra:
+                continue
+            good = {st.tag() for st in m.entry_states() if st.tag() in extra and emits(m, st)}
+            if good:
+                new_add[m.name] = good
+        # registered routines must still emit with the new set
+        for m in cur:
+            for st in m.entry_states():
+                if st.tag() not in add_states.get(m.name, ()) and not m.manual:
+                    emits(m, st)
+        if len(new_ok) == len(ok) and all(len(f.states) == len(g.states) for f, g in
+                                           zip(new_ok, ok)) and new_add == add_states:
+            break
+        ok, add_states = new_ok, new_add
 
     for (name, tag), err in sorted(failures.items()):
         print(f'fail  {name} {tag}: {err}')
