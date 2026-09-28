@@ -6,7 +6,9 @@
    calls with no documented state gets the state live at the call site.
 3. split_emittable() holds a manual root back from emission while it
    doesn't decode, with the reason; the same entry without the flag still
-   fails emission loudly.
+   fails emission loudly. Field_ColdBootInit itself decodes now (its far
+   jump target is registered), so this uses a synthetic root: the entry
+   of Dma7_VramCopy_Full taken with m0x0, which runs into data.
 """
 import dataclasses
 import os
@@ -24,6 +26,7 @@ import funcs  # noqa: E402
 import sync_symbols  # noqa: E402
 
 COLD_BOOT = 0xC0000E
+BAD_ROOT = funcs.FuncMeta('BadRoot', 0xC02DC8, ('m0x0',), 0, 0, 0, 'bankc0', True)
 LOAD_LOCATION = 0xC000F4   # JSR'd from the location loop the root falls into
 
 
@@ -53,12 +56,16 @@ def main() -> int:
 
     reg = funcs.Registry(rom, metas, FUNCS_TOML)
     ok, pending = funcs.split_emittable(reg, metas)
-    check(root not in ok, 'undecodable manual root is not emitted')
-    check([fm for fm, _ in pending] == [root], 'only the manual root is pending')
-    # Its JSL $C70000 runs interpreted (#30); what still blocks it is the far jump.
-    check(bool(pending) and 'JMP $C20000' in pending[0][1], f'pending reason: {pending}')
+    check(root in ok and not pending, f'Field_ColdBootInit decodes and is emitted: {pending}')
 
-    plain = dataclasses.replace(root, manual=False)
+    others = [fm for fm in metas if fm.addr != BAD_ROOT.addr]
+    reg = funcs.Registry(rom, others + [BAD_ROOT], FUNCS_TOML)
+    ok, pending = funcs.split_emittable(reg, others + [BAD_ROOT])
+    check(BAD_ROOT not in ok, 'undecodable manual root is not emitted')
+    check([fm for fm, _ in pending] == [BAD_ROOT], 'only the undecodable root is pending')
+    check(bool(pending) and 'WDM' in pending[0][1], f'pending reason: {pending}')
+
+    plain = dataclasses.replace(BAD_ROOT, manual=False)
     preg = funcs.Registry(rom, [plain], FUNCS_TOML)
     pok, ppending = funcs.split_emittable(preg, [plain])
     check(pok == [plain] and not ppending, 'non-manual entry is never held back')
