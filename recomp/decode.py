@@ -581,6 +581,10 @@ class Function:
     tables: dict = field(default_factory=dict)  # (abs,X) -> ([targets], entry State)
     post: dict = field(default_factory=dict)    # (addr, m, x, e) -> (m, x, e) after the insn
     call_exits: dict = field(default_factory=dict)  # call key -> [(m, x, e)] when several
+    # JSR/JSL to code that isn't compiled (target not registered, or not for
+    # this entry state) -> (target, entry State): run by the interpreter
+    # (ct_call_interp); the continuation assumes M/X come back unchanged
+    interp_calls: dict = field(default_factory=dict)
 
     @property
     def size(self) -> int:
@@ -663,8 +667,14 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
                 if resolve is None:
                     raise DecodeError(f'${addr:06X}: {i.text()}: no call resolver')
                 target = (addr & 0xFF0000) | i.operand if mn == 'JSR' else i.operand
-                exits = resolve(addr, target, State(nxt.m, nxt.x, nxt.e), mn)
-                fn.calls[ikey] = (target, State(nxt.m, nxt.x, nxt.e))
+                cst = State(nxt.m, nxt.x, nxt.e)
+                missing = getattr(resolve, 'missing', None)
+                if missing is not None and missing(target, cst, mn):
+                    fn.interp_calls[ikey] = (target, cst)
+                    exits = {(nxt.m, nxt.x)}
+                else:
+                    exits = resolve(addr, target, cst, mn)
+                    fn.calls[ikey] = (target, cst)
                 nxt = _continue(fn, ikey, i, nxt, exits, work)
                 if nxt is None:
                     break

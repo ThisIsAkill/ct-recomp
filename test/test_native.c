@@ -44,6 +44,40 @@ loop:
     op_rts(cpu);
 }
 
+/* Calls into code that isn't compiled (#30), shaped like emitter output.
+   $7E2300: JSR $2400 / LDA #$07 / STA $13 / RTS, where $7E2400 is the
+   loop above, not in the table: interpreted, across NMIs.
+   $7E2600: JSR $2500 / LDA #$0007 / STA $13 / SEP #$20 / RTS, where
+   $7E2500 is REP #$20 / RTS: it comes back with m0, which the compiled
+   continuation (for m1: the same code as $7E2300's) doesn't cover, so the
+   rest is interpreted. */
+static int ran_caller;
+
+static void native_caller(CPU *cpu, uint32_t base, uint16_t callee)
+{
+    ran_caller++;
+    cpu_enter(cpu, base, 1, 0);
+    const uint16_t s0 = cpu->S;
+    ct_insn(cpu, base, 0x20, (uint8_t)(callee >> 8));
+    push16(cpu, (uint16_t)(base + 2));
+    ct_call_interp(cpu, 0x7E0000 | callee, base + 3, 2);
+    if (cpu->m != 1 || cpu->x != 0) {
+        ct_interp_rest(cpu, s0);
+        return;
+    }
+    ct_insn(cpu, base + 3, 0xA9, 0x07);
+    lda8(cpu, 0x07);
+    ct_insn(cpu, base + 5, 0x85, 0x13);
+    write8(ea_dp(cpu, 0x13), a8(cpu));
+    ct_insn(cpu, base + 7, 0xE2, 0x20);
+    op_sep(cpu, 0x20);
+    ct_insn(cpu, base + 9, 0x60, 0x60);
+    op_rts(cpu);
+}
+
+static void f_2300(CPU *cpu) { native_caller(cpu, 0x7E2300, 0x2400); }
+static void f_2600(CPU *cpu) { native_caller(cpu, 0x7E2600, 0x2500); }
+
 static void f_2100(CPU *cpu) { native_loop(cpu, 0x7E2100); }
 static void f_2200(CPU *cpu) { native_loop(cpu, 0x7E2200); }
 
@@ -51,8 +85,10 @@ static void f_2200(CPU *cpu) { native_loop(cpu, 0x7E2200); }
 const ct_func ct_funcs[] = {
     {"TestLoop", 0x7E2100, 1, 0, 14, -1, -1, 0, f_2100},
     {"TestLoopDB55", 0x7E2200, 1, 0, 14, 0x55, -1, 0, f_2200},   /* assumes DB=$55 */
+    {"TestCaller", 0x7E2300, 1, 0, 10, -1, -1, 0, f_2300},
+    {"TestCallerMX", 0x7E2600, 1, 0, 10, -1, -1, 0, f_2600},
 };
-const unsigned ct_func_count = 2;
+const unsigned ct_func_count = 4;
 const ct_extern ct_externs[] = {{0, 0, 0}};
 const unsigned ct_extern_count = 0;
 const ct_jumptable ct_jumptables[] = {{0, 0}};
@@ -62,7 +98,7 @@ typedef struct {
     uint64_t clock, native_insns, interp_insns;
     char profile[1024];
     long nmis;
-    uint8_t w10, w11, w12;
+    uint8_t w10, w11, w12, w13, w14;
     CPU cpu;
 } Outcome;
 
@@ -89,6 +125,16 @@ static Outcome run_with(uint16_t target, int native, const uint8_t *nmi, size_t 
     memcpy(w + 0x2100, loop_bytes, sizeof loop_bytes);
     memcpy(w + 0x2200, loop_bytes, sizeof loop_bytes);
     memcpy(w + 0x0500, nmi, nmi_len);
+    static const uint8_t caller[] = {0x20, 0x00, 0x00, 0xA9, 0x07, 0x85, 0x13, 0xE2, 0x20, 0x60};
+    memcpy(w + 0x2300, caller, sizeof caller);
+    w[0x2302] = 0x24;   /* JSR $2400 */
+    memcpy(w + 0x2400, loop_bytes, sizeof loop_bytes);
+    /* JSR $2500 / LDA #$0007 / STA $13 / SEP #$20 / RTS, as it runs in m0 */
+    static const uint8_t caller_m0[] = {0x20, 0x00, 0x25, 0xA9, 0x07, 0x00, 0x85, 0x13, 0xE2,
+                                        0x20, 0x60};
+    memcpy(w + 0x2600, caller_m0, sizeof caller_m0);
+    static const uint8_t to_m0[] = {0xC2, 0x20, 0x60};   /* REP #$20 / RTS */
+    memcpy(w + 0x2500, to_m0, sizeof to_m0);
 
     static CPU c;
     interp_reset(&c);   /* power-on: also clears a pending WAI */
@@ -120,6 +166,8 @@ static Outcome run_with(uint16_t target, int native, const uint8_t *nmi, size_t 
     o.w10 = w[0x10];
     o.w11 = w[0x11];
     o.w12 = w[0x12];
+    o.w13 = w[0x13];
+    o.w14 = w[0x14];
     o.cpu = c;
     return o;
 }
@@ -141,7 +189,7 @@ static void on_fatal(const char *msg)
 static int same(const Outcome *a, const Outcome *b)
 {
     return a->clock == b->clock && a->nmis == b->nmis && a->w10 == b->w10 && a->w11 == b->w11 &&
-           a->w12 == b->w12 && a->cpu.A == b->cpu.A && a->cpu.X == b->cpu.X &&
+           a->w12 == b->w12 && a->w13 == b->w13 && a->w14 == b->w14 && a->cpu.A == b->cpu.A && a->cpu.X == b->cpu.X &&
            a->cpu.S == b->cpu.S && a->cpu.PC == b->cpu.PC && a->cpu.PB == b->cpu.PB;
 }
 
@@ -194,6 +242,26 @@ int main(void)
     CHECK(strstr(fatal_msg, "NMI did not return to the interrupted native code") &&
               strstr(fatal_msg, "interrupted at $7E21"),
           "changed return context is fatal: \"%s\"", fatal_msg);
+
+    /* Native code calling into interpreted code (#30). */
+    Outcome ref3 = run(0x2300, 0);
+    ran_caller = ran_native = 0;
+    Outcome call = run(0x2300, 1);
+    CHECK(ran_caller == 1 && ran_native == 0, "caller native, callee interpreted: %d %d",
+          ran_caller, ran_native);
+    CHECK(ref3.w10 == 0x42 && ref3.w13 == 0x07 && ref3.nmis >= 5, "callee and caller ran");
+    CHECK(same(&ref3, &call), "native caller == interpreter: clock %llu vs %llu, nmis %ld vs %ld",
+          (unsigned long long)call.clock, (unsigned long long)ref3.clock, call.nmis, ref3.nmis);
+    CHECK(call.w11 == ref3.w11, "NMIs inside the interpreted callee: %u vs %u", call.w11,
+          ref3.w11);
+    Outcome ref4 = run(0x2600, 0);
+    ran_caller = 0;
+    Outcome mx = run(0x2600, 1);
+    CHECK(ran_caller == 1, "M/X caller dispatched natively");
+    CHECK(ref4.w13 == 0x07 && ref4.w14 == 0x00 && ref4.w12 == 1, "rest ran 16-bit: $13 %02X $14 %02X",
+          ref4.w13, ref4.w14);
+    CHECK(same(&ref4, &mx), "callee changed M: rest interpreted == interpreter: clock %llu vs %llu",
+          (unsigned long long)mx.clock, (unsigned long long)ref4.clock);
 
     return th_report("native");
 }

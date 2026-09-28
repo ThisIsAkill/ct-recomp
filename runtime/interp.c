@@ -801,3 +801,37 @@ void interp_reset(CPU *c)
     c->PC = (uint16_t)(read8(0xFFFC) | read8(0xFFFD) << 8);
     waiting = 0;
 }
+
+/* ---- generated code calling code that isn't compiled (cpu.h, #30) ---- */
+
+/* Without the scheduler (ct_exec_hook unset: tests, diff_all), in the
+   strict interpreter, as interp_call runs a whole routine: the same checks
+   (jump tables, call depth, budgets) as the oracle generated code is
+   compared against, so both sides fail the same way on bad input. */
+void ct_call_interp(CPU *c, uint32_t target, uint32_t back, unsigned n)
+{
+    ct_exec_until u = {back, (uint16_t)(c->S + n)};
+    c->PB = (uint8_t)(target >> 16);
+    c->PC = (uint16_t)target;
+    if (ct_exec_hook) {
+        ct_exec_hook(c, &u);
+        return;
+    }
+    interp_call(c, target);   /* until its RTS/RTL lifts S above the return address */
+    if (!ct_exec_done(c, &u))
+        ct_fatal("$%06X: interpreted callee returned to $%02X%04X S=%04X, expected $%06X S=%04X",
+                 target, c->PB, c->PC, c->S, back, u.s);
+}
+
+void ct_interp_rest(CPU *c, uint16_t s0)
+{
+    ct_exec_until u = {~0u, s0};
+    if (ct_exec_hook) {
+        ct_exec_hook(c, &u);
+        return;
+    }
+    interp_call(c, (uint32_t)c->PB << 16 | c->PC);   /* until the function's own return */
+    if (!ct_exec_done(c, &u))
+        ct_fatal("$%02X%04X: interpreted rest returned with S=%04X, not above $%04X", c->PB,
+                 c->PC, c->S, s0);
+}

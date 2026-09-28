@@ -207,6 +207,16 @@ class Registry:
             return set(self.assume[key])
         return set(self.function(target, st).exit_states)
 
+    def missing(self, target: int, st: State, kind: str) -> bool:
+        """A JSR/JSL target the translation doesn't compile for st: not
+        registered, or registered without that entry state (and not an
+        extern). Such a call runs the callee in the interpreter
+        (decode.Function.interp_calls)."""
+        if target in self.externs:
+            return False
+        fm = self.by_addr.get(target)
+        return fm is None or st.tag() not in fm.states
+
     def __call__(self, site: int, target: int, st: State, kind: str = 'JSR') -> tuple:
         return self.resolve(site, target, st, kind)
 

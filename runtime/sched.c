@@ -69,6 +69,7 @@ static void dma_start(const uint32_t sizes[8]);
 static void charge(unsigned clocks);
 static unsigned line_clocks(void);
 static void walk_reset(void);
+static void exec_hook(CPU *c, const ct_exec_until *u);
 static unsigned reset_delay(void);
 static void native_build(void);
 static void tick(CPU *c, uint32_t at, uint8_t op);
@@ -358,6 +359,7 @@ void sched_init(CPU *c)
     cpu = c;
     native_build();
     ct_tick_hook = tick;
+    ct_exec_hook = exec_hook;
     line = 0;
     hclock = 0;
     need_start = 1;
@@ -1270,6 +1272,18 @@ static void soft_reset(void)
     frame_done = 1;
     if (frame_hook)
         frame_hook(frames);
+}
+
+/* ct_exec_hook: generated code running code that isn't compiled (#30),
+   as exec_one runs anything: the calling instruction is charged first,
+   then instructions (native where compiled) until the caller's condition. */
+static void exec_hook(CPU *c, const ct_exec_until *u)
+{
+    charge(cyc_finish());
+    if (u->back != ~0u)
+        shadow_push(c);   /* the profile's callee: now at its entry */
+    while (!ct_exec_done(c, u))
+        exec_one();
 }
 
 long sched_run_frame(void)

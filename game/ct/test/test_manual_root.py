@@ -55,7 +55,8 @@ def main() -> int:
     ok, pending = funcs.split_emittable(reg, metas)
     check(root not in ok, 'undecodable manual root is not emitted')
     check([fm for fm, _ in pending] == [root], 'only the manual root is pending')
-    check(bool(pending) and 'JSL $C70000' in pending[0][1], f'pending reason: {pending}')
+    # Its JSL $C70000 runs interpreted (#30); what still blocks it is the far jump.
+    check(bool(pending) and 'JMP $C20000' in pending[0][1], f'pending reason: {pending}')
 
     plain = dataclasses.replace(root, manual=False)
     preg = funcs.Registry(rom, [plain], FUNCS_TOML)

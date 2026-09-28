@@ -252,6 +252,8 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
         '{',
         f'    cpu_enter(cpu, 0x{fm.addr:06X}, {int(st.m)}, {int(st.x)});',
     ]
+    if fn.interp_calls:
+        lines.append('    const uint16_t s0 = cpu->S;   /* the return address sits above */')
     keys = {i.key for i in fn.insns}
     per_addr: dict[int, int] = {}
     for i in fn.insns:
@@ -277,7 +279,23 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
             raise EmitError(str(ex)) from None
         t = TEMPLATES.get((i.opcode, w))
 
-        if i.opcode == 0x20 and i.key in fn.calls:
+        if i.opcode in (0x20, 0x22) and i.key in fn.interp_calls:
+            target, cst = fn.interp_calls[i.key]
+            long = i.opcode == 0x22
+            ret = (i.addr + (3 if long else 2)) & 0xFFFF
+            bank = i.addr >> 16
+            back = (bank << 16) | ((ret + 1) & 0xFFFF)
+
+            def t(i, target=target, cst=cst, ret=ret, bank=bank, long=long, back=back):
+                body = [f'push8(cpu, 0x{bank:02X});'] if long else []
+                body += [f'push16(cpu, 0x{ret:04X});',
+                         f'ct_call_interp(cpu, 0x{target:06X}, 0x{back:06X}, {3 if long else 2});']
+                known = [f'cpu->{r} != {int(v)}' for r, v in (('m', cst.m), ('x', cst.x))
+                         if v is not None]
+                if known:   # it came back in another state: interpret the rest
+                    body.append(f'if ({" || ".join(known)}) {{ ct_interp_rest(cpu, s0); return; }}')
+                return body
+        elif i.opcode == 0x20 and i.key in fn.calls:
             target, cst = fn.calls[i.key]
             ret = (i.addr + 2) & 0xFFFF
             t = lambda i, target=target, cst=cst, ret=ret: [
