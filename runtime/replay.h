@@ -6,6 +6,9 @@
  * sched_set_joypad). Spans may overlap; their buttons combine. '#' starts
  * a comment. Frame F's buttons are the ones its auto-joypad read sees:
  * the scheduler's frame hook sets them at the edge of frame F-1.
+ * "reset F" presses the reset button as frame F begins, at the VBlank
+ * whose auto-joypad read would take frame F's buttons (sched.h,
+ * sched_set_reset_hook); the game never sees frame F's buttons.
  *
  * The recorder writes the same format, one span per run of identical
  * nonzero buttons, so a recording replays through replay_load. */
@@ -23,6 +26,8 @@ typedef struct {
 typedef struct {
     replay_span *spans;
     int n, cap;
+    long *resets;   /* frames, in file order */
+    int n_resets, cap_resets;
 } replay;
 
 /* Add one "F1-F2:BUTTONS" span; 0 on success, -1 if malformed. */
@@ -31,6 +36,8 @@ int replay_add(replay *r, const char *spec);
    malformed (the first bad line goes to stderr). */
 int replay_load(replay *r, const char *path);
 uint16_t replay_buttons(const replay *r, long frame);
+/* Nonzero if the script resets as frame `frame` begins. */
+int replay_reset(const replay *r, long frame);
 void replay_free(replay *r);
 
 typedef struct {

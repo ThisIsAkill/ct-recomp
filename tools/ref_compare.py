@@ -54,6 +54,18 @@ def read_log(path):
     return out
 
 
+def runs(frames, limit=8):
+    """Frame runs "a-b" of a sorted list, the first `limit` of them."""
+    out = []
+    for f in frames:
+        if out and f == out[-1][1] + 1:
+            out[-1][1] = f
+        else:
+            out.append([f, f])
+    text = ", ".join(f"{lo}-{hi}" if hi > lo else f"{lo}" for lo, hi in out[:limit])
+    return text + (f", ... ({len(out)} runs)" if len(out) > limit else "")
+
+
 def ranges(a, b, limit=24):
     """Differing byte ranges of two equal-length buffers, as (start, end)."""
     out, start = [], None
@@ -101,6 +113,7 @@ def main() -> int:
             print(f"ref_compare: probe logged nothing: {ours_out.strip()[-300:]}")
             return 2
         first = {"wram": None, "frame": None}
+        differ = {"wram": [], "frame": []}
         for f in sorted(mine):
             g = f + a.offset
             if g < 2 or g not in theirs:
@@ -108,8 +121,10 @@ def main() -> int:
             for k, name in ((0, "wram"), (1, "frame")):
                 if name == "wram" and mine[f][2]:
                     continue   # the frame edge fell inside a general DMA (see above)
-                if first[name] is None and mine[f][k] != theirs[g][k]:
-                    first[name] = f
+                if mine[f][k] != theirs[g][k]:
+                    differ[name].append(f)
+                    if first[name] is None:
+                        first[name] = f
         compared = sum(1 for f in mine if f + a.offset >= 2 and f + a.offset in theirs)
         print(f"ref_compare: {compared} frames compared (ours f vs reference f{a.offset:+d})")
         skipped = sum(1 for f in mine if mine[f][2])
@@ -121,6 +136,9 @@ def main() -> int:
             f = first[name]
             print(f"ref_compare: first {name} divergence: " +
                   (f"frame {f}" if f is not None else "none"))
+            if f is not None:
+                print(f"ref_compare: {name} differs on {len(differ[name])} frames: "
+                      f"{runs(differ[name])}")
         f = first["wram"]
         if f is not None:
             ours_wram, ref_wram = os.path.join(tmp, "ours.wram"), os.path.join(tmp, "ref.wram")

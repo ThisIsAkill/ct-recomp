@@ -434,6 +434,44 @@ static void test_frame_in_dma(void)
           in_dma[1]);
 }
 
+/* The reset button: asked at VBlank with the frame about to begin; the
+   frame ends there, the CPU takes the reset vector in emulation mode with
+   A and the low bytes of X/Y/S kept, WRAM is kept, and the clock restarts
+   from 0 at line 0 (then the reset sequence's 186 clocks). */
+static long reset_asked[4];
+static int n_asked;
+
+static int reset_at_3(long frame)
+{
+    if (n_asked < 4)
+        reset_asked[n_asked++] = frame;
+    return frame == 3;
+}
+
+static void test_soft_reset(void)
+{
+    /* REP #$30 / LDA #$1234 / LDX #$5678 / STA $10 / BRA . */
+    static const uint8_t prog[] = {0xC2, 0x30, 0xA9, 0x34, 0x12, 0xA2, 0x78, 0x56,
+                                   0x85, 0x10, 0x80, 0xFE};
+    start_prog(prog, sizeof prog);
+    n_asked = 0;
+    sched_set_reset_hook(reset_at_3);
+    long a = sched_run_frame(), b = sched_run_frame();
+    long c = sched_run_frame();
+    sched_set_reset_hook(NULL);
+    CHECK(a == 1 && b == 1 && c == 1 && sched_frame_count() == 3, "frames %ld %ld %ld, count %ld",
+          a, b, c, sched_frame_count());
+    CHECK(n_asked == 3 && reset_asked[0] == 1 && reset_asked[2] == 3, "asked for frames 1, 2, 3");
+    uint16_t vec = (uint16_t)(read8(0xFFFC) | read8(0xFFFD) << 8);
+    CHECK(tc.e && tc.m && tc.x && tc.i && tc.PB == 0 && tc.PC == vec, "at the reset vector $%04X",
+          tc.PC);
+    CHECK(tc.A == 0x1234 && tc.X == 0x0078 && tc.S == 0x01FF, "A %04X X %04X S %04X kept",
+          tc.A, tc.X, tc.S);
+    CHECK(bus_wram()[0x10] == 0x34 && bus_wram()[0x11] == 0x12, "WRAM kept");
+    CHECK(sched_clock() == 0 && sched_line() == 0, "clock restarts: %llu, line %d",
+          (unsigned long long)sched_clock(), sched_line());
+}
+
 int main(void)
 {
     th_bus_init();
@@ -446,6 +484,7 @@ int main(void)
     test_hblank_rdnmi_clock();
     test_autojoy_clock();
     test_frame_in_dma();
+    test_soft_reset();
 
     /* HDMA channel 7, mode 3 (4 bytes to $2121 $2121 $2122 $2122): every
        line sets CGRAM[0] (the backdrop) to red = row & 31. */

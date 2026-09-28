@@ -1,5 +1,6 @@
 #include "sched.h"
 
+#include <setjmp.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -68,6 +69,7 @@ static void dma_start(const uint32_t sizes[8]);
 static void charge(unsigned clocks);
 static unsigned line_clocks(void);
 static void walk_reset(void);
+static unsigned reset_delay(void);
 static void native_build(void);
 static void tick(CPU *c, uint32_t at, uint8_t op);
 
@@ -90,6 +92,10 @@ static uint64_t dma_lo, dma_hi;
 static int edge_in_dma;   /* this frame edge fell inside it */
 static uint64_t frame_clock;       /* line 0's start */
 static void (*frame_hook)(long frame);
+static int (*reset_hook)(long frame);
+static jmp_buf reset_jmp;
+static int reset_armed;          /* inside sched_run_frame */
+static long field_base;          /* frame counts since the last reset: STAT78's field bit */
 /* Interrupts entered minus RTIs executed, native or interpreted. */
 static long int_depth;
 /* Native coverage profile state (see sched_profile_report). */
@@ -194,7 +200,7 @@ static uint8_t opvct_read(uint16_t reg)
 static uint8_t stat78_read(uint16_t reg)
 {
     (void)reg;
-    uint8_t v = (uint8_t)((frames & 1) << 7 | lat_flag << 6 | (snes_ppu2_mdr() & 0x20) | 3);
+    uint8_t v = (uint8_t)(((frames - field_base) & 1) << 7 | lat_flag << 6 | (snes_ppu2_mdr() & 0x20) | 3);
     lat_flag = 0;
     ophct_hi = opvct_hi = 0;
     snes_set_ppu2_mdr(v);
@@ -360,11 +366,10 @@ void sched_init(CPU *c)
        then the interrupt sequence: a fetch at the old PB:PC, an internal
        cycle, 3 stack cycles and the 2 vector reads at their speeds. 186
        clocks with PC=0 and SlowROM. */
-    start_delay = c->e ? 132 + bus_access_clocks(0) + 6 + 3 * bus_access_clocks(0x0100) +
-                             bus_access_clocks(0xFFFC) + bus_access_clocks(0xFFFD)
-                       : 0;
+    start_delay = c->e ? reset_delay() : 0;
     frame_done = 0;
     frames = nmis = 0;
+    field_base = 0;
     int_depth = 0;
     prof_native = prof_interp = 0;
     shadow_n = 0;
@@ -437,6 +442,8 @@ static void start_line(void)
     if (line == SCHED_VBLANK_LINE) {
         ppu_drawTo(ppu, 256);   /* the last line's rest */
         memcpy(present, fb, sizeof present);   /* rows 0-223 are final */
+        if (reset_armed && reset_hook && reset_hook(frames + 1))
+            longjmp(reset_jmp, 1);   /* see soft_reset */
         in_vblank = 1;
         snes_oam_vblank_reload();
         autojoy_arm(line_start);
@@ -498,7 +505,7 @@ static void begin_line(void)
    effect in the vendored PPU), so this is the non-interlace timing. */
 static unsigned line_clocks(void)
 {
-    return line == 240 && (frames & 1) ? SCHED_CLOCKS_PER_LINE - 4 : SCHED_CLOCKS_PER_LINE;
+    return line == 240 && ((frames - field_base) & 1) ? SCHED_CLOCKS_PER_LINE - 4 : SCHED_CLOCKS_PER_LINE;
 }
 
 int sched_frame_in_dma(void) { return edge_in_dma; }
@@ -618,7 +625,7 @@ struct walk {
 
 static unsigned walk_line_clocks(const struct walk *w)
 {
-    return w->line == 240 && (w->frame & 1) ? SCHED_CLOCKS_PER_LINE - 4 : SCHED_CLOCKS_PER_LINE;
+    return w->line == 240 && ((w->frame - field_base) & 1) ? SCHED_CLOCKS_PER_LINE - 4 : SCHED_CLOCKS_PER_LINE;
 }
 
 /* The line's next event at or after the walk's clock: 0 refresh, 1 HDMA,
@@ -1207,19 +1214,86 @@ static void exec_one(void)
     charge(clocks);
 }
 
+/* Clocks from reset to the first instruction (see sched_init). */
+static unsigned reset_delay(void)
+{
+    return 132 + bus_access_clocks(0) + 6 + 3 * bus_access_clocks(0x0100) +
+           bus_access_clocks(0xFFFC) + bus_access_clocks(0xFFFD);
+}
+
+/* The reset button, at the start of VBlank (where Mesen 2 applies it, at
+   the end of its frame): the instruction under way is abandoned, the CPU
+   takes the reset vector in emulation mode (A, the low bytes of X, Y and
+   S, and N V Z C kept; Mesen 2 SnesCpu::Reset), the NMI/IRQ/auto-joypad
+   registers and DMA/HDMA clear, the PPU is forced blank, the SPC700 and DSP
+   restart (ARAM kept); WRAM, VRAM, CGRAM, OAM and the other PPU registers
+   are kept. Timing restarts from master clock 0 at line 0 of a new frame,
+   as from power-on (Mesen 2 resets its master clock too). */
+static void soft_reset(void)
+{
+    if (cyc_in_progress())
+        cyc_finish();
+    cyc_done();
+    snes_hw_soft_reset();
+    cpu->e = 1;
+    cpu->m = cpu->x = 1;
+    cpu->i = 1;
+    cpu->d = 0;
+    cpu->DB = 0;
+    cpu->DP = 0;
+    cpu->PB = 0;
+    cpu->X &= 0xFF;
+    cpu->Y &= 0xFF;
+    cpu->S = (uint16_t)(0x0100 | (cpu->S & 0xFF));
+    cpu->PC = (uint16_t)(read8(0xFFFC) | read8(0xFFFD) << 8);
+    interp_wake();
+    line = 0;
+    hclock = 0;
+    line_start = frame_clock = 0;
+    need_start = 1;
+    start_delay = reset_delay();
+    nmitimen = rdnmi = timeup = 0;
+    rdnmi_set = rdnmi_cleared = 0;
+    in_vblank = autojoy_busy = autojoy_on = 0;
+    autojoy_step = 35;
+    int_depth = 0;
+    shadow_n = 0;
+    nmi_done = 1;
+    take_irq = wai_over = skip_check = walked = 0;
+    insn_i = 1;
+    edge_undo_from = -1;
+    dma_lo = dma_hi = 0;
+    edge_in_dma = 0;
+    walk_reset();
+    frames++;
+    field_base = frames;
+    frame_done = 1;
+    if (frame_hook)
+        frame_hook(frames);
+}
+
 long sched_run_frame(void)
 {
+    long f0 = frames;
+    if (setjmp(reset_jmp)) {
+        reset_armed = 0;
+        soft_reset();
+        return frames - f0;
+    }
+    reset_armed = 1;
     if (need_start) {
         need_start = 0;
         begin_line();
         advance(start_delay);
     }
-    long f0 = frames;
     frame_done = 0;
     while (!frame_done)
         exec_one();
+    reset_armed = 0;
     return frames - f0;
 }
+
+void sched_set_reset_hook(int (*fn)(long frame)) { reset_hook = fn; }
 
 
 const uint8_t *sched_frame(void) { return present; }

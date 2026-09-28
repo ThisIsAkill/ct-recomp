@@ -254,6 +254,12 @@ static void close_record(void)
     replay_rec_close(&rec);
 }
 
+/* The script's reset button (replay.h "reset F"). */
+static int script_reset(long frame)
+{
+    return replay_reset(&script, frame);
+}
+
 int main(int argc, char **argv)
 {
     static long frames = -1;           /* static: survive the longjmp */
@@ -349,6 +355,7 @@ int main(int argc, char **argv)
     interp_reset(&cpu);
     sched_init(&cpu);
     sched_set_frame_hook(on_frame);
+    sched_set_reset_hook(script_reset);
     ct_fatal_hook = on_fatal;
     if (setjmp(fatal_jmp)) {
         static char stop[512];

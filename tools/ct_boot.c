@@ -42,8 +42,9 @@
  *                  (repeatable)
  * --first-exec F   write "ADDR clock" to F the first time each instruction
  *                  address runs (for timing comparisons against a reference)
- * --trace LO:HI F  write "ADDR clock X Y" to F for every instruction starting
- *                  at master clock LO-HI (for trace diffs against a reference)
+ * --trace LO:HI[@N] F  write "ADDR clock X Y" to F for every instruction
+ *                  starting at master clock LO-HI (from frame N on: a reset
+ *                  restarts the clock), for trace diffs against a reference
  * --interp-only    run everything in the interpreter (no native dispatch)
  * --ref-quirk NAME reproduce a reference emulator's quirk, for comparisons
  *                  only (tools/ref_compare.py): mesen-dma-count8
@@ -129,6 +130,7 @@ static int at_seen[MAX_AT], n_at;
 static FILE *first_exec;
 static FILE *trace_out;
 static unsigned long long trace_lo, trace_hi;
+static long trace_from;
 static uint8_t *seen_pc;   /* one bit per 24-bit address */
 
 static void trace(const CPU *c, uint32_t at)
@@ -139,7 +141,7 @@ static void trace(const CPU *c, uint32_t at)
     }
     if (trace_out) {
         unsigned long long t = sched_clock();
-        if (t >= trace_lo && t <= trace_hi)
+        if (t >= trace_lo && t <= trace_hi && sched_frame_count() >= trace_from)
             fprintf(trace_out, "%06X %llu %04X %04X\n", at, t, c->X, c->Y);
     }
     for (int k = 0; k < n_at; k++)
@@ -292,6 +294,12 @@ static void on_frame(long f)
                 (unsigned long long)frame_hash(), sched_frame_in_dma() ? " dma" : "");
 }
 
+/* The script's reset button (replay.h "reset F"). */
+static int script_reset(long frame)
+{
+    return replay_reset(&input, frame);
+}
+
 int main(int argc, char **argv)
 {
     static long frames = 60, min_nmis;    /* static: survive the longjmp */
@@ -359,7 +367,8 @@ int main(int argc, char **argv)
                 return 2;
             }
         } else if (!strcmp(argv[k], "--trace") && k + 2 < argc) {
-            if (sscanf(argv[++k], "%llu:%llu", &trace_lo, &trace_hi) != 2 || trace_lo > trace_hi) {
+            int got = sscanf(argv[++k], "%llu:%llu@%ld", &trace_lo, &trace_hi, &trace_from);
+            if (got < 2 || trace_lo > trace_hi) {
                 fprintf(stderr, "ct_boot: bad --trace %s\n", argv[k]);
                 return 2;
             }
@@ -382,7 +391,7 @@ int main(int argc, char **argv)
             fprintf(stderr, "usage: ct_boot [--frames N] [--dump DIR] [--needed-hw FILE] "
                             "[--min-nmis K] [--require-render] [--wav FILE] "
                             "[--require-audio] [--input F1-F2:BUTTONS] [--script FILE] "
-                            "[--expect-pc ADDR] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--aram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--first-exec FILE] [--trace LO:HI FILE] [--ref-quirk NAME] [--interp-only]\n");
+                            "[--expect-pc ADDR] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--aram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--first-exec FILE] [--trace LO:HI[@N] FILE] [--ref-quirk NAME] [--interp-only]\n");
             return 2;
         }
     }
@@ -422,6 +431,7 @@ int main(int argc, char **argv)
     last_frame = frames;
     sched_set_frame_hook(on_frame);
     sched_set_joypad(0, replay_buttons(&input, 1));
+    sched_set_reset_hook(script_reset);
     while (sched_frame_count() < frames)
         sched_run_frame();
     if (wav)

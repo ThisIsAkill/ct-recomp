@@ -11,6 +11,7 @@ void snes_hw_init(void);
 
 /* Reset PPU/DMA/APU state. Called from bus_reset(). */
 void snes_hw_reset(void);
+void snes_hw_soft_reset(void);   /* the reset button: see sched.c soft_reset */
 
 /* APU: run the SPC700 for n cycles. snes_apu_sync, if set, is called
    before every CPU access to $2140-$2143 so the SPC700 can be brought up

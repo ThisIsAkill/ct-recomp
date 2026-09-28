@@ -48,6 +48,20 @@ int replay_add(replay *r, const char *spec)
     return 0;
 }
 
+static int replay_add_reset(replay *r, long frame)
+{
+    if (r->n_resets == r->cap_resets) {
+        int cap = r->cap_resets ? 2 * r->cap_resets : 8;
+        long *v = realloc(r->resets, (size_t)cap * sizeof *v);
+        if (!v)
+            return -1;
+        r->resets = v;
+        r->cap_resets = cap;
+    }
+    r->resets[r->n_resets++] = frame;
+    return 0;
+}
+
 int replay_load(replay *r, const char *path)
 {
     FILE *f = fopen(path, "r");
@@ -61,6 +75,15 @@ int replay_load(replay *r, const char *path)
         if (h)
             *h = 0;
         char tok[160];
+        long rf;
+        char extra;
+        if (sscanf(line, " reset %ld %c", &rf, &extra) == 1 && rf >= 1) {
+            if (replay_add_reset(r, rf)) {
+                bad = 1;
+                break;
+            }
+            continue;
+        }
         if (sscanf(line, "%159s", tok) == 1 && replay_add(r, tok)) {
             fprintf(stderr, "replay: %s:%d: bad span \"%s\"\n", path, n, tok);
             bad = 1;
@@ -79,9 +102,18 @@ uint16_t replay_buttons(const replay *r, long frame)
     return b;
 }
 
+int replay_reset(const replay *r, long frame)
+{
+    for (int k = 0; k < r->n_resets; k++)
+        if (r->resets[k] == frame)
+            return 1;
+    return 0;
+}
+
 void replay_free(replay *r)
 {
     free(r->spans);
+    free(r->resets);
     *r = (replay){0};
 }
 

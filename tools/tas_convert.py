@@ -7,11 +7,16 @@ MOVIE is a BizHawk .bk2 or an lsnes .lsmv (both zip archives). Pad 1's
 buttons per frame become "F1-F2:buttons" spans; the movie's frame k
 becomes script frame k + D (default 0). Only movies that start from power
 on are accepted: one that starts from a savestate or with SRAM contents
-can't be replayed from reset. Resets inside the movie are reported with
-their frames and dropped (the probe has no reset input).
+can't be replayed from reset. A reset (the Reset button, or Power, which
+is replayed as a reset: WRAM is kept either way) on movie frame k becomes
+"reset k+D" (runtime/replay.h). Sub-frame resets (BizHawk's bsnes cores
+log how far into the frame, "Reset Instruction") are replayed at the
+frame's start, and the script notes where they were.
 
 .bk2: "Input Log.txt" lines "|..|UDLRsSYBXAlr|..." per frame; columns are
 matched to buttons through the LogKey line ("#Reset|Power|#P1 Up|...").
+Axis columns come first in their group, as comma-terminated numbers
+("|    0,..F|"; LogKey "#Reset Instruction|Reset|Power|Subframe|").
 .lsmv: "input" lines, one per controller poll; a line starting with 'F'
 begins a frame (its first line is used); the first '|' field is the system
 flags (reset), then pad 1's 12 buttons in lsnes order B Y select start up
@@ -53,10 +58,17 @@ def bk2_frames(z):
             columns = [[b.strip() for b in g.strip("|").split("|") if b.strip()] for g in groups]
         elif line.startswith("|") and columns is not None:
             fields = line.strip("|").split("|")
-            mask, reset = 0, False
+            mask, reset, axes = 0, False, {}
             for group, field in zip(columns, fields):
-                for name, ch in zip(group, field):
-                    if ch == ".":
+                names_left = list(group)
+                while "," in field:   # axis values first: "  123,"
+                    value, field = field.split(",", 1)
+                    try:
+                        axes[names_left.pop(0)] = int(value)
+                    except (ValueError, IndexError):
+                        raise Unusable(f"bad axis field in input line {line!r}")
+                for name, ch in zip(names_left, field):
+                    if ch in ". ":
                         continue
                     if name.lower() in ("reset", "power"):
                         reset = True
@@ -65,7 +77,7 @@ def bk2_frames(z):
                         if b in NAMES:
                             mask |= NAMES[b]
             if reset:
-                resets.append(len(frames) + 1)
+                resets.append((len(frames) + 1, axes.get("Reset Instruction", 0)))
             frames.append(mask)
     if columns is None:
         raise Unusable("no LogKey line in Input Log.txt")
@@ -87,7 +99,7 @@ def lsmv_frames(z):
             continue   # later polls within the same frame
         fields = line.split("|")
         if "R" in fields[0][1:]:
-            resets.append(len(frames) + 1)
+            resets.append((len(frames) + 1, 0))
         pad = fields[1] if len(fields) > 1 else ""
         mask = 0
         for name, ch in zip(LSNES_ORDER, pad):
@@ -138,13 +150,18 @@ def main() -> int:
     with open(a.out, "w") as f:
         f.write(f"# Converted from {a.movie.split('/')[-1]} ({kind}, {len(frames)} frames) "
                 f"by tools/tas_convert.py, offset {a.offset}.\n")
-        if resets:
-            f.write(f"# Resets in the movie (dropped): frames {resets[:20]}\n")
-        for lo, hi, m in out:
-            f.write(f"{lo}-{hi}:{fmt(m)}\n")
+        lines = [(lo, f"{lo}-{hi}:{fmt(m)}") for lo, hi, m in out]
+        for k, at in resets:
+            note = f"   # sub-frame in the movie: {at} instructions in" if at else ""
+            lines.append((k + a.offset, f"reset {k + a.offset}{note}"))
+        for _, text in sorted(lines, key=lambda t: t[0]):
+            f.write(text + "\n")
         f.write(f"# frames {len(frames) + a.offset}\n")
+    if resets and resets[0][0] + a.offset < 1:
+        print(f"tas_convert: offset {a.offset} moves a reset before frame 1")
+        return 1
     print(f"tas_convert: {kind}, {len(frames)} frames, {len(out)} spans"
-          + (f", {len(resets)} resets dropped" if resets else ""))
+          + (f", {len(resets)} resets" if resets else ""))
     return 0
 
 

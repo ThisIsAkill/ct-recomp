@@ -6,7 +6,8 @@ usage: mesen_ref.py --mesen PATH --rom ROM --frames N --out LOG
                     [--wram-at F --wram-out FILE]
 
 Runs ROM from power-on in Mesen's --testrunner mode with a generated Lua
-script that drives pad 1 from an input script (runtime/replay.h format)
+script that drives pad 1 from an input script (runtime/replay.h format,
+resets included)
 and, at the start of every frame (scanline 0, the same point as the frame
 scheduler's frame edge), appends "frame wram_hash frame_hash" to LOG (the
 picture complete at the end of the frame before, as the probe's), the
@@ -54,7 +55,7 @@ def load_script(path):
     spans = []
     for n, line in enumerate(open(path), 1):
         tok = line.split("#")[0].strip()
-        if not tok:
+        if not tok or tok.split()[0] == "reset":
             continue
         rng, buttons = tok.split(":")
         lo, hi = (int(v) for v in rng.split("-"))
@@ -70,12 +71,44 @@ def load_script(path):
     return spans
 
 
+def load_resets(path):
+    """Frames of an input script's "reset F" lines."""
+    out = []
+    for line in open(path):
+        tok = line.split("#")[0].split()
+        if len(tok) == 2 and tok[0] == "reset":
+            out.append(int(tok[1]))
+    return out
+
+
+def changes(spans):
+    """(frame, mask) where pad 1's buttons change, in frame order: the
+    buttons of frame f are those of the last change at or before f."""
+    events = {}
+    for lo, hi, mask in spans:
+        events.setdefault(lo, []).append((mask, 1))
+        events.setdefault(hi + 1, []).append((mask, -1))
+    held = [0] * 16   # spans holding each bit
+    out, prev = [], 0
+    for f in sorted(events):
+        for mask, d in events[f]:
+            for b in range(16):
+                if mask >> b & 1:
+                    held[b] += d
+        m = sum(1 << b for b in range(16) if held[b])
+        if m != prev:
+            out.append((f, m))
+            prev = m
+    return out
+
+
 def lua_str(path):
     return path.replace("\\", "\\\\").replace('"', '\\"')
 
 
 LUA = r"""
-local spans = { %(spans)s }
+local changes = { %(changes)s }
+local resets = { %(resets)s }
 local frames = %(frames)d
 local wram_at, wram_out = %(wram_at)d, "%(wram_out)s"
 local out = io.open("%(out)s", "w")
@@ -83,12 +116,11 @@ local names = { {"b",0x8000},{"y",0x4000},{"select",0x2000},{"start",0x1000},
   {"up",0x0800},{"down",0x0400},{"left",0x0200},{"right",0x0100},
   {"a",0x0080},{"x",0x0040},{"l",0x0020},{"r",0x0010} }
 
+-- f never decreases: walk the change list with a cursor.
+local ci = 0
 local function buttons(f)
-  local m = 0
-  for _, s in ipairs(spans) do
-    if f >= s[1] and f <= s[2] then m = m | s[3] end
-  end
-  return m
+  while ci < #changes and changes[ci + 1][1] <= f do ci = ci + 1 end
+  return ci > 0 and changes[ci][2] or 0
 end
 
 local PRIME, BASIS = 0x100000001B3, 0xCBF29CE484222325   -- hex literals wrap to 64 bits
@@ -146,6 +178,9 @@ emu.addEventCallback(function()
   if f >= 1 then
     out:write(string.format("%%d %%016x %%016x\n", f, wram_hash(), picture))
   end
+  -- "reset F": Mesen applies a reset when its frame ends, at the VBlank
+  -- where it counts frame F, before that frame's input is read.
+  if resets[f + 1] then emu.reset() end
   if f >= frames then
     out:close()
     emu.stop(0)
@@ -167,6 +202,7 @@ def main() -> int:
     ap.add_argument("--wram-out", default="")
     a = ap.parse_args()
     spans = load_script(a.script) if a.script else []
+    resets = load_resets(a.script) if a.script else []
     xvfb = shutil.which("xvfb-run")
     if not xvfb:
         print("mesen_ref: xvfb-run not found (Mesen would open windows on the desktop)")
@@ -179,7 +215,8 @@ def main() -> int:
         lua = os.path.join(home, "ref.lua")
         with open(lua, "w") as f:
             f.write(LUA % {
-                "spans": ", ".join(f"{{{lo}, {hi}, {m}}}" for lo, hi, m in spans),
+                "changes": ", ".join(f"{{{f}, {m}}}" for f, m in changes(spans)),
+                "resets": ", ".join(f"[{f}] = true" for f in resets),
                 "frames": a.frames,
                 "out": lua_str(os.path.abspath(a.out)),
                 "wram_at": a.wram_at,
@@ -210,7 +247,9 @@ def main() -> int:
             return 1
         with open(a.out) as f:
             n = sum(1 for _ in f)
-        if n < a.frames:
+        # A reset starts a frame without Mesen's start-of-frame event: no line.
+        expect = a.frames - sum(1 for f in resets if f <= a.frames)
+        if n < expect:
             print(f"mesen_ref: only {n} of {a.frames} frames logged")
             return 1
         print(f"mesen_ref: {n} frames")

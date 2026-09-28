@@ -47,6 +47,22 @@ int main(int argc, char **argv)
     CHECK(same, "recording reads back frame for frame");
     CHECK(r.n == 4, "one span per run: %d", r.n);
     replay_free(&r);
+
+    /* "reset F" lines, comments allowed after them. */
+    FILE *f = fopen(path, "w");
+    CHECK(f != NULL, "script written");
+    fputs("3-4:a\nreset 7\n  reset 9   # a note\n8-8:b\n", f);
+    fclose(f);
+    CHECK(!replay_load(&r, path), "script with resets loads");
+    CHECK(replay_reset(&r, 7) && replay_reset(&r, 9) && !replay_reset(&r, 8) && !replay_reset(&r, 3),
+          "resets at 7 and 9 only");
+    CHECK(replay_buttons(&r, 3) == 0x0080 && replay_buttons(&r, 8) == 0x8000, "spans still read");
+    replay_free(&r);
+    f = fopen(path, "w");
+    fputs("reset x\n", f);
+    fclose(f);
+    CHECK(replay_load(&r, path), "bad reset line rejected");
+    replay_free(&r);
     remove(path);
     (void)argc;
     (void)argv;

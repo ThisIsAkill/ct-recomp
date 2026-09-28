@@ -77,6 +77,11 @@ long sched_frame_count(void);
    frame's auto-read. Same clock native or interpreted, so per-frame input
    and state capture belong here, not after sched_run_frame. */
 void sched_set_frame_hook(void (*fn)(long frame));
+/* Asked at the start of each VBlank with the frame about to begin (the one
+   whose input that VBlank's auto-joypad read would take): nonzero presses
+   the reset button there. The reset ends the frame: sched_run_frame
+   returns, and the frame hook is called with the new count. */
+void sched_set_reset_hook(int (*fn)(long frame));
 /* Master clocks since sched_init, at the last instruction boundary. */
 uint64_t sched_clock(void);
 /* Master clock of the last frame edge (line 0's start). */

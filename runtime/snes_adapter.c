@@ -446,6 +446,45 @@ void snes_hw_reset(void)
     spc_host_reset(g_apu);
 }
 
+/* The reset button (Mesen 2 SnesConsole::Reset): the PPU is forced blank
+ * and keeps everything else; DMA/HDMA stop (channel registers kept); the
+ * APU ports clear and the SPC700 restarts; ARAM, the DSP (registers and
+ * voices: Mesen 2 keeps FLG as it was, where hardware sets it to $E0), the
+ * DSP address and the timers (divider phase, enables, targets) are kept,
+ * but the timers' outputs clear (Mesen 2 SpcTimer::Reset). */
+void snes_hw_soft_reset(void)
+{
+    if (!g_ppu)
+        return;
+    g_ppu->forcedBlank = true;
+    g_ppu->drawX = 256;
+    for (int c = 0; c < 8; c++) {
+        g_dma->channel[c].dmaActive = false;
+        g_dma->channel[c].hdmaActive = false;
+    }
+    g_dma->dmaBusy = false;
+    memset(port_new, 0, sizeof port_new);
+    memset(port_vis, 0, sizeof port_vis);
+    port_pending = 0;
+    static uint8_t aram[sizeof g_apu->ram];
+    static Dsp dsp;
+    memcpy(aram, g_apu->ram, sizeof aram);
+    dsp = *g_apu->dsp;
+    uint8_t dsp_adr = g_apu->dspAdr;
+    Timer timer[3];
+    memcpy(timer, g_apu->timer, sizeof timer);
+    uint64_t cycles = g_apu->cycles;
+    apu_reset(g_apu);
+    memcpy(g_apu->ram, aram, sizeof aram);
+    *g_apu->dsp = dsp;
+    g_apu->dspAdr = dsp_adr;
+    memcpy(g_apu->timer, timer, sizeof timer);
+    g_apu->cycles = cycles;   /* the timers' divider phase */
+    for (int t = 0; t < 3; t++)
+        g_apu->timer[t].counter = 0;
+    spc_host_reset(g_apu);
+}
+
 Ppu *snes_hw_ppu(void) { return g_ppu; }
 Dma *snes_hw_dma(void) { return g_dma; }
 Apu *snes_hw_apu(void) { return g_apu; }
