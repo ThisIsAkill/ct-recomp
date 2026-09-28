@@ -1,0 +1,150 @@
+# Code the game decompresses into WRAM, recompiled as overlays (#92).
+# Written by game/ct/tools/find_overlays.py: pointers, sizes and hashes only.
+
+[[overlay]]
+name = "ovl_C31313_7E3000"
+src = 0xC31313
+dst = 0x7E3000
+size = 0x857F
+fnv64 = "6316fcc01010d923"
+seen = ["boot", "gato_battle", "leene_square"]
+source = "profile"
+[[overlay.entry]]
+addr = 0x7E3063
+states = ["m1x0"]
+[[overlay.entry]]
+addr = 0x7E3176
+states = ["m0x0", "m1x0"]
+[[overlay.entry]]
+addr = 0x7E3177
+states = ["m1x0"]
+[[overlay.entry]]
+addr = 0x7E31B0
+states = ["m1x0"]
+[[overlay.entry]]
+addr = 0x7E31BF
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E339F
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E3461
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E3465
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E34AB
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E34C2
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E3691
+states = ["m1x0"]
+[[overlay.entry]]
+addr = 0x7E3749
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E375F
+states = ["m1x0"]
+[[overlay.entry]]
+addr = 0x7E377E
+states = ["m1x0"]
+[[overlay.entry]]
+addr = 0x7E37F3
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E37FA
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E380B
+states = ["m1x0"]
+[[overlay.entry]]
+addr = 0x7E3843
+states = ["m1x0"]
+[[overlay.entry]]
+addr = 0x7E3870
+states = ["m1x0"]
+[[overlay.entry]]
+addr = 0x7E388B
+states = ["m1x0"]
+[[overlay.entry]]
+addr = 0x7E38AF
+states = ["m1x0"]
+[[overlay.entry]]
+addr = 0x7E38E7
+states = ["m1x0"]
+[[overlay.entry]]
+addr = 0x7E395E
+states = ["m0x0", "m1x0"]
+[[overlay.entry]]
+addr = 0x7E398A
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E39BE
+states = ["m1x0"]
+[[overlay.entry]]
+addr = 0x7E5978
+states = ["m1x0"]
+[[overlay.entry]]
+addr = 0x7E5AB2
+states = ["m1x0"]
+[[overlay.entry]]
+addr = 0x7E5B99
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E5BBF
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E5BCF
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E5C57
+states = ["m1x0"]
+[[overlay.entry]]
+addr = 0x7E5C98
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E5D01
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E5D20
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E5D32
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E5D71
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E5DA7
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E5DB4
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E5DE9
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E5E1E
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E5E3C
+states = ["m1x0"]
+[[overlay.entry]]
+addr = 0x7E5E54
+states = ["m1x0"]
+[[overlay.entry]]
+addr = 0x7E5FFE
+states = ["m0x0"]
+[[overlay.entry]]
+addr = 0x7E6212
+states = ["m1x0"]
+[[overlay.entry]]
+addr = 0x7E89ED
+states = ["m1x0"]
+[[overlay.entry]]
+addr = 0x7E9690
+states = ["m0x0"]
+
