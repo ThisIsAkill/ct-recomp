@@ -21,10 +21,32 @@ static int line;
 static unsigned hclock;         /* master clocks into the current line */
 static uint64_t line_start;     /* master clocks since sched_init at line start */
 static long frames, nmis;
-static int nmi_pending;
+/* Pending transfers and interrupt lines (see the cycle-level timing
+   section): DMA/HDMA/init start one CPU cycle after their event; NMI and
+   IRQ are sampled at each CPU cycle start, as Mesen 2 does. */
+static struct {
+    int delay, hdma, init, dma;
+    unsigned hdma_cost, init_cost;
+    int dma_after;                /* set the DMA pending after this bus access */
+    uint32_t dma_sizes[8];
+    int nmi_count;                /* cycle starts until the NMI is seen */
+    int need_nmi;                 /* NMI seen: taken at the instruction's end */
+    int irq_line;                 /* the H/V IRQ line (until $4211 is read) */
+    int prev_irq;                 /* the IRQ line (and I clear) at the last cycle start */
+    int nmi_after;                /* arm the NMI (2 cycle starts) after this bus access */
+} pend;
+static int nmi_done;             /* line 225: the NMI point passed */
+static int insn_i;               /* the I flag before the instruction being charged */
+static int take_irq;             /* the last instruction ended with an IRQ to take */
+static int wai_over;             /* WAI: an interrupt ended it; one more idle cycle */
+static int skip_check;           /* just entered an interrupt: run one instruction first */
+static int walked;               /* advance is committing a walk (events handled) */
+static int edge_undo_from = -1;  /* WRAM writes from this bus access on came after the edge */
 
 static uint8_t nmitimen;        /* $4200 */
 static uint8_t rdnmi;           /* $4210 bit 7: NMI flag, cleared by read */
+static int rdnmi_set;            /* this frame's flag was set */
+static int rdnmi_cleared;        /* line 0: the flag was cleared */
 static int in_vblank;
 static int autojoy_busy;
 static uint8_t wrio;            /* $4201; bit 7 high->low latches H/V */
@@ -40,6 +62,7 @@ static void apu_sync(unsigned early);
 static uint64_t access_clock(unsigned early);
 static void dma_start(const uint32_t sizes[8]);
 static void charge(unsigned clocks);
+static unsigned line_clocks(void);
 static void walk_reset(void);
 static void native_build(void);
 static void tick(CPU *c, uint32_t at, uint8_t op);
@@ -57,6 +80,7 @@ static int init_done;            /* line 0: the HDMA init point passed */
 static int need_start;           /* line 0 not started yet (sched_init) */
 static unsigned start_delay;     /* clocks before the first instruction */
 static int frame_done;
+static uint64_t frame_clock;       /* line 0's start */
 static void (*frame_hook)(long frame);
 /* Interrupts entered minus RTIs executed, native or interpreted. */
 static long int_depth;
@@ -76,20 +100,43 @@ static int shadow_n;
 static void nmitimen_write(uint16_t reg, uint8_t v)
 {
     (void)reg;
-    /* Enabling NMI while the VBlank NMI flag is still set fires it. */
-    if (!(nmitimen & 0x80) && (v & 0x80) && (rdnmi & 0x80))
-        nmi_pending = 1;
+    /* Enabling NMI while the VBlank NMI flag is still set fires it, two
+       CPU cycle starts after the write (Mesen 2). */
+    if (!(nmitimen & 0x80) && (v & 0x80) && (rdnmi & 0x80)) {
+        if (cyc_in_progress())
+            pend.nmi_after = (int)ct_bus_n - 1;
+        else
+            pend.nmi_count = 2;
+    }
     if (!(v & 0x30))
-        timeup = 0;   /* disabling H/V IRQs drops a pending one */
+        timeup = pend.irq_line = 0;   /* disabling H/V IRQs drops a pending one */
     nmitimen = v;
 }
 
 /* ---- H/V counters ---- */
 
+/* Line and clock in it of the CPU access being made (a read's sample
+   point, a write's end), which can fall past the line the instruction
+   started in. */
+static void access_hv(int *ln, unsigned *h)
+{
+    uint64_t at = access_clock(4);
+    unsigned len = line_clocks();
+    *ln = line;
+    *h = at >= line_start ? (unsigned)(at - line_start) : 0;
+    if (*h >= len) {
+        *h -= len;
+        *ln = line + 1 == SCHED_LINES ? 0 : line + 1;
+    }
+}
+
 static void latch_counters(void)
 {
-    lat_h = (uint16_t)(hclock / 4 > 339 ? 339 : hclock / 4);
-    lat_v = (uint16_t)line;
+    int ln;
+    unsigned h;
+    access_hv(&ln, &h);
+    lat_h = (uint16_t)(h / 4 > 339 ? 339 : h / 4);
+    lat_v = (uint16_t)ln;
     lat_flag = 1;
 }
 
@@ -174,11 +221,25 @@ void sched_set_joypad(int port, uint16_t buttons)
         pad[port] = buttons;
 }
 
+/* RDNMI: the VBlank NMI flag is set at clock 2 of line 225 and cleared at
+   clock 2 of line 0 (Mesen 2), at the read's own clock, which can be past
+   the line its instruction started in. Reading clears it, except in the
+   4 clocks after it is set. */
 static uint8_t rdnmi_read(uint16_t reg)
 {
     (void)reg;
-    uint8_t v = (uint8_t)(rdnmi | 0x02);   /* CPU version 2 */
-    rdnmi = 0;
+    int ln;
+    unsigned h;
+    access_hv(&ln, &h);
+    if (ln == SCHED_VBLANK_LINE && h >= 2 && !rdnmi_set) {
+        rdnmi = 0x80;
+        rdnmi_set = 1;
+    }
+    if (ln == 0 && h >= 2 && line != 0)
+        rdnmi = 0;
+    uint8_t v = (uint8_t)(rdnmi | 0x02 | (bus_mdr & 0x70));   /* CPU version 2; 4-6 open bus */
+    if (!(ln == SCHED_VBLANK_LINE && h < 6))
+        rdnmi = 0;   /* held set for its first 4 clocks */
     return v;
 }
 
@@ -186,14 +247,21 @@ static uint8_t timeup_read(uint16_t reg)
 {
     (void)reg;
     uint8_t v = timeup;
-    timeup = 0;
+    timeup = pend.irq_line = 0;
     return v;
 }
 
+/* HVBJOY at the read's own clock (Mesen 2): V-blank from line 225 on,
+   H-blank outside clocks 4-1096 of the line; bits 1-5 are open bus. */
 static uint8_t hvbjoy_read(uint16_t reg)
 {
     (void)reg;
-    return (uint8_t)(in_vblank << 7 | (hclock >= SCHED_HBLANK_CLOCK) << 6 | autojoy_busy);
+    int ln;
+    unsigned h;
+    access_hv(&ln, &h);
+    int vb = ln >= SCHED_VBLANK_LINE;
+    int hb = h < 4 || h > SCHED_HBLANK_CLOCK;
+    return (uint8_t)(vb << 7 | hb << 6 | (bus_mdr & 0x3E) | autojoy_busy);
 }
 
 /* DSP output at its own rate, one stereo pair per 32 SPC700 cycles, kept
@@ -246,8 +314,10 @@ void sched_init(CPU *c)
     prof_native = prof_interp = 0;
     shadow_n = 0;
     memset(prof, 0, sizeof prof);
-    nmi_pending = 0;
-    line_start = 0;
+    nmi_done = 1;
+    take_irq = wai_over = skip_check = walked = 0;
+    insn_i = 1;
+    line_start = frame_clock = 0;
     snes_apu_sync = apu_sync;
     snes_master_clock = sched_clock;
     snes_access_clock = access_clock;
@@ -301,20 +371,17 @@ static void start_line(void)
     Dma *dma = snes_hw_dma();
     if (line == 0) {
         in_vblank = 0;
-        rdnmi = 0;
+        rdnmi_set = rdnmi_cleared = 0;
         PpuBeginDrawing(ppu, fb, SCHED_WIDTH * 4, 0);
         dma_initHdma(dma);
     }
     if (line == SCHED_VBLANK_LINE) {
         memcpy(present, fb, sizeof present);   /* rows 0-223 are final */
         in_vblank = 1;
-        rdnmi = 0x80;
         snes_oam_vblank_reload();
         autojoy_busy = nmitimen & 1;
         if (nmitimen & 1)
             memcpy(joy, pad, sizeof joy);   /* auto-read (results readable at once) */
-        if (nmitimen & 0x80)
-            nmi_pending = 1;
     }
     if (line == SCHED_VBLANK_LINE + 3)
         autojoy_busy = 0;
@@ -322,20 +389,31 @@ static void start_line(void)
         ppu_runLine(ppu, line);   /* line L draws row L-1 */
 }
 
-/* Master clock in this line where the H/V timer fires, or -1. HTIME is in
-   dots (4 master clocks); V-only fires at the start of line VTIME. The
-   mode is sampled at the start of the line. */
-static int irq_clock(void)
+/* Master clock in line `ln` where the H/V timer raises the IRQ line, or
+   -1 (Mesen 2 InternalRegisters): the H/V counters tick every 4 clocks at
+   2 mod 4; the V counter changes at 6 (reset to 0 at 2 on line 0), the H
+   counter restarts at 6 and 10 and counts from 14; a match raises TIMEUP
+   4 clocks later and the CPU's IRQ line 4 after that. So V only: 14 on
+   line VTIME (10 on line 0); H: 18 + 4 * HTIME (on line VTIME for H+V).
+   HTIME 337-339 would match at or after the end of the line (into the
+   next one): not modeled, fails loudly. */
+static int irq_clock_for(int ln)
 {
     int mode = nmitimen >> 4 & 3;
-    if (mode == 0 || (htime > 339 && mode != 2))
+    if (mode == 0)
         return -1;
-    if (mode == 1)
-        return htime * 4;
-    if (line != vtime)
+    if (mode == 2)
+        return ln == vtime ? (vtime ? 14 : 10) : -1;
+    if (mode == 3 && ln != vtime)
         return -1;
-    return mode == 2 ? 0 : htime * 4;
+    if (htime > 339)
+        return -1;
+    if (htime >= 337)
+        ct_fatal("H/V IRQ at HTIME %u: matches at the end of the line, not modeled", htime);
+    return 18 + 4 * htime;
 }
+
+static int irq_clock(void) { return irq_clock_for(line); }
 
 /* ---- clock and events ----
    The clock advances by whole instructions and interrupt entries. An event
@@ -352,6 +430,7 @@ static void begin_line(void)
     irq_done = irq_at < 0;
     hblank_done = 0;
     init_done = line != 0;
+    nmi_done = line != SCHED_VBLANK_LINE;
     refresh_at = 530 + 8 - (unsigned)(line_start & 7);
     refresh_done = 0;
 }
@@ -365,21 +444,38 @@ static unsigned line_clocks(void)
     return line == 240 && (frames & 1) ? SCHED_CLOCKS_PER_LINE - 4 : SCHED_CLOCKS_PER_LINE;
 }
 
-static unsigned next_event(void)
+/* The frame hook sees memory as of the frame edge: WRAM writes the
+   current instruction made after it are rolled back meanwhile. */
+static void edge_hook(void)
 {
-    unsigned t = line_clocks();
-    if (!hblank_done && SCHED_HDMA_CLOCK < t)
-        t = SCHED_HDMA_CLOCK;
-    if (!irq_done && (unsigned)irq_at < t)
-        t = (unsigned)irq_at;
-    return t;
+    uint8_t *w = bus_wram();
+    unsigned n = ct_bus_n < CT_BUS_LOG ? ct_bus_n : CT_BUS_LOG;
+    if (edge_undo_from >= 0)
+        for (unsigned k = n; k-- > (unsigned)edge_undo_from;)
+            if (ct_bus_wram_off[k])
+                w[ct_bus_wram_off[k] - 1] = ct_bus_wram_old[k];
+    frame_hook(frames);
+    if (edge_undo_from >= 0)
+        for (unsigned k = (unsigned)edge_undo_from; k < n; k++)
+            if (ct_bus_wram_off[k])
+                w[ct_bus_wram_off[k] - 1] = ct_bus_wram_new[k];
 }
 
 static void advance(unsigned clocks)
 {
     hclock += clocks;
     for (;;) {
-        if (!refresh_done && hclock >= refresh_at) {
+        if (line == SCHED_VBLANK_LINE && !rdnmi_set && hclock >= 2) {
+            rdnmi = 0x80;
+            rdnmi_set = 1;
+        } else if (line == 0 && !rdnmi_cleared && hclock >= 2) {
+            rdnmi = 0;   /* line 0, clock 2 */
+            rdnmi_cleared = 1;
+        } else if (!nmi_done && hclock >= 6) {
+            nmi_done = 1;   /* line 225: the NMI (walked already, or charged whole) */
+            if (!walked && (nmitimen & 0x80))
+                pend.nmi_count = 1;
+        } else if (!refresh_done && hclock >= refresh_at) {
             if (refresh_paid)
                 refresh_paid--;         /* in the clocks already */
             else
@@ -387,6 +483,7 @@ static void advance(unsigned clocks)
             refresh_done = 1;
         } else if (!irq_done && irq_at < SCHED_HDMA_CLOCK && hclock >= (unsigned)irq_at) {
             timeup = 0x80;
+            pend.irq_line = 1;
             irq_done = 1;
         } else if (!hblank_done && hclock >= SCHED_HDMA_CLOCK) {
             if (line < SCHED_VBLANK_LINE)
@@ -394,6 +491,7 @@ static void advance(unsigned clocks)
             hblank_done = 1;
         } else if (!irq_done && hclock >= (unsigned)irq_at) {
             timeup = 0x80;
+            pend.irq_line = 1;
             irq_done = 1;
         } else if (hclock >= line_clocks()) {
             apu_sync(0);
@@ -403,9 +501,10 @@ static void advance(unsigned clocks)
             if (++line == SCHED_LINES) {
                 line = 0;
                 frames++;
+                frame_clock = line_start;
                 frame_done = 1;
                 if (frame_hook)
-                    frame_hook(frames);
+                    edge_hook();
             }
             begin_line();
         } else {
@@ -434,17 +533,11 @@ static void advance(unsigned clocks)
    Clocks walked past the refresh are marked paid so advance doesn't add
    it again. */
 
-static struct {
-    int delay, hdma, init, dma;
-    unsigned hdma_cost, init_cost;
-    int dma_after;                /* set the DMA pending after this bus access */
-    uint32_t dma_sizes[8];
-} pend;
 
 static void walk_reset(void)
 {
     memset(&pend, 0, sizeof pend);
-    pend.dma_after = -1;
+    pend.dma_after = pend.nmi_after = -1;
     refresh_paid = 0;
 }
 
@@ -453,8 +546,11 @@ struct walk {
     uint64_t ls;                  /* its line's start */
     int line;
     long frame;
-    int refresh_done, hdma_done, init_done;
+    int refresh_done, hdma_done, init_done, nmi_done, irq_done;
+    int irq_at;                   /* its line's IRQ clock, or -1 */
     int refreshes;
+    int edge;                     /* a frame edge passed */
+    int undo_from;                /* first write after it (bus access number), or -1 */
 };
 
 static unsigned walk_line_clocks(const struct walk *w)
@@ -463,11 +559,19 @@ static unsigned walk_line_clocks(const struct walk *w)
 }
 
 /* The line's next event at or after the walk's clock: 0 refresh, 1 HDMA,
-   2 HDMA init, 3 end of line. */
+   2 HDMA init, 3 end of line, 4 NMI (line 225, clock 6), 5 H/V IRQ. */
 static int walk_next(const struct walk *w, uint64_t *at)
 {
     int kind = 3;
     uint64_t e = w->ls + walk_line_clocks(w);
+    if (w->line == SCHED_VBLANK_LINE && !w->nmi_done && w->ls + 6 < e) {
+        e = w->ls + 6;
+        kind = 4;
+    }
+    if (!w->irq_done && w->irq_at >= 0 && w->ls + (unsigned)w->irq_at < e) {
+        e = w->ls + (unsigned)w->irq_at;
+        kind = 5;
+    }
     if (w->line == 0 && !w->init_done && w->ls + 12 + (w->ls & 7) < e) {
         e = w->ls + 12 + (w->ls & 7);
         kind = 2;
@@ -517,13 +621,24 @@ static void walk_pass(struct walk *w, unsigned clocks, unsigned sample, uint64_t
                 pend.init_cost = snes_hdma_init_cost();
             }
             break;
+        case 4:
+            w->nmi_done = 1;
+            if (nmitimen & 0x80)
+                pend.nmi_count = 1;
+            break;
+        case 5:
+            w->irq_done = 1;
+            pend.irq_line = 1;
+            break;
         default:
             w->ls = e;
             if (++w->line == SCHED_LINES) {
                 w->line = 0;
                 w->frame++;
+                w->edge = 1;
             }
-            w->refresh_done = w->hdma_done = w->init_done = 0;
+            w->refresh_done = w->hdma_done = w->init_done = w->nmi_done = w->irq_done = 0;
+            w->irq_at = irq_clock_for(w->line);
         }
     }
     w->t = end;
@@ -548,13 +663,13 @@ static void walk_dma_pending(struct walk *w, unsigned *count)
 }
 
 /* At the start of a CPU cycle of `speed` clocks. */
-static void walk_pending(struct walk *w, unsigned speed)
+static int walk_pending(struct walk *w, unsigned speed)
 {
     if (!(pend.delay | pend.hdma | pend.init | pend.dma))
-        return;
+        return 0;
     if (pend.delay) {
         pend.delay = 0;
-        return;
+        return 0;
     }
     unsigned sync = 8 - (unsigned)(w->t & 7), count = sync;
     walk_pass(w, sync, 0, NULL);
@@ -586,6 +701,39 @@ static void walk_pending(struct walk *w, unsigned speed)
         }
     }
     walk_pass(w, speed - count % speed, 0, NULL);
+    return 1;
+}
+
+/* The start of a CPU cycle of `speed` clocks: a pending transfer, then
+   the NMI counter and the IRQ line are sampled (not right after a
+   transfer: then both wait a cycle). `i` is the I flag in effect. */
+static void walk_cycle_start(struct walk *w, unsigned speed, int i)
+{
+    int lock = walk_pending(w, speed);
+    if (pend.nmi_count && --pend.nmi_count == 0) {
+        if (lock)
+            pend.nmi_count = 1;
+        else
+            pend.need_nmi = 1;
+    }
+    pend.prev_irq = !lock && pend.irq_line && !i;
+}
+
+static void walk_init(struct walk *w)
+{
+    w->t = line_start + hclock;
+    w->ls = line_start;
+    w->line = line;
+    w->frame = frames;
+    w->refresh_done = refresh_done;
+    w->hdma_done = hblank_done;
+    w->init_done = init_done;
+    w->nmi_done = nmi_done;
+    w->irq_done = irq_done;
+    w->irq_at = irq_at;
+    w->refreshes = 0;
+    w->edge = 0;
+    w->undo_from = -1;
 }
 
 /* Walk the current instruction's cycles from its start (the boundary);
@@ -596,27 +744,26 @@ static uint64_t walk_insn(struct walk *w, unsigned upto, uint64_t *sampled)
     uint8_t clk[160], kind[160];
     int8_t idx[160];
     unsigned n = cyc_cycles(clk, kind, idx, sizeof clk, upto);
-    w->t = line_start + hclock;
-    w->ls = line_start;
-    w->line = line;
-    w->frame = frames;
-    w->refresh_done = refresh_done;
-    w->hdma_done = hblank_done;
-    w->init_done = init_done;
-    w->refreshes = 0;
+    walk_init(w);
     if (!n) {
         if (sampled)
             *sampled = w->t;
         return w->t;
     }
     for (unsigned k = 0; k < n; k++) {
-        walk_pending(w, clk[k]);
+        walk_cycle_start(w, clk[k], insn_i);
         walk_pass(w, clk[k], kind[k] == CY_READ ? clk[k] - 4u : clk[k],
                   k + 1 == n ? sampled : NULL);
+        if (w->edge && w->undo_from < 0 && idx[k] >= 0 && kind[k] == CY_WRITE)
+            w->undo_from = idx[k];   /* this write lands after the frame edge */
         if (idx[k] >= 0 && idx[k] == pend.dma_after) {
             pend.dma = 1;
             pend.delay = 1;
             pend.dma_after = -1;
+        }
+        if (idx[k] >= 0 && idx[k] == pend.nmi_after) {
+            pend.nmi_count = 2;
+            pend.nmi_after = -1;
         }
     }
     return w->t;
@@ -645,6 +792,55 @@ static void dma_start(const uint32_t sizes[8])
     pend.dma_after = (int)ct_bus_n - 1;   /* the $420B write */
 }
 
+static void walk_commit(const struct walk *w, uint64_t start, uint64_t t)
+{
+    refresh_paid += w->refreshes;
+    edge_undo_from = w->undo_from;
+    walked = 1;
+    advance((unsigned)(t - start));
+    walked = 0;
+    edge_undo_from = -1;
+    if (line == w->line) {
+        init_done |= w->init_done;
+        nmi_done |= w->nmi_done;
+    }
+}
+
+/* One idle cycle of WAI (6 clocks), or a run of them up to just before the
+   next event when nothing can happen in between. An NMI seen or the IRQ
+   line up at a cycle's start ends the wait after that cycle and one more
+   (even with I set: then no interrupt is taken). */
+static void wai_cycle(void)
+{
+    int quiet = !(pend.delay | pend.hdma | pend.init | pend.dma) && !pend.nmi_count &&
+                !pend.need_nmi && !pend.irq_line;
+    if (quiet) {
+        unsigned next = line_clocks();
+        if (!refresh_done && refresh_at < next)
+            next = refresh_at;
+        if (!hblank_done && line < SCHED_VBLANK_LINE && SCHED_HDMA_CLOCK < next)
+            next = SCHED_HDMA_CLOCK;
+        if (line == 0 && !init_done && 12 + (unsigned)(line_start & 7) < next)
+            next = 12 + (unsigned)(line_start & 7);
+        if (!nmi_done && 6 < next)
+            next = 6;
+        if (!irq_done && irq_at >= 0 && (unsigned)irq_at < next)
+            next = (unsigned)irq_at;
+        if (next > hclock + 12) {
+            unsigned k = (next - hclock) / 6 - 1;
+            advance(6 * k);   /* k idle cycles: nothing happens in them */
+        }
+    }
+    struct walk w;
+    walk_init(&w);
+    uint64_t start = w.t;
+    walk_cycle_start(&w, 6, cpu->i);
+    if (pend.need_nmi || pend.irq_line)
+        wai_over = 1;   /* seen at this cycle's start */
+    walk_pass(&w, 6, 6, NULL);
+    walk_commit(&w, start, w.t);
+}
+
 /* Charge an instruction (or interrupt entry) of `clocks` clocks. */
 static void charge(unsigned clocks)
 {
@@ -652,11 +848,15 @@ static void charge(unsigned clocks)
         return;   /* nothing begun (already charged): pending transfers wait */
     unsigned end = hclock + clocks;
     int inside = (pend.delay | pend.hdma | pend.init | pend.dma) || pend.dma_after >= 0 ||
+                 pend.nmi_count || pend.nmi_after >= 0 ||
+                 (!nmi_done && 6 <= end) || (!irq_done && irq_at >= 0 && (unsigned)irq_at <= end) ||
                  end >= line_clocks() || (!refresh_done && refresh_at <= end) ||
                  (!hblank_done && line < SCHED_VBLANK_LINE && SCHED_HDMA_CLOCK <= end &&
                   snes_hdma_enabled()) ||
                  (line == 0 && !init_done && 12 + (line_start & 7) <= end);
     if (!inside) {
+        pend.prev_irq = pend.irq_line && !insn_i;   /* as at its last cycle start */
+        take_irq = pend.prev_irq;
         cyc_done();
         advance(clocks);
         return;
@@ -665,11 +865,9 @@ static void charge(unsigned clocks)
     uint64_t start = line_start + hclock;
     uint64_t t = walk_insn(&w, ~0u, NULL);
     cyc_done();
-    pend.dma_after = -1;
-    refresh_paid += w.refreshes;
-    advance((unsigned)(t - start));
-    if (line == w.line)
-        init_done |= w.init_done;
+    pend.dma_after = pend.nmi_after = -1;
+    take_irq = pend.prev_irq;
+    walk_commit(&w, start, t);
 }
 
 /* One step at an instruction boundary: take a due interrupt, sit out a
@@ -841,16 +1039,19 @@ static void tick(CPU *c, uint32_t at, uint8_t op)
     c->PC = (uint16_t)at;
     charge(cyc_finish());
     for (;;) {
-        int nmi = nmi_pending;
-        if (!nmi && !(timeup && (nmitimen & 0x30) && !c->i))
+        int nmi = pend.need_nmi;
+        if (!nmi && !take_irq)
             break;
         if (nmi) {
-            nmi_pending = 0;
+            pend.need_nmi = 0;
             nmis++;
         }
+        take_irq = 0;
         CPU before = *c;
         long depth = int_depth++;
+        insn_i = 1;
         charge(interp_interrupt(c, nmi));
+        skip_check = 1;
         shadow_push(c);
         while (int_depth > depth)
             exec_one();
@@ -868,31 +1069,42 @@ static void tick(CPU *c, uint32_t at, uint8_t op)
     if (!((op == 0x54 || op == 0x44) && at == last_at))
         prof_native++;   /* an MVN/MVP byte after the first isn't a new instruction */
     last_at = at;
+    insn_i = c->i;
     cyc_begin_compiled(c, at, op);
 }
 
+/* Interrupts are taken at the end of an instruction (Mesen 2
+   CheckForInterrupts): an NMI once seen at a cycle start, else an IRQ if
+   the line was up (and I clear) at its last cycle start. An interrupt
+   entry is followed by at least one instruction of the handler. */
 static void exec_one(void)
 {
-    if (nmi_pending) {
-        nmi_pending = 0;
-        nmis++;
+    if (skip_check) {
+        skip_check = 0;
+    } else if (!interp_waiting() && (pend.need_nmi || take_irq)) {   /* WAI: see below */
+        int nmi = pend.need_nmi;
+        if (nmi) {
+            pend.need_nmi = 0;
+            nmis++;
+        }
+        take_irq = 0;
         int_depth++;
-        charge(interp_interrupt(cpu, 1));
+        insn_i = 1;
+        charge(interp_interrupt(cpu, nmi));   /* IRQ is level: until $4211 is read */
+        skip_check = 1;
         shadow_push(cpu);
         return;
     }
-    if (timeup && (nmitimen & 0x30)) {
-        if (!cpu->i) {
-            int_depth++;
-            charge(interp_interrupt(cpu, 0));   /* level: until $4211 is read */
-            shadow_push(cpu);
-            return;
-        }
-        interp_wake();   /* IRQ with I=1 still ends WAI */
-    }
     if (interp_waiting()) {
-        pend.delay = pend.hdma = pend.init = pend.dma = 0;   /* no CPU work to pause */
-        advance(next_event() - hclock);
+        /* WAI (Mesen 2): idle cycles until an NMI is seen or the IRQ line
+           is up, then one more; then the interrupt, if any, is taken. */
+        int over = wai_over;
+        wai_cycle();
+        if (over) {
+            wai_over = 0;
+            interp_wake();
+            take_irq = pend.prev_irq;
+        }
         return;
     }
     const ct_func *f = native_lookup(cpu);
@@ -910,8 +1122,11 @@ static void exec_one(void)
         prof_interp++;
         prof_charge();
     }
+    insn_i = cpu->i;
     unsigned clocks = interp_step(cpu);
     uint8_t op = interp_last_op();
+    if (interp_waiting())
+        wai_over = 0;   /* WAI just ran */
     mv_at = (op == 0x54 || op == 0x44) && ((uint32_t)cpu->PB << 16 | cpu->PC) == at ? at : ~0u;
     if (op == 0x40)
         int_depth--;
@@ -941,5 +1156,6 @@ const uint8_t *sched_frame(void) { return present; }
 long sched_frame_count(void) { return frames; }
 void sched_set_frame_hook(void (*fn)(long frame)) { frame_hook = fn; }
 uint64_t sched_clock(void) { return line_start + hclock; }
+uint64_t sched_frame_clock(void) { return frame_clock; }
 long sched_nmi_count(void) { return nmis; }
 int sched_line(void) { return line; }

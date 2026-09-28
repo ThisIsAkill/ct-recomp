@@ -26,6 +26,7 @@
  * --wram FILE      write the 128 KB of WRAM to FILE at the last frame edge
  * --vram FILE      likewise the 64 KB of VRAM, then CGRAM (512 bytes) and
  *                  OAM (544 bytes)
+ * --aram FILE      likewise the SPC700's 64 KB of RAM
  * --profile N      at the end, print the native share of instructions and
  *                  the N functions most interpreted instructions ran in,
  *                  with why each didn't run natively
@@ -218,7 +219,7 @@ static int nonblack(const uint8_t *p, size_t n)
 
 static const char *dump;
 static FILE *wav, *hash_log, *ref_log;
-static const char *wram_path, *vram_path;
+static const char *wram_path, *vram_path, *aram_path;
 static long last_frame;
 static int dumped_state;
 
@@ -234,6 +235,13 @@ static void dump_state(void)
             fwrite(ppu->cgram, 1, sizeof ppu->cgram, f) != sizeof ppu->cgram ||
             fwrite(ppu->oam, 1, sizeof ppu->oam, f) != sizeof ppu->oam)
             fprintf(stderr, "ct_boot: cannot write %s\n", vram_path);
+        if (f)
+            fclose(f);
+    }
+    if (aram_path) {
+        FILE *f = fopen(aram_path, "wb");
+        if (!f || fwrite(snes_hw_apu()->ram, 1, 0x10000, f) != 0x10000)
+            fprintf(stderr, "ct_boot: cannot write %s\n", aram_path);
         if (f)
             fclose(f);
     }
@@ -265,7 +273,7 @@ static void on_frame(long f)
         dumped++;
     if (hash_log)
         write_state_hashes(hash_log, f);
-    if (f == last_frame && (wram_path || vram_path))
+    if (f == last_frame && (wram_path || vram_path || aram_path))
         dump_state();
     if (ref_log)
         fprintf(ref_log, "%ld %016llx %016llx\n", f,
@@ -306,6 +314,8 @@ int main(int argc, char **argv)
                 fprintf(stderr, "ct_boot: bad --script %s\n", argv[k]);
                 return 2;
             }
+        } else if (!strcmp(argv[k], "--aram") && k + 1 < argc) {
+            aram_path = argv[++k];
         } else if (!strcmp(argv[k], "--vram") && k + 1 < argc) {
             vram_path = argv[++k];
         } else if (!strcmp(argv[k], "--wram") && k + 1 < argc) {
@@ -352,7 +362,7 @@ int main(int argc, char **argv)
             fprintf(stderr, "usage: ct_boot [--frames N] [--dump DIR] [--needed-hw FILE] "
                             "[--min-nmis K] [--require-render] [--wav FILE] "
                             "[--require-audio] [--input F1-F2:BUTTONS] [--script FILE] "
-                            "[--expect-pc ADDR] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--first-exec FILE] [--ref-quirk NAME] [--interp-only]\n");
+                            "[--expect-pc ADDR] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--aram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--first-exec FILE] [--ref-quirk NAME] [--interp-only]\n");
             return 2;
         }
     }

@@ -93,7 +93,7 @@ static int edge_field[4];
 static void edge_hook(long f)
 {
     if (f < 4) {
-        edge_clk[f] = sched_clock();
+        edge_clk[f] = sched_frame_clock();
         edge_field[f] = read8(0x213F) >> 7;
     }
 }
@@ -242,6 +242,121 @@ static void test_hdma_time(void)
           stretched, lines);
 }
 
+
+/* Runs a WRAM program from reset state (native mode, M=X=1). */
+static CPU tc;
+static void start_prog(const uint8_t *prog, unsigned n)
+{
+    bus_reset();
+    put(0x2400, prog, n);
+    interp_reset(&tc);
+    tc.e = 0;
+    tc.PB = 0x7E;
+    tc.PC = 0x2400;
+    tc.DB = 0x00;
+    tc.m = tc.x = 1;
+    tc.S = 0x01FF;
+    sched_init(&tc);
+}
+
+/* The frame hook sees WRAM as of the frame edge: writes an instruction
+   makes after the edge (inside it) are not in it yet. */
+static unsigned wr_before, wr_total;
+static uint64_t edge_at;
+static int hooked_value;
+static void count_write(uint32_t off)
+{
+    if (off != 0x10)
+        return;
+    wr_total++;
+    if (edge_at && snes_access_clock(0) < edge_at)
+        wr_before++;
+}
+static void edge_value(long f)
+{
+    if (f == 2 && hooked_value < 0) {
+        hooked_value = bus_wram()[0x10];
+        (void)f;
+    }
+}
+
+static void test_frame_edge_wram(void)
+{
+    static const uint8_t prog[] = {0xE6, 0x10, 0x80, 0xFC};   /* INC $10 / BRA */
+    start_prog(prog, sizeof prog);
+    sched_run_frame();                    /* frame 1 */
+    edge_at = sched_frame_clock() + 262ull * 1364 - 4;   /* the next edge (frame 1 is odd: short line) */
+    wr_before = wr_total = 0;
+    hooked_value = -1;
+    uint8_t v0 = bus_wram()[0x10];
+    ct_wram_write_hook = count_write;
+    sched_set_frame_hook(edge_value);
+    sched_run_frame();
+    sched_set_frame_hook(NULL);
+    ct_wram_write_hook = NULL;
+    CHECK(sched_frame_clock() == edge_at, "edge at %llu, want %llu",
+          (unsigned long long)sched_frame_clock(), (unsigned long long)edge_at);
+    CHECK(hooked_value == (uint8_t)(v0 + wr_before), "hook sees $%02X, want $%02X (%u of %u writes before the edge)",
+          hooked_value, (uint8_t)(v0 + wr_before), wr_before, wr_total);
+}
+
+/* HVBJOY H-blank and RDNMI are read at the read's own clock (a read
+   samples 4 clocks before the end of its cycle). */
+static uint64_t nmi_prev, nmi_last, nmi_after;
+static void nmi_trace(const CPU *c, uint32_t at)
+{
+    (void)c;
+    if (at == 0x7E2407) {
+        nmi_prev = nmi_last;
+        nmi_last = sched_clock();
+    } else if (at == 0x7E240C && !nmi_after) {
+        nmi_after = sched_clock();
+    }
+}
+static void test_hblank_rdnmi_clock(void)
+{
+    /* L: LDA $4212 / AND #$40 / BEQ L / LDA $4210 / BPL -5 / LDA $4210 / STA $12 / BRA . */
+    static const uint8_t prog[] = {
+        0xAD, 0x12, 0x42, 0x29, 0x40, 0xF0, 0xF9,
+        0xAD, 0x10, 0x42, 0x10, 0xFB,
+        0xAD, 0x10, 0x42, 0x85, 0x12,
+        0x80, 0xFE,
+    };
+    start_prog(prog, sizeof prog);
+    n_at = 0;
+    ct_trace_hook = clock_trace;
+    sched_run_frame();
+    ct_trace_hook = NULL;
+    /* LDA abs from WRAM: 3 fetches (8), the I/O read (6): sampled at +26. */
+    int last = -1, prev = -1;
+    for (int k = 0; k < n_at && pc_at[k] != 0x7E2407; k++)
+        if (pc_at[k] == 0x7E2400) {
+            prev = last;
+            last = k;
+        }
+    CHECK(last > 0 && prev >= 0, "H-blank loop traced");
+    unsigned h1 = (unsigned)(clk_at[last] + 26), h0 = (unsigned)(clk_at[prev] + 26);
+    CHECK(h1 > SCHED_HBLANK_CLOCK && h0 <= SCHED_HBLANK_CLOCK,
+          "H-blank seen from the read at clock %u (the one before: %u)", h1, h0);
+
+    /* The NMI flag rises at clock 2 of line 225; the loop leaves on the
+       first read at or after it. That read clears it unless it came in the
+       4 clocks after it rose; the next read then still sees it. */
+    start_prog(prog, sizeof prog);
+    nmi_prev = nmi_last = nmi_after = 0;
+    ct_trace_hook = nmi_trace;
+    sched_run_frame();
+    ct_trace_hook = NULL;
+    uint64_t rise = 225ull * 1364 + 2;   /* frame 0 */
+    uint64_t s_last = nmi_last + 26, s_prev = nmi_prev + 26;
+    CHECK(nmi_after && s_last >= rise && s_prev < rise,
+          "NMI flag seen by the read at line clock %lld (the one before: %lld)",
+          (long long)(s_last - rise + 2), (long long)(s_prev - rise + 2));
+    int held = s_last < rise + 4;
+    CHECK(((bus_wram()[0x12] >> 7) & 1) == held, "read at clock %lld: flag %s, next read $%02X",
+          (long long)(s_last - rise + 2), held ? "held" : "cleared", bus_wram()[0x12]);
+}
+
 int main(void)
 {
     th_bus_init();
@@ -250,6 +365,8 @@ int main(void)
     test_short_line();
     test_refresh_access_clock();
     test_hdma_time();
+    test_frame_edge_wram();
+    test_hblank_rdnmi_clock();
 
     /* HDMA channel 7, mode 3 (4 bytes to $2121 $2121 $2122 $2122): every
        line sets CGRAM[0] (the backdrop) to red = row & 31. */
@@ -294,11 +411,29 @@ int main(void)
     c.i = 1;
     c.S = 0x01FF;
     sched_init(&c);
-    for (int f = 0; f < 3; f++)
+    for (int f = 0; f < 2; f++)
         sched_run_frame();
+    uint64_t f2 = sched_frame_clock();
+    n_at = 0;
+    ct_trace_hook = clock_trace;
+    sched_run_frame();
+    ct_trace_hook = NULL;
 
     CHECK(sched_frame_count() == 3, "frames %ld", sched_frame_count());
     CHECK(sched_nmi_count() == 3, "one NMI per frame: %ld", sched_nmi_count());
+    /* The NMI is raised at clock 6 of line 225; in WAI the first idle cycle
+       starting at or after that sees it, one more idle cycle follows, then
+       the entry (62 clocks to the ROM stub's first instruction). */
+    {
+        uint64_t ls = f2 + 225ull * 1364;
+        int k;
+        for (k = 0; k < n_at && pc_at[k] >> 16 != 0x00; k++)
+            ;
+        CHECK(k < n_at, "NMI entry traced");
+        uint64_t entry = clk_at[k] - 62;
+        CHECK(entry >= ls + 6 + 12 && entry < ls + 6 + 18, "NMI entry at line 225 clock %llu, want 18-23",
+              (unsigned long long)(entry - ls));
+    }
     CHECK(w[0x10] == 3, "RAM handler ran 3 times: %u", w[0x10]);
     CHECK(c.PB == 0x7E && c.PC == 0x202C, "waiting after the WAI at $202B: $%02X%04X", c.PB,
           c.PC);
@@ -375,8 +510,12 @@ int main(void)
         c.m = c.x = 1;
         c.S = 0x01FF;
         sched_init(&c);
-        for (int f = 0; f < 3; f++)
+        for (int f = 0; f < 2; f++)
             sched_run_frame();
+        n_at = 0;
+        ct_trace_hook = clock_trace;   /* frame 3: the IRQ handler's instructions */
+        sched_run_frame();
+        ct_trace_hook = NULL;
         const uint8_t *z = bus_wram();
         /* High reads: bit 8, bits 1-7 are PPU2 open bus (the low byte
            just read from the same counter). */
@@ -385,13 +524,32 @@ int main(void)
               z[0x22]);
         CHECK(z[0x20] == 3, "mode %d: one IRQ per frame, got %u", mode, z[0x20]);
         CHECK(v == 100, "mode %d: latched V = VTIME: %u", mode, v);
-        /* Latch at the start of LDA $2137: fire clock + 62 (IRQ entry:
-           fetch 8, idle 6, 4 pushes, 2 vector reads, 8 each) + 32 (ROM stub
-           JML) + 30 (LDA $4211: 3 WRAM fetches, I/O read 6) + 38 (INC $20:
-           2 fetches, read, idle 6, write), in dots; in mode 1 (fire at 400)
-           the handler also runs past the line's DRAM refresh (531-538), 40
-           clocks with the CPU paused. */
-        unsigned want = ((mode ? 400u + 40 : 0u) + 62 + 32 + 30 + 38) / 4;
+        /* The IRQ line rises at clock 14 of line VTIME (V only), or at
+           18 + 4 * HTIME (H and V) (Mesen 2). The CPU waits in WAI in
+           6-clock idle cycles: the first cycle starting at or after that
+           sees the line, one more idle cycle follows, then the entry (fetch
+           8, idle 6, 4 pushes and 2 vector reads, 8 each: 62 clocks). */
+        uint64_t ls = sched_frame_clock() - 262ull * 1364 + 100ull * 1364;   /* frame 2 (even: full length) */
+        unsigned rise = mode ? 18 + 4 * 100 : 14;
+        int k;
+        for (k = 0; k < n_at && pc_at[k] >> 16 != 0x00; k++)
+            ;   /* the vector's ROM stub: the first instruction after the entry */
+        CHECK(k < n_at, "mode %d: IRQ entry traced", mode);
+        uint64_t entry = clk_at[k] - 62;
+        CHECK(entry >= ls + rise + 12 && entry < ls + rise + 18,
+              "mode %d: IRQ entry at line clock %llu, want %u-%u", mode,
+              (unsigned long long)(entry - ls), rise + 12, rise + 17);
+        /* The latch samples H at the LDA $2137 read (3 WRAM fetches, then
+           the I/O read, sampled 4 clocks before its end), after the line's
+           DRAM refresh if that came first. */
+        for (k = 0; k < n_at && pc_at[k] != 0x000509; k++)
+            ;
+        CHECK(k < n_at, "mode %d: LDA $2137 traced", mode);
+        uint64_t sample = clk_at[k] + 3 * 8 + 6 - 4;
+        uint64_t refresh = ls + 538 - (ls & 7);
+        if (clk_at[k] < refresh && refresh <= sample)
+            sample += 40;
+        unsigned want = (unsigned)(sample - ls) / 4;
         CHECK(h == want, "mode %d: latched H %u, want %u", mode, h, want);
     }
 

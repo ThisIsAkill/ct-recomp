@@ -84,6 +84,13 @@ def _wr(expr: str, w: str, b0: bool, val: str) -> str:
     return f'write16_b0({expr}, {val});' if b0 else f'write16({expr}, {val});'
 
 
+def _wr_rmw(expr: str, w: str, b0: bool, val: str) -> str:
+    """A read-modify-write's write: 16-bit ones write the high byte first."""
+    if w == '8':
+        return f'write8({expr}, {val});'
+    return f'write16_b0_rmw({expr}, {val});' if b0 else f'write16_rmw({expr}, {val});'
+
+
 def _reg(name: str, w: str) -> str:
     """Register value at width w."""
     if name == 'A':
@@ -142,7 +149,7 @@ def _generate(mn: str, md: str, w: str):
     if mn in _RMW and md in _EA:
         ea, b0 = _EA[md]
         return lambda i: [f'uint32_t ea = {ea(i)};',
-                          _wr('ea', w, b0, f'{_RMW[mn]}{w}(cpu, {_rd("ea", w, b0)})')]
+                          _wr_rmw('ea', w, b0, f'{_RMW[mn]}{w}(cpu, {_rd("ea", w, b0)})')]
     if mn in _RMW and md == 'A':
         if w == '8':
             return lambda i: [f'set_a8(cpu, {_RMW[mn]}8(cpu, a8(cpu)));']

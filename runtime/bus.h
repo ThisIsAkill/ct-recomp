@@ -21,6 +21,8 @@ uint16_t read16(uint32_t addr);             /* lo at addr, hi at addr+1 (24-bit)
    registers read as the last bus value). */
 uint8_t  bus_peek(uint32_t addr);
 void     write16(uint32_t addr, uint16_t v);
+/* A read-modify-write's 16-bit write: high byte first (65C816). */
+void     write16_rmw(uint32_t addr, uint16_t v);
 
 /* Hardware registers $2000-$5FFF in banks $00-$3F/$80-$BF.
    Unhooked access is fatal. */
@@ -66,6 +68,12 @@ extern unsigned ct_bus_clocks, ct_bus_n;
 #define CT_BUS_FETCH 0x40
 extern uint8_t ct_bus_log[CT_BUS_LOG];
 extern uint8_t ct_bus_fetch;
+/* WRAM writes of the current instruction, by bus access number: offset + 1
+   (0: not a WRAM write), and the byte before and after. The frame
+   scheduler rolls back the ones after a frame edge inside the instruction
+   while the frame hook looks at memory. */
+extern uint32_t ct_bus_wram_off[CT_BUS_LOG];
+extern uint8_t ct_bus_wram_old[CT_BUS_LOG], ct_bus_wram_new[CT_BUS_LOG];
 unsigned bus_access_clocks(uint32_t a);
 
 uint8_t *bus_wram(void);

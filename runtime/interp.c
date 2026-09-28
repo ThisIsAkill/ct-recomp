@@ -50,6 +50,14 @@ static void wr(EA e, int wide, uint16_t v)
         write8(next_addr(e), (uint8_t)(v >> 8));
 }
 
+/* A read-modify-write's write: the high byte first (65C816). */
+static void wr_rmw(EA e, int wide, uint16_t v)
+{
+    if (wide)
+        write8(next_addr(e), (uint8_t)(v >> 8));
+    write8(e.a, (uint8_t)v);
+}
+
 static uint16_t rd_bank0_16(uint16_t a)
 {
     return (uint16_t)(read8(a) | read8((uint16_t)(a + 1)) << 8);
@@ -283,7 +291,7 @@ static void rmw_mem(CPU *c, enum rmw op, enum mode md)
 {
     int wide = !c->m;
     EA e = ea(c, md);
-    wr(e, wide, rmw(c, op, rd(e, wide), wide));
+    wr_rmw(e, wide, rmw(c, op, rd(e, wide), wide));
 }
 
 /* Step budget, charged the same way as generated code's ct_loop (runtime/
@@ -443,7 +451,7 @@ static void step(CPU *c, uint32_t at, uint8_t op)
         EA e = ea(c, (op & 0x08) ? M_ABS : M_DP);
         uint16_t v = rd(e, m16), a = get_a(c);
         c->z = (a & v) == 0;
-        wr(e, m16, (op & 0x10) ? (uint16_t)(v & ~a) : (uint16_t)(v | a));
+        wr_rmw(e, m16, (op & 0x10) ? (uint16_t)(v & ~a) : (uint16_t)(v | a));
         break;
     }
 

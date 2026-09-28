@@ -171,6 +171,30 @@ static int fatal_case(const char *name)
     return 0;
 }
 
+
+/* Generated code's 16-bit read-modify-write writes high byte first. */
+static uint32_t rt_order[4];
+static int rt_n;
+static void rt_record(uint32_t off)
+{
+    if (rt_n < 4)
+        rt_order[rt_n++] = off;
+}
+
+static void test_rmw_order(void)
+{
+    ct_wram_write_hook = rt_record;
+    rt_n = 0;
+    write16_rmw(0x7E0010, 0x1234);
+    CHECK(rt_n == 2 && rt_order[0] == 0x11 && rt_order[1] == 0x10, "write16_rmw: $%X then $%X",
+          rt_order[0], rt_order[1]);
+    rt_n = 0;
+    write16_b0_rmw(0x0030, 0x1234);
+    CHECK(rt_n == 2 && rt_order[0] == 0x31 && rt_order[1] == 0x30, "write16_b0_rmw: $%X then $%X",
+          rt_order[0], rt_order[1]);
+    ct_wram_write_hook = NULL;
+}
+
 int main(int argc, char **argv)
 {
     th_bus_init();
@@ -184,5 +208,6 @@ int main(int argc, char **argv)
     test_index_ops();
     test_p();
     test_arith();
+    test_rmw_order();
     return th_report("runtime");
 }

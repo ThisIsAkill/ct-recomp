@@ -154,6 +154,40 @@ static void test_open_bus(void)
     CHECK(!fatal_msg[0] && c.X == 0x4242, "LDX $4202: X $%04X, want $4242 (%s)", c.X, fatal_msg);
 }
 
+
+/* A 16-bit read-modify-write writes the high byte first, then the low
+   (65C816); a plain 16-bit store writes low then high. */
+static uint32_t wr_order[4];
+static int n_wr;
+static void record_write(uint32_t off)
+{
+    if (n_wr < 4)
+        wr_order[n_wr++] = off;
+}
+
+static void test_rmw_write_order(void)
+{
+    CPU c;
+    static const uint8_t prog[] = {
+        0xE6, 0x10,   /* INC $10 (M=0) */
+        0x85, 0x20,   /* STA $20 (M=0) */
+    };
+    load(prog, sizeof prog, 0x2000);
+    at(&c, 0x2000);
+    c.m = 0;
+    c.DP = 0x0000;
+    ct_wram_write_hook = record_write;
+    n_wr = 0;
+    step1(&c);
+    CHECK(n_wr == 2 && wr_order[0] == 0x11 && wr_order[1] == 0x10,
+          "INC $10 writes $11 then $10: %d writes, $%X $%X", n_wr, wr_order[0], wr_order[1]);
+    n_wr = 0;
+    step1(&c);
+    CHECK(n_wr == 2 && wr_order[0] == 0x20 && wr_order[1] == 0x21,
+          "STA $20 writes $20 then $21: $%X $%X", wr_order[0], wr_order[1]);
+    ct_wram_write_hook = NULL;
+}
+
 int main(void)
 {
     th_bus_init();
@@ -162,5 +196,6 @@ int main(void)
     test_reset_stub();
     test_cycles();
     test_nmi_rti_wai();
+    test_rmw_write_order();
     return th_report("interp_system");
 }

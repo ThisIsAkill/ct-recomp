@@ -16,6 +16,8 @@ static const uint8 kSpriteSizes[8][2] = {
 static void ppu_handlePixel(Ppu* ppu, int x, int y);
 static int ppu_getPixel(Ppu* ppu, int x, int y, bool sub, int* r, int* g, int* b);
 static int ppu_getPixelForBgLayer(Ppu *ppu, int x, int y, int layer, bool priority);
+static void ppu_offsetPerTile(Ppu *ppu, int layer, int x, int y, int *hoff, int *voff);
+static void ppu_offsetPerTileLine(Ppu *ppu);
 static void ppu_calculateMode7Starts(Ppu* ppu, int y);
 static int ppu_getPixelForMode7(Ppu* ppu, int x, int layer, bool priority);
 static bool ppu_getWindowState(Ppu* ppu, int layer, int x);
@@ -184,6 +186,8 @@ void ppu_runLine(Ppu *ppu, int line) {
     } else {
       if (ppu->mode == 7)
         ppu_calculateMode7Starts(ppu, line);
+      if (ppu->mode == 2 || ppu->mode == 4 || ppu->mode == 6)
+        ppu_offsetPerTileLine(ppu);   // ct-recomp: offset-per-tile
       for (int x = 0; x < 256; x++)
         ppu_handlePixel(ppu, x, line);
 
@@ -1088,10 +1092,14 @@ static int ppu_getPixel(Ppu *ppu, int x, int y, bool sub, int *r, int *g, int *b
         if (ppu->mode == 7) {
           pixel = ppu_getPixelForMode7(ppu, lx, curLayer, curPriority);
         } else {
-          lx += ppu->bgLayer[curLayer].hScroll;
-          ly += ppu->bgLayer[curLayer].vScroll;
+          int hoff = lx + ppu->bgLayer[curLayer].hScroll;
+          int voff = ly + ppu->bgLayer[curLayer].vScroll;
+          // ct-recomp: offset-per-tile (modes 2, 4, 6; BG1/BG2), which
+          // upstream never implemented (ALTTP doesn't use it).
+          if ((ppu->mode == 2 || ppu->mode == 4 || ppu->mode == 6) && curLayer < 2)
+            ppu_offsetPerTile(ppu, curLayer, lx, ly, &hoff, &voff);
           pixel = ppu_getPixelForBgLayer(
-            ppu, lx & 0x3ff, ly & 0x3ff,
+            ppu, hoff & 0x3ff, voff & 0x3ff,
             curLayer, curPriority
           );
         }
@@ -1116,6 +1124,62 @@ static int ppu_getPixel(Ppu *ppu, int x, int y, bool sub, int *r, int *g, int *b
 
 }
 
+
+// ct-recomp: the BG3 tilemap word at BG3 pixel position (x, y), for
+// offset-per-tile.
+static uint16_t ppu_bg3TilemapWord(Ppu *ppu, int x, int y) {
+  BgLayer *layerp = &ppu->bgLayer[2];
+  x &= 0x3ff;
+  y &= 0x3ff;
+  uint16_t tilemapAdr = layerp->tilemapAdr + (((y >> 3) & 0x1f) << 5 | ((x >> 3) & 0x1f));
+  if ((x & 0x100) && layerp->tilemapWider) tilemapAdr += 0x400;
+  if ((y & 0x100) && layerp->tilemapHigher) tilemapAdr += layerp->tilemapWider ? 0x800 : 0x400;
+  return ppu->vram[tilemapAdr & 0x7fff];
+}
+
+// ct-recomp: offset-per-tile (fullsnes; as bsnes/Mesen do it). For screen
+// pixel (x, y) of BG1/BG2, from the second tile column on, the BG3 tilemap
+// row at BG3's V scroll gives a new H offset and the row 8 pixels below a
+// new V offset (mode 4: one row, bit 15 picks V or H); bit 13 enables an
+// entry for BG1, bit 14 for BG2. The fine H scroll (low 3 bits) stays.
+// The entries are read once per line and tile column (ppu_offsetPerTileLine).
+static int32_t optH[2][34], optV[2][34];   // per layer and column: H/V base, or -1
+
+static void ppu_offsetPerTileLine(Ppu *ppu) {
+  for (int layer = 0; layer < 2; layer++) {
+    uint16_t mask = layer == 0 ? 0x2000 : 0x4000;
+    for (int col = 0; col < 34; col++) {
+      optH[layer][col] = optV[layer][col] = -1;
+      if (col == 0)
+        continue;
+      int bx = (col - 1) * 8 + (ppu->bgLayer[2].hScroll & ~7);
+      uint16_t hval = ppu_bg3TilemapWord(ppu, bx, ppu->bgLayer[2].vScroll);
+      if (ppu->mode == 4) {
+        if (hval & mask) {
+          if (hval & 0x8000)
+            optV[layer][col] = hval;
+          else
+            optH[layer][col] = hval & ~7;
+        }
+        continue;
+      }
+      uint16_t vval = ppu_bg3TilemapWord(ppu, bx, ppu->bgLayer[2].vScroll + 8);
+      if (hval & mask)
+        optH[layer][col] = hval & ~7;
+      if (vval & mask)
+        optV[layer][col] = vval;
+    }
+  }
+}
+
+static void ppu_offsetPerTile(Ppu *ppu, int layer, int x, int y, int *hoff, int *voff) {
+  int offsetX = x + (ppu->bgLayer[layer].hScroll & 7);
+  int col = offsetX >> 3;
+  if (optH[layer][col] >= 0)
+    *hoff = offsetX + optH[layer][col];
+  if (optV[layer][col] >= 0)
+    *voff = y + optV[layer][col];
+}
 
 static int ppu_getPixelForBgLayer(Ppu *ppu, int x, int y, int layer, bool priority) {
   BgLayer *layerp = &ppu->bgLayer[layer];
@@ -1485,7 +1549,8 @@ void ppu_write(Ppu* ppu, uint8_t adr, uint8_t val) {
       if(!ppu->cgramSecondWrite) {
         ppu->cgramBuffer = val;
       } else {
-        ppu->cgram[ppu->cgramPointer++] = (val << 8) | ppu->cgramBuffer;
+        // ct-recomp: CGRAM is 15-bit; bit 7 of the high byte isn't stored.
+        ppu->cgram[ppu->cgramPointer++] = ((val & 0x7f) << 8) | ppu->cgramBuffer;
       }
       ppu->cgramSecondWrite = !ppu->cgramSecondWrite;
       break;

@@ -374,10 +374,11 @@ unsigned snes_hdma_cost(void)
     return n;
 }
 
-/* HDMA init at the start of the frame, from the channels' state after it
-   (the vendored dma_initHdma runs at line 0's start): 8 overhead, then per
-   enabled channel 8 for the line counter and, if indirect, 16 for the
-   address (8 if the counter is 0). */
+/* HDMA init at the start of the frame: 8 overhead, then per enabled
+   channel 8 for its first line counter and, if indirect, 16 for the
+   address (8 if that counter is 0). The counter is read from the table
+   itself, so this holds whether or not the vendored dma_initHdma (run at
+   line 0's start) has run yet. */
 unsigned snes_hdma_init_cost(void)
 {
     unsigned n = 8;
@@ -387,7 +388,7 @@ unsigned snes_hdma_init_cost(void)
             continue;
         n += 8;
         if (ch->indirect)
-            n += ch->repCount == 0 ? 8 : 16;
+            n += bus_peek((uint32_t)ch->aBank << 16 | ch->aAdr) == 0 ? 8 : 16;
     }
     return n;
 }

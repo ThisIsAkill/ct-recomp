@@ -79,6 +79,8 @@ long sched_frame_count(void);
 void sched_set_frame_hook(void (*fn)(long frame));
 /* Master clocks since sched_init, at the last instruction boundary. */
 uint64_t sched_clock(void);
+/* Master clock of the last frame edge (line 0's start). */
+uint64_t sched_frame_clock(void);
 long sched_nmi_count(void);
 int sched_line(void);
 

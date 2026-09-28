@@ -158,6 +158,72 @@ static void test_port_write_timing(void)
     snes_access_clock = NULL;
 }
 
+
+/* SPC700 timers: the stage-1 clock falls every 128 cycles (16 for timer 2)
+   counted from reset, first at the end of cycle 128 (bsnes/ares/Mesen 2). */
+static void test_spc_timer_phase(void)
+{
+    bus_reset();
+    Apu *apu = snes_hw_apu();
+    apu_reset(apu);
+    apu_cpuWrite(apu, 0xFA, 1);      /* T0 target 1 */
+    apu_cpuWrite(apu, 0xFC, 1);      /* T2 target 1 */
+    apu_cpuWrite(apu, 0xF1, 0x05);   /* enable T0 and T2 */
+    for (int k = 0; k < 15; k++)
+        apu_tick(apu);
+    CHECK(apu_cpuRead(apu, 0xFF) == 0, "T2 before the end of cycle 16");
+    apu_tick(apu);
+    CHECK(apu_cpuRead(apu, 0xFF) == 1, "T2 at the end of cycle 16");
+    for (int k = 16; k < 127; k++)
+        apu_tick(apu);
+    CHECK(apu_cpuRead(apu, 0xFD) == 0, "T0 before the end of cycle 128");
+    apu_tick(apu);
+    CHECK(apu_cpuRead(apu, 0xFD) == 1, "T0 at the end of cycle 128");
+}
+
+/* CGRAM holds 15-bit colors: bit 7 of the high byte isn't stored. */
+static void test_cgram_15bit(void)
+{
+    bus_reset();
+    write8(0x2121, 0x10);
+    write8(0x2122, 0xFF);
+    write8(0x2122, 0xFF);
+    CHECK(snes_hw_ppu()->cgram[0x10] == 0x7FFF, "CGRAM $10 = $%04X", snes_hw_ppu()->cgram[0x10]);
+}
+
+/* Offset-per-tile (mode 2): the BG3 tilemap row at BG3's V scroll gives
+   BG1 a new H offset per tile column, from the second column on. Column 1
+   of the screen is pointed at BG1 column 5, the only one with a visible
+   tile; column 0 never takes an offset. */
+static void test_offset_per_tile(void)
+{
+    bus_reset();
+    Ppu *p = snes_hw_ppu();
+    write8(0x2100, 0x0F);   /* INIDISP: brightness 15 */
+    write8(0x2105, 0x02);   /* BGMODE 2 */
+    write8(0x2107, 0x00);   /* BG1 tilemap at $0000 */
+    write8(0x2109, 0x04);   /* BG3 tilemap (the offset table) at $0400 */
+    write8(0x210B, 0x01);   /* BG1 tiles at $1000 */
+    write8(0x212C, 0x01);   /* TM: BG1 */
+    write8(0x2121, 0x01);
+    write8(0x2122, 0x1F);   /* color 1: red */
+    write8(0x2122, 0x00);
+    memset(p->vram, 0, sizeof p->vram);
+    for (int r = 0; r < 32; r++)
+        p->vram[r * 32 + 5] = 1;         /* BG1 column 5: tile 1 */
+    for (int r = 0; r < 8; r++)
+        p->vram[0x1000 + 16 + r] = 0x00FF;   /* tile 1: 4bpp, all color 1 */
+    p->vram[0x0400] = 0x2000 | 4 * 8;    /* BG3 row 0, entry 0: BG1 H offset +32 */
+    static uint8_t buf[256 * 4 * 2];
+    PpuBeginDrawing(p, buf, 256 * 4, 0);
+    ppu_runLine(p, 0);
+    ppu_runLine(p, 1);   /* screen row 0 */
+    CHECK(buf[8 * 4 + 2] > 0 && buf[15 * 4 + 2] > 0 && buf[8 * 4 + 1] == 0,
+          "column 1 takes the offset: BG1 column 5 (R %u)", buf[8 * 4 + 2]);
+    CHECK(buf[0 * 4 + 2] == 0 && buf[7 * 4 + 2] == 0, "column 0 keeps no offset");
+    CHECK(buf[16 * 4 + 2] == 0, "column 2 has no entry: no offset");
+}
+
 int main(void)
 {
     th_bus_init();
@@ -167,5 +233,8 @@ int main(void)
     test_wram_port();
     test_apu_ports();
     test_port_write_timing();
+    test_spc_timer_phase();
+    test_cgram_15bit();
+    test_offset_per_tile();
     return th_report("snes_bus");
 }

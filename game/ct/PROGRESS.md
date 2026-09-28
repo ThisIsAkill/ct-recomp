@@ -14,8 +14,8 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Opcodes implemented | 251 / 256 |
 | Opcodes used by recompiled routines | 138 / 256 |
 | Opcode x width combinations implemented | 446 |
-| Tests passing | 56 / 57 |
-| Test assertions checked | 610244168 |
+| Tests passing | 57 / 57 |
+| Test assertions checked | 610244204 |
 
 ## Coverage by bank
 
@@ -452,60 +452,60 @@ $00 BRK imm, $01 ORA dp_x_ind, $02 COP imm, $03 ORA sr, $04 TSB dp, $05 ORA dp, 
 
 | Test | Result |
 |---|---|
-| boot_menu | Passed |
-| boot_interp | Passed |
-| lockstep_boot | Passed |
 | interp_c1_math_mulaccum | Passed |
 | interp_c1_math_divide | Passed |
+| diff_all_4 | Passed |
+| diff_all_3 | Passed |
+| interp_c1_text_divten | Passed |
+| diff_all_2 | Passed |
+| lockstep_boot | Passed |
+| boot_interp | Passed |
+| diff_all_7 | Passed |
+| boot_menu | Passed |
+| c1_text_divten | Passed |
 | c1_math_mulaccum | Passed |
 | interp_c1_text_reencode | Passed |
-| c1_text_divten | Passed |
-| c1_math_divide | Passed |
 | sync_determinism | Passed |
 | interp_c1_text_format | Passed |
+| c1_math_divide | Passed |
+| interp_c1_ui_gauge | Passed |
 | c1_text_reencode | Passed |
-| sdl_boot | Passed |
 | tas_convert | Passed |
 | runtime | Passed |
-| interp_c1_ui_gauge | Passed |
-| interp_c1_math_shifts | Passed |
-| c1_text_format | Passed |
-| manual_root | Passed |
-| c1_math_shifts | Passed |
+| sdl_boot | Passed |
 | lockstep_report | Passed |
-| resample | Passed |
 | c1_ui_gauge | Passed |
+| manual_root | Passed |
+| interp_c1_math_shifts | Passed |
+| c1_math_shifts | Passed |
+| c1_text_format | Passed |
+| resample | Passed |
+| interp_c1_math_mul8 | Passed |
 | c1_math_mul8 | Passed |
-| native | Passed |
 | diff_open_bus | Passed |
+| runtime_fatal_decimal | Passed |
+| native | Passed |
 | runtime_fatal_entry | Passed |
 | runtime_fatal_rom_write | Passed |
-| interp_c1_math_mul8 | Passed |
-| runtime_fatal_decimal | Passed |
 | runtime_fatal_open_bus | Passed |
-| runtime_fatal_unhooked | Passed |
-| input | Passed |
-| stack_guard | Passed |
 | interp_modes | Passed |
-| interp_system | Passed |
-| replay | Passed |
+| runtime_fatal_unhooked | Passed |
+| stack_guard | Passed |
 | hw_map | Passed |
+| input | Passed |
+| replay | Passed |
 | dsp | Passed |
 | snes_bus | Passed |
-| sched | Passed |
 | check_agnostic | Passed |
-| diff_all_4 | Passed |
-| interp_c1_text_divten | Passed |
-| diff_all_3 | Passed |
-| diff_all_2 | Passed |
-| diff_all_7 | Passed |
-| lockstep_leene_square | Passed |
-| sdl_audio_60s | Failed |
+| interp_system | Passed |
+| sched | Passed |
+| diff_all_6 | Passed |
 | native_coverage | Passed |
 | lockstep_gato_battle | Passed |
 | battle_no_flicker | Passed |
 | diff_all_1 | Passed |
-| diff_all_6 | Passed |
-| sdl_record | Passed |
+| lockstep_leene_square | Passed |
 | diff_all_5 | Passed |
+| sdl_record | Passed |
 | diff_all_0 | Passed |
+| sdl_audio_60s | Passed |

@@ -75,19 +75,20 @@ void apu_tick(Apu* apu) {
   }
 
   // handle timers
+  // ct-recomp: the timers' stage-1 clock falls every 128 cycles (16 for
+  // timer 2) counted from power-on, first at the end of cycle 128 (16), as
+  // bsnes/ares/Mesen 2 time it; upstream ticked at cycle 0 and every period
+  // from there, a cycle late and with an extra first tick.
   for(int i = 0; i < 3; i++) {
-    if(apu->timer[i].cycles == 0) {
-      apu->timer[i].cycles = i == 2 ? 16 : 128;
-      if(apu->timer[i].enabled) {
-        apu->timer[i].divider++;
-        if(apu->timer[i].divider == apu->timer[i].target) {
-          apu->timer[i].divider = 0;
-          apu->timer[i].counter++;
-          apu->timer[i].counter &= 0xf;
-        }
+    uint32_t period = i == 2 ? 16 : 128;
+    if(((apu->cycles + 1) % period) == 0 && apu->timer[i].enabled) {
+      apu->timer[i].divider++;
+      if(apu->timer[i].divider == apu->timer[i].target) {
+        apu->timer[i].divider = 0;
+        apu->timer[i].counter++;
+        apu->timer[i].counter &= 0xf;
       }
     }
-    apu->timer[i].cycles--;
   }
 
   apu->cycles++;

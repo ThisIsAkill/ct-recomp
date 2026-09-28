@@ -161,6 +161,12 @@ static inline void write16_b0(uint32_t a, uint16_t v)
     write8((uint16_t)(a + 1), (uint8_t)(v >> 8));
 }
 
+static inline void write16_b0_rmw(uint32_t a, uint16_t v)
+{
+    write8((uint16_t)(a + 1), (uint8_t)(v >> 8));
+    write8(a, (uint8_t)v);
+}
+
 /* Indirect forms: pointer read from bank 0. */
 static inline uint32_t ea_dp_ind(const CPU *c, uint8_t d)
 {

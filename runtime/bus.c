@@ -75,6 +75,20 @@ void bus_unused_write(uint16_t reg, uint8_t v)
 
 void (*ct_wram_write_hook)(uint32_t off);
 
+/* A WRAM write by the CPU, directly or through $2180: the watch hook, the
+   instruction's write journal (ct_bus_wram_*), the write. */
+static void wram_store(uint32_t off, uint8_t v)
+{
+    if (ct_wram_write_hook)
+        ct_wram_write_hook(off);
+    if (ct_bus_n >= 1 && ct_bus_n <= CT_BUS_LOG) {
+        ct_bus_wram_off[ct_bus_n - 1] = off + 1;
+        ct_bus_wram_old[ct_bus_n - 1] = wram[off];
+        ct_bus_wram_new[ct_bus_n - 1] = v;
+    }
+    wram[off] = v;
+}
+
 static uint8_t wram_port_read(uint16_t reg)
 {
     (void)reg;
@@ -87,9 +101,7 @@ static void wram_port_write(uint16_t reg, uint8_t v)
 {
     switch (reg) {
     case 0x2180:
-        if (ct_wram_write_hook)
-            ct_wram_write_hook(wram_port_addr & (CT_WRAM_SIZE - 1));
-        wram[wram_port_addr & (CT_WRAM_SIZE - 1)] = v;
+        wram_store(wram_port_addr & (CT_WRAM_SIZE - 1), v);
         wram_port_addr = (wram_port_addr + 1) & 0x1FFFFu;
         break;
     case 0x2181: wram_port_addr = (wram_port_addr & 0x1FF00u) | v; break;
@@ -248,6 +260,8 @@ static enum region decode_addr(uint32_t a, uint32_t *off)
 
 unsigned ct_bus_clocks, ct_bus_n;
 uint8_t ct_bus_log[CT_BUS_LOG];
+uint32_t ct_bus_wram_off[CT_BUS_LOG];
+uint8_t ct_bus_wram_old[CT_BUS_LOG], ct_bus_wram_new[CT_BUS_LOG];
 uint8_t ct_bus_fetch;
 
 unsigned bus_access_clocks(uint32_t a)
@@ -265,8 +279,10 @@ uint8_t read8(uint32_t a)
 {
     unsigned ck = bus_access_clocks(a & 0xFFFFFF);
     ct_bus_clocks += ck;
-    if (ct_bus_n < CT_BUS_LOG)
+    if (ct_bus_n < CT_BUS_LOG) {
         ct_bus_log[ct_bus_n] = (uint8_t)(ck | ct_bus_fetch);
+        ct_bus_wram_off[ct_bus_n] = 0;
+    }
     ct_bus_n++;
     uint32_t off;
     a &= 0xFFFFFF;
@@ -298,17 +314,17 @@ void write8(uint32_t a, uint8_t v)
 {
     unsigned ck = bus_access_clocks(a & 0xFFFFFF);
     ct_bus_clocks += ck;
-    if (ct_bus_n < CT_BUS_LOG)
+    if (ct_bus_n < CT_BUS_LOG) {
         ct_bus_log[ct_bus_n] = (uint8_t)(ck | CT_BUS_WRITE);
+        ct_bus_wram_off[ct_bus_n] = 0;
+    }
     ct_bus_n++;
     bus_mdr = v;
     uint32_t off;
     a &= 0xFFFFFF;
     switch (decode_addr(a, &off)) {
     case R_WRAM:
-        if (ct_wram_write_hook)
-            ct_wram_write_hook(off);
-        wram[off] = v;
+        wram_store(off, v);
         return;
     case R_SRAM: sram[off] = v; return;
     case R_ROM:
@@ -334,4 +350,10 @@ void write16(uint32_t a, uint16_t v)
 {
     write8(a, (uint8_t)v);
     write8((a + 1) & 0xFFFFFF, (uint8_t)(v >> 8));
+}
+
+void write16_rmw(uint32_t a, uint16_t v)
+{
+    write8((a + 1) & 0xFFFFFF, (uint8_t)(v >> 8));
+    write8(a, (uint8_t)v);
 }

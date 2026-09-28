@@ -60,6 +60,19 @@ reads them to populate `funcs.toml` / `unresolved.toml`.
     logic, VRAM address remapping, direct color mode, interlace/hi-res/
     overscan) are still genuinely unimplemented, not just untested --
     see issue #9's gap report for the full list.
+  - Offset-per-tile (BG modes 2, 4, 6): upstream never implemented it (A
+    Link to the Past doesn't use it). Added `ppu_offsetPerTile` and
+    `ppu_bg3TilemapWord`, following fullsnes.
+  - `CGDATA` ($2122): bit 7 of the high byte is no longer stored (CGRAM is
+    15-bit).
+
+  Local patches to `apu.c`/`apu.h`: `apu_tick` (the DSP, timer and cycle
+  count half of `apu_cycle`, split out so the SPC700 core in
+  `third_party/ares/` can drive it per cycle); `apu_inport_read`, the hook
+  the SPC700's $F4-$F7 reads go through; and (marked `ct-recomp:`) the
+  timers' stage-1 clock, which falls every 128 cycles (16 for timer 2) from
+  reset, first at the end of cycle 128 (bsnes/ares), where upstream ticked
+  at cycle 0 and every period from there.
 
 ## Auditing
 
