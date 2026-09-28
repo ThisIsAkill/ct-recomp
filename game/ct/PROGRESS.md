@@ -4,46 +4,48 @@ Written by `tools/progress.py`. Do not edit by hand.
 
 | Metric | Value |
 |---|---|
-| Routines recompiled | 863 |
-| Emitted C functions (routine x entry state) | 888 |
-| ROM bytes covered | 77952 |
-| Functions known total (validated + pending + unresolved) | 1485 |
-| Functions validated | 863 |
+| Routines recompiled | 930 |
+| Emitted C functions (routine x entry state) | 957 |
+| ROM bytes covered | 83145 |
+| Functions known total (validated + pending + unresolved) | 1552 |
+| Functions validated | 930 |
 | Functions unresolved (pending sync) | 622 |
 | Manual roots not yet emittable | 0 |
 | Opcodes implemented | 251 / 256 |
-| Opcodes used by recompiled routines | 159 / 256 |
+| Opcodes used by recompiled routines | 166 / 256 |
 | Opcode x width combinations implemented | 446 |
-| Tests passing | 58 / 58 |
-| Test assertions checked | 612977549 |
+| Tests passing | 59 / 59 |
+| Test assertions checked | 613375202 |
 
 ## Coverage by bank
 
 | Bank | Bytes |
 |---|---|
-| $C0 | 50144 |
+| $C0 | 52206 |
 | $C1 | 9421 |
-| $C2 | 8163 |
-| $C3 | 964 |
-| $C7 | 282 |
+| $C2 | 8522 |
+| $C3 | 1256 |
+| $C7 | 591 |
 | $CD | 887 |
 | $CF | 302 |
 | $D1 | 218 |
-| $FD | 7571 |
+| $FD | 9545 |
+| $FF | 197 |
 
 ## Symbol sync by bank
 
 | Bank | Validated | Unresolved | Known total |
 |---|---|---|---|
-| $C0 | 516 | 622 | 1138 |
+| $C0 | 543 | 622 | 1165 |
 | $C1 | 113 | 0 | 113 |
-| $C2 | 164 | 0 | 164 |
-| $C3 | 3 | 0 | 3 |
-| $C7 | 1 | 0 | 1 |
+| $C2 | 170 | 0 | 170 |
+| $C3 | 9 | 0 | 9 |
+| $C7 | 6 | 0 | 6 |
 | $CD | 21 | 0 | 21 |
 | $CF | 5 | 0 | 5 |
 | $D1 | 1 | 0 | 1 |
-| $FD | 39 | 0 | 39 |
+| $FD | 58 | 0 | 58 |
+| $FF | 4 | 0 | 4 |
 
 ## Routines
 
@@ -238,7 +240,7 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Text_ToDec5 | $C26180 | m1x0 | 61 | bankc2 |
 | Text_ToDec8 | $C261BD | m1x0 | 116 | bankc2 |
 | Text_DivLoop24 | $C26231 | m1x0 | 50 | bankc2 |
-| Gfx_DecompressVector | $C30002 | m1x0, m0x0 | 3/863 | bankc3 |
+| Gfx_DecompressVector | $C30002 | m1x0, m0x0 | 3 | bankc3 |
 | BattleSys_PerFrameServiceVec | $CD0009 | m1x0 | 56 | bankcd |
 | BattleMsg_GetDurationFrames | $CD01A5 | m1x0 | 14 | bankcd |
 | BattleBg_RestoreBaseGfx | $CD0453 | m1x0 | 83 | bankcd |
@@ -871,7 +873,7 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Sub_C28D8F | $C28D8F | m1x1 | 139 | bankc2 |
 | Sub_C28E1E | $C28E1E | m1x1 | 15 | bankc2 |
 | Mode7Engine_Entry | $C30000 | m1x0 | 101 | bankc3 |
-| Gfx_DecompressEntry | $C30557 | m1x0 | 860 | bankc3 |
+| Gfx_DecompressEntry | $C30557 | m1x0, m0x0 | 860 | bankc3 |
 | Audio_Init_Entry | $C70000 | m1x0 | 282 | bankc7 |
 | MainInit | $FDC000 | m1x0 | 215 | bankfd |
 | FdCore_EffectPpuSetup | $FDC0D7 | m1x0 | 77 | bankfd |
@@ -912,6 +914,73 @@ Written by `tools/progress.py`. Do not edit by hand.
 | PalAnim_LoadMapConfigStub | $FDFFF4 | m1x0 | 269 | bankfd |
 | AnimTile_FrameTickStub | $FDFFF7 | m1x0 | 158 | bankfd |
 | FdCore_ResourceServiceStub | $FDFFFA | m1x0 | 397 | bankfd |
+| Field_FrameUpdate | $C000BF | m1x0 | 183 | bankc0 |
+| Field_ReadHVLatch | $C05A46 | m1x1 | 77 | bankc0 |
+| EventScript_RunObjectScriptSlice | $C05A93 | m1x1 | 50 | bankc0 |
+| Field_UploadCgram | $C0712E | m1x0 | 38 | bankc0 |
+| Vblank_UploadRightColL1 | $C086AB | m1x0 | 50 | bankc0 |
+| Dma7_TriggerVramWrite_Inc32 | $C086DD | m1x0 | 26 | bankc0 |
+| Vblank_UploadRightColL2 | $C086F7 | m1x0 | 50 | bankc0 |
+| Vblank_UploadRightColL3 | $C08729 | m1x0 | 50 | bankc0 |
+| Player_ProcessControl | $C0881E | m1x0 | 60 | bankc0 |
+| Player_ApplyPadMoveIntent | $C088EE | m1x0 | 20 | bankc0 |
+| Sub_C08924 | $C08924 | m1x1 | 1 | bankc0 |
+| Sub_C08925 | $C08925 | m1x1 | 31 | bankc0 |
+| Sub_C08944 | $C08944 | m1x1 | 31 | bankc0 |
+| Sub_C08963 | $C08963 | m1x1 | 31 | bankc0 |
+| Sub_C08982 | $C08982 | m1x1 | 31 | bankc0 |
+| Sub_C089A1 | $C089A1 | m1x1 | 49 | bankc0 |
+| Sub_C089D2 | $C089D2 | m1x1 | 53 | bankc0 |
+| Sub_C08A07 | $C08A07 | m1x1 | 53 | bankc0 |
+| Sub_C08A3C | $C08A3C | m1x1 | 49 | bankc0 |
+| Field_UpdateDrawObjects | $C0A810 | m1x1 | 125 | bankc0 |
+| Vblank_UploadOam | $C0ECA3 | m1x0 | 41 | bankc0 |
+| Vblank_UpdateAnimTileWords | $C0ED15 | m1x0 | 841 | bankc0 |
+| Dialog_DrawChoiceCursor | $C0F05E | m1x0 | 178 | bankc0 |
+| Dialog_DrawChoiceSlot3 | $C0F110 | m1x0 | 27 | bankc0 |
+| Dialog_DrawChoiceSlot2 | $C0F12B | m1x0 | 29 | bankc0 |
+| Dialog_DrawChoiceSlot1 | $C0F142 | m1x0 | 29 | bankc0 |
+| Dialog_DrawChoiceSlot0 | $C0F159 | m1x0 | 29 | bankc0 |
+| Menu_MarkEquippedRocks | $C282E1 | m1x0 | 63 | bankc2 |
+| Pad_ApplyButtonRemap | $C28545 | m0x1 | 105 | bankc2 |
+| Pad_RemapOneSet | $C28555 | m1x1 | 89 | bankc2 |
+| Menu_TickPlayTimeClock | $C285AE | m1x1 | 34 | bankc2 |
+| NewGame_SeedCharStatsAndTechs | $C2956E | m1x1 | 77 | bankc2 |
+| NewGame_InitFlagsAndSettings | $C295BB | m0x0, m1x1 | 80 | bankc2 |
+| Mode7_PlayPendingSong | $C309A4 | m1x0 | 53 | bankc3 |
+| Mode7_List0920_Remove | $C30CB8 | m0x0 | 21 | bankc3 |
+| Mode7_List0920_Add | $C30CE2 | m0x0 | 22 | bankc3 |
+| Mode7_List0940_Add | $C30CF8 | m0x0 | 22 | bankc3 |
+| Sub_C30D0E | $C30D0E | m0x0 | 80 | bankc3 |
+| Sub_C30D5E | $C30D5E | m0x0 | 94 | bankc3 |
+| Audio_UploadInstrumentSample | $C70655 | m0x0 | 200 | bankc7 |
+| Audio_NormalizeSongCmd | $C70734 | m1x0 | 33 | bankc7 |
+| Apu_SendByteWaitAck | $C709DA | m1x0 | 16 | bankc7 |
+| Audio_SetEchoLimit | $C709FD | m1x0 | 21 | bankc7 |
+| Audio_EvictSamplesAboveLimit | $C70A12 | m1x0 | 39 | bankc7 |
+| PalAnim_LoadScriptedFrame | $FDE485 | m1x0 | 99 | bankfd |
+| PalAnim_ScaleBrightnessStep | $FDE5A4 | m1x0 | 171 | bankfd |
+| PalAnim_ScaleRGB | $FDE64F | m1x0 | 82 | bankfd |
+| Loc_FDE6A1 | $FDE6A1 | m1x0 | 48 | bankfd |
+| Loc_FDE6D1 | $FDE6D1 | m1x0 | 55 | bankfd |
+| PalAnim_ScaleRed | $FDE708 | m1x0 | 50 | bankfd |
+| Loc_FDE73A | $FDE73A | m1x0 | 63 | bankfd |
+| PalAnim_ScaleRedGreen | $FDE779 | m1x0 | 71 | bankfd |
+| Loc_FDE7C0 | $FDE7C0 | m1x0 | 71 | bankfd |
+| PalAnim_TintToWhiteStep | $FDE82C | m1x0 | 171 | bankfd |
+| PalAnim_WhitenRGB | $FDE8D7 | m1x0 | 94 | bankfd |
+| PalAnim_WhitenBlue | $FDE935 | m1x0 | 45 | bankfd |
+| PalAnim_WhitenRed | $FDE962 | m1x0 | 45 | bankfd |
+| Loc_FDE98F | $FDE98F | m1x0 | 59 | bankfd |
+| Loc_FDE9CA | $FDE9CA | m1x0 | 71 | bankfd |
+| PalAnim_WhitenGreenBlue | $FDEA11 | m1x0 | 75 | bankfd |
+| PalAnim_WhitenRedGreen | $FDEA5C | m1x0 | 74 | bankfd |
+| Sub_FDFFEE | $FDFFEE | m1x0 | 32 | bankfd |
+| FdCore_VramDmaServiceStub | $FDFFFD | m1x0 | 598 | bankfd |
+| Menu_CheckRockTriples | $FFF958 | m1x0 | 99 | bankff |
+| SaveSlot_Validate | $FFF9C4 | m1x1 | 55 | bankff |
+| SaveSlot_GetBase | $FFFBD3 | m0x0 | 14 | bankff |
+| SaveSlot_Checksum | $FFFBE7 | m0x0 | 29 | bankff |
 
 ## Implemented opcodes
 
@@ -921,61 +990,62 @@ $00 BRK imm, $01 ORA dp_x_ind, $02 COP imm, $03 ORA sr, $04 TSB dp, $05 ORA dp, 
 
 | Test | Result |
 |---|---|
-| interp_c1_text_divten | Passed |
-| lockstep_leene_square | Passed |
 | native_coverage | Passed |
-| lockstep_gato_battle | Passed |
 | battle_no_flicker | Passed |
+| lockstep_gato_battle | Passed |
 | interp_c1_math_divide | Passed |
+| interp_c1_text_divten | Passed |
 | interp_c1_math_mulaccum | Passed |
-| boot_interp | Passed |
 | lockstep_boot | Passed |
-| interp_c1_text_reencode | Passed |
-| c1_text_divten | Passed |
+| boot_interp | Passed |
 | boot_menu | Passed |
-| interp_c1_text_format | Passed |
+| c1_text_divten | Passed |
+| interp_c1_text_reencode | Passed |
+| sdl_record | Passed |
 | c1_math_mulaccum | Passed |
 | c1_math_divide | Passed |
+| interp_c1_text_format | Passed |
 | c1_text_reencode | Passed |
 | sdl_boot | Passed |
 | sync_determinism | Passed |
-| runtime | Passed |
 | interp_c1_ui_gauge | Passed |
-| c1_text_format | Passed |
-| interp_c1_math_shifts | Passed |
+| runtime | Passed |
 | c1_ui_gauge | Passed |
+| c1_text_format | Passed |
 | lockstep_report | Passed |
-| resample | Passed |
 | c1_math_shifts | Passed |
+| interp_c1_math_shifts | Passed |
+| resample | Passed |
 | interp_c1_math_mul8 | Passed |
-| c1_math_mul8 | Passed |
 | decode_calls | Passed |
-| sched | Passed |
-| manual_root | Passed |
+| funcs_meta | Passed |
 | tas_convert | Passed |
+| c1_math_mul8 | Passed |
+| sched | Passed |
+| check_agnostic | Passed |
 | runtime_fatal_entry | Passed |
 | runtime_fatal_decimal | Passed |
-| runtime_fatal_open_bus | Passed |
 | interp_modes | Passed |
+| runtime_fatal_open_bus | Passed |
 | runtime_fatal_rom_write | Passed |
-| runtime_fatal_unhooked | Passed |
+| manual_root | Passed |
 | stack_guard | Passed |
-| hw_map | Passed |
+| runtime_fatal_unhooked | Passed |
 | input | Passed |
-| native | Passed |
-| dsp | Passed |
+| hw_map | Passed |
 | interp_system | Passed |
-| replay | Passed |
+| dsp | Passed |
 | snes_bus | Passed |
-| check_agnostic | Passed |
+| replay | Passed |
 | diff_open_bus | Passed |
-| sdl_record | Passed |
-| diff_all_1 | Passed |
-| diff_all_5 | Passed |
-| diff_all_6 | Passed |
-| diff_all_2 | Passed |
-| diff_all_3 | Passed |
-| diff_all_4 | Passed |
+| native | Passed |
+| lockstep_leene_square | Passed |
 | diff_all_0 | Passed |
+| diff_all_5 | Passed |
+| diff_all_3 | Passed |
+| diff_all_2 | Passed |
+| diff_all_6 | Passed |
+| diff_all_1 | Passed |
 | diff_all_7 | Passed |
+| diff_all_4 | Passed |
 | sdl_audio_60s | Passed |
