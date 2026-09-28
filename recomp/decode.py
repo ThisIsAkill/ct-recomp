@@ -656,7 +656,10 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
             elif mn == 'JMP' and i.mode == 'abs':
                 target = (addr & 0xFF0000) | i.operand
                 cst = State(nxt.m, nxt.x, nxt.e)
-                exits = resolve.tail(addr, target, cst) if resolve is not None else None
+                # a jump to this function's own entry in its entry state is a
+                # loop, not a tail call (that would recurse in C)
+                own = target == entry and cst.key() == st.key()
+                exits = resolve.tail(addr, target, cst) if resolve is not None and not own else None
                 if exits is not None:
                     fn.tails[ikey] = (target, cst)
                     fn.exit_states |= exits
@@ -696,6 +699,8 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
                 nxt = _continue(fn, ikey, i, nxt, exits, work)
                 if nxt is None:
                     break
+            elif mn == 'WDM':
+                raise DecodeError(f'${addr:06X}: WDM: not code (data decoded as code?)')
             elif mn in ('BRK', 'COP', 'STP', 'WAI'):
                 break   # translated as a run-time fatal error
             elif mn in ('JSR', 'JSL', 'JMP', 'JML'):
@@ -703,6 +708,57 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
             addr, cur = i.next_addr, nxt
     fn.insns.sort(key=lambda i: (i.addr, str(i.m), str(i.x), i.e))
     return fn
+
+
+def assumed_calls(fn: Function) -> set:
+    """Keys of the calls (JSR/JSL, direct or interpreter) whose M or X at the
+    call site rests on an assumption: code after an interpreter call is
+    decoded as if the callee kept M/X, and that holds only when it did.
+    A REP/SEP of a bit grounds it again. Entry states learned from such a
+    site (tools that close the call graph) are guesses, not facts."""
+    by_key = {i.key: i for i in fn.insns}
+    guess = {}   # insn key -> (m guessed, x guessed) on entry
+    work = []
+
+    def reach(key, gm, gx):
+        if key not in by_key:
+            return
+        old = guess.get(key, (False, False))
+        new = (old[0] or gm, old[1] or gx)
+        if new != old:
+            guess[key] = new
+            work.append(key)
+
+    for i in fn.insns:
+        if i.key in fn.interp_calls:
+            for k in fn.call_exits.get(i.key) or [fn.post[i.key]]:
+                reach((i.next_addr,) + tuple(k), True, True)
+    while work:
+        key = work.pop()
+        i = by_key[key]
+        gm, gx = guess[key]
+        if i.mnemonic in ('REP', 'SEP'):
+            gm = gm and not i.operand & 0x20
+            gx = gx and not i.operand & 0x10
+        post = fn.post[key]
+        mn = i.mnemonic
+        succ = []
+        if mn in RETURNS or key in fn.tails or (mn in ('JMP', 'JML') and key in fn.tables):
+            pass
+        elif key in fn.call_exits:
+            succ = [(i.next_addr,) + tuple(k) for k in fn.call_exits[key]]
+        elif mn in BRANCHES:
+            succ = [(i.branch_target(),) + post, (i.next_addr,) + post]
+        elif mn in ('BRA', 'BRL'):
+            succ = [(i.branch_target(),) + post]
+        elif mn == 'JMP' and i.mode == 'abs':
+            succ = [((i.addr & 0xFF0000) | i.operand,) + post]
+        elif mn not in ('BRK', 'COP', 'STP', 'WAI', 'JMP', 'JML'):
+            succ = [(i.next_addr,) + post]
+        for k in succ:
+            reach(k, gm, gx)
+    return {k for k in list(fn.calls) + list(fn.interp_calls) + list(fn.tables)
+            if any(guess.get(k, (False, False)))}
 
 
 def listing(fn: Function) -> str:

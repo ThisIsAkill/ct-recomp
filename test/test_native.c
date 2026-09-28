@@ -60,8 +60,7 @@ static void native_caller(CPU *cpu, uint32_t base, uint16_t callee)
     const uint16_t s0 = cpu->S;
     ct_insn(cpu, base, 0x20, (uint8_t)(callee >> 8));
     push16(cpu, (uint16_t)(base + 2));
-    ct_call_interp(cpu, 0x7E0000 | callee, base + 3, 2);
-    if (cpu->m != 1 || cpu->x != 0) {
+    if (!ct_call_interp(cpu, 0x7E0000 | callee, base + 3, 2) || cpu->m != 1 || cpu->x != 0) {
         ct_interp_rest(cpu, s0);
         return;
     }

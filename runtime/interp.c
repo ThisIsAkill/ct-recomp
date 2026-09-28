@@ -808,19 +808,16 @@ void interp_reset(CPU *c)
    strict interpreter, as interp_call runs a whole routine: the same checks
    (jump tables, call depth, budgets) as the oracle generated code is
    compared against, so both sides fail the same way on bad input. */
-void ct_call_interp(CPU *c, uint32_t target, uint32_t back, unsigned n)
+int ct_call_interp(CPU *c, uint32_t target, uint32_t back, unsigned n)
 {
     ct_exec_until u = {back, (uint16_t)(c->S + n)};
     c->PB = (uint8_t)(target >> 16);
     c->PC = (uint16_t)target;
-    if (ct_exec_hook) {
+    if (ct_exec_hook)
         ct_exec_hook(c, &u);
-        return;
-    }
-    interp_call(c, target);   /* until its RTS/RTL lifts S above the return address */
-    if (!ct_exec_done(c, &u))
-        ct_fatal("$%06X: interpreted callee returned to $%02X%04X S=%04X, expected $%06X S=%04X",
-                 target, c->PB, c->PC, c->S, back, u.s);
+    else
+        interp_call(c, target);   /* until its RTS/RTL lifts S above the return address */
+    return c->S == u.s && ((uint32_t)c->PB << 16 | c->PC) == back;
 }
 
 void ct_interp_rest(CPU *c, uint16_t s0)

@@ -51,18 +51,21 @@ extern void (*ct_tick_hook)(CPU *cpu, uint32_t addr, uint8_t op);
    native code for compiled callees, interrupts and timing; without it, the
    strict interpreter, interp_call, as diff_all's oracle runs code) until:
    - ct_call_interp: the callee, entered at `target` with its return
-     address already pushed (n = 2 for JSR, 3 for JSL), returns to `back`
-     (PB:PC) with S back above the return address;
+     address already pushed (n = 2 for JSR, 3 for JSL), pops it (S back at
+     or above where it was). Nonzero if it came back to `back` (PB:PC)
+     with S exactly there; zero if it went anywhere else (code that skips
+     inline data after the call, or drops its return address): the caller
+     then runs its rest with ct_interp_rest;
    - ct_interp_rest: the calling function itself returns, S above s0 (its
      S at entry), after a callee came back in an M/X state its compiled
      continuation doesn't cover. */
 typedef struct {
-    uint32_t back;   /* PB:PC to reach, or ~0u for any */
-    uint16_t s;      /* S to reach (back set), or to exceed (back ~0u) */
+    uint32_t back;   /* ct_call_interp: PB:PC it should return to; ~0u: ct_interp_rest */
+    uint16_t s;      /* S to reach or pass (call), or to exceed (rest) */
 } ct_exec_until;
 extern void (*ct_exec_hook)(CPU *cpu, const ct_exec_until *until);
 int ct_exec_done(const CPU *cpu, const ct_exec_until *until);
-void ct_call_interp(CPU *cpu, uint32_t target, uint32_t back, unsigned n);
+int ct_call_interp(CPU *cpu, uint32_t target, uint32_t back, unsigned n);
 void ct_interp_rest(CPU *cpu, uint16_t s0);
 
 #endif

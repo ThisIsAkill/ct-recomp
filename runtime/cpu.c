@@ -26,7 +26,7 @@ int ct_exec_done(const CPU *c, const ct_exec_until *u)
 {
     if (u->back == ~0u)
         return c->S > u->s;
-    return c->S == u->s && ((uint32_t)c->PB << 16 | c->PC) == u->back;
+    return c->S >= u->s;
 }
 
 

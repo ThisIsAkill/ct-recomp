@@ -288,12 +288,12 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
 
             def t(i, target=target, cst=cst, ret=ret, bank=bank, long=long, back=back):
                 body = [f'push8(cpu, 0x{bank:02X});'] if long else []
-                body += [f'push16(cpu, 0x{ret:04X});',
-                         f'ct_call_interp(cpu, 0x{target:06X}, 0x{back:06X}, {3 if long else 2});']
-                known = [f'cpu->{r} != {int(v)}' for r, v in (('m', cst.m), ('x', cst.x))
+                body.append(f'push16(cpu, 0x{ret:04X});')
+                # came back elsewhere, or in another M/X state: interpret the rest
+                cond = [f'!ct_call_interp(cpu, 0x{target:06X}, 0x{back:06X}, {3 if long else 2})']
+                cond += [f'cpu->{r} != {int(v)}' for r, v in (('m', cst.m), ('x', cst.x))
                          if v is not None]
-                if known:   # it came back in another state: interpret the rest
-                    body.append(f'if ({" || ".join(known)}) {{ ct_interp_rest(cpu, s0); return; }}')
+                body.append(f'if ({" || ".join(cond)}) {{ ct_interp_rest(cpu, s0); return; }}')
                 return body
         elif i.opcode == 0x20 and i.key in fn.calls:
             target, cst = fn.calls[i.key]
