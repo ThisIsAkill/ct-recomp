@@ -6,6 +6,9 @@ Static recompiler for Chrono Trigger (SNES, US 1.0) 65816 code to C, plus a C ru
 The recompiler and runtime are game-agnostic; everything specific to Chrono
 Trigger lives in `game/ct/`.
 
+Planned features after boot (MSU-1, achievements, save states, widescreen and
+more) are listed in [ROADMAP.md](ROADMAP.md).
+
 ## Layout
 
 - `recomp/` — the translator (Python): decoder with static M/X tracking, C emitter.
