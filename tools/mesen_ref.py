@@ -8,12 +8,15 @@ usage: mesen_ref.py --mesen PATH --rom ROM --frames N --out LOG
 Runs ROM from power-on in Mesen's --testrunner mode with a generated Lua
 script that drives pad 1 from an input script (runtime/replay.h format)
 and, at the start of every frame (scanline 0, the same point as the frame
-scheduler's frame edge), appends "frame wram_hash frame_hash" to LOG, the
+scheduler's frame edge), appends "frame wram_hash frame_hash" to LOG (the
+picture complete at the end of the frame before, as the probe's), the
 same hashes as `ct_boot --ref-log` (tools/ref_compare.py compares them):
 
   wram_hash   FNV-1a 64 over the 128 KB of WRAM
   frame_hash  FNV-1a 64 over the 224 visible rows of the last frame, each
-              pixel as a little-endian 15-bit BGR value (8-bit channels >> 3)
+              pixel as a little-endian 15-bit BGR value (8-bit channels >> 3);
+              Mesen's screen buffer is 239 lines, the visible 224 at lines
+              7-230 (no overscan)
 
 "frame" is Mesen's frame count at that point: frames completed.
 --wram-at F also writes WRAM at that point of frame F to --wram-out (raw
@@ -25,7 +28,9 @@ temporary folder, seeded with an empty settings.json so no first-run
 window waits for input), so its settings and save files never touch the
 user's own, and with WRAM
 powered on as zeros and the DSP at 32040 Hz (SpcClockSpeedAdjustment=40,
-Mesen's default, set explicitly), as the frame scheduler has them.
+Mesen's default, set explicitly), as the frame scheduler has them, and with
+frame skipping off (at unlimited speed Mesen otherwise skips rendering
+frames, depending on wall-clock time).
 --setting passes more Mesen settings. The Linux build carries a static
 libstdc++ that crashes in std::regex next to the system one; the system
 libstdc++ is preloaded to avoid that.
@@ -99,10 +104,11 @@ local function wram_hash()
   return h
 end
 
+-- Mesen's buffer is 239 lines: without overscan, visible row r is line r + 7.
 local function frame_hash()
   local h = BASIS
   local buf = emu.getScreenBuffer()
-  for i = 1, 256 * 224 do
+  for i = 7 * 256 + 1, 231 * 256 do
     local p = buf[i]
     local c = ((p >> 19) & 0x1F) | (((p >> 11) & 0x1F) << 5) | (((p >> 3) & 0x1F) << 10)
     h = (h ~ (c & 0xFF)) * PRIME
@@ -120,6 +126,14 @@ emu.addEventCallback(function()
   emu.setInput(t, 0, 0)
 end, emu.eventType.inputPolled)
 
+-- Mesen swaps its screen buffers at line 0, so the picture the probe logs at
+-- a frame edge (the one just shown) is the one complete at the end of the
+-- frame before (VBlank): hash it there, log it with the next frame start.
+local picture = 0
+emu.addEventCallback(function()
+  picture = frame_hash()
+end, emu.eventType.endFrame)
+
 emu.addEventCallback(function()
   local f = emu.getState()["frameCount"]
   if f == wram_at then
@@ -128,7 +142,7 @@ emu.addEventCallback(function()
     w:close()
   end
   if f >= 1 then
-    out:write(string.format("%%d %%016x %%016x\n", f, wram_hash(), frame_hash()))
+    out:write(string.format("%%d %%016x %%016x\n", f, wram_hash(), picture))
   end
   if f >= frames then
     out:close()
@@ -170,7 +184,7 @@ def main() -> int:
                 "wram_out": lua_str(os.path.abspath(a.wram_out)) if a.wram_out else "",
             })
         settings = ["Debug.ScriptWindow.AllowIoOsAccess=true", "Snes.RamPowerOnState=AllZeros",
-                    "Snes.SpcClockSpeedAdjustment=40", *a.setting]
+                    "Snes.SpcClockSpeedAdjustment=40", "Snes.DisableFrameSkipping=true", *a.setting]
         env = dict(os.environ, XDG_CONFIG_HOME=home)
         env.pop("WAYLAND_DISPLAY", None)   # X11, inside Xvfb
         stdcxx = "/usr/lib/libstdc++.so.6"
