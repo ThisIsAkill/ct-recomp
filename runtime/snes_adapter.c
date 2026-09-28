@@ -306,49 +306,90 @@ static void dma_reg_write(uint16_t reg, uint8_t v)
  * state but do nothing until then. */
 
 
-/* General DMA started by a $420B write, as Mesen 2 times it (the boot
-   reference, #33): it starts after the CPU's next cycle (the next opcode
-   fetch, or the $420C byte of a 16-bit store), waits to a multiple of 8
-   master clocks since power-on, takes 8 clocks, then per enabled channel
-   8 plus 8 per byte (size 0 = 65536), and finally waits 1 to N clocks,
-   N the resuming CPU cycle's clocks, to a multiple of N counted from the
-   start of the wait (every byte counts: fullsnes, bsnes). The CPU cycle
-   before the DMA is charged by its own instruction as usual; this returns
-   the DMA's clocks. SNES_QUIRK_MESEN_DMA_COUNT8 reproduces Mesen's count
-   for the last wait, which keeps each channel's byte count in 8 bits. */
-static unsigned dma_clocks(uint8_t channels)
-{
-    unsigned first, second;
-    cyc_next_cycles(&first, &second);
-    if (cyc_wide_store()) {   /* $420B low byte: the $420C write comes first */
-        second = first;
-        first = 6;
-    }
-    uint64_t t = (snes_access_clock ? snes_access_clock(0) : cyc_elapsed()) + first;
-    unsigned n = 8 - (unsigned)(t & 7) + 8, count = n;
-    for (int c = 0; c < 8; c++) {
-        if (!(channels & (1 << c)))
-            continue;
-        unsigned size = dma_read(g_dma, (uint16_t)(c * 16 + 5)) |
-                        dma_read(g_dma, (uint16_t)(c * 16 + 6)) << 8;
-        n += 8 + 8 * (size ? size : 0x10000);
-        count += 8 + 8 * ((snes_ref_quirks & SNES_QUIRK_MESEN_DMA_COUNT8) ? (size & 0xFF)
-                                                                   : (size ? size : 0x10000));
-    }
-    return n + second - count % second;
-}
+/* General DMA started by a $420B write: the transfer runs at once (its
+   effects), and the scheduler times the CPU's pause, which starts at a
+   later CPU cycle (snes_dma_start). */
+void (*snes_dma_start)(const uint32_t sizes[8]);
 
 static void mdmaen_write(uint16_t reg, uint8_t v)
 {
     (void)reg;
-    if (v)
-        cyc_stall(dma_clocks(v));
+    uint32_t sizes[8] = {0};
+    for (int c = 0; c < 8; c++)
+        if (v & (1 << c)) {
+            uint32_t size = dma_read(g_dma, (uint16_t)(c * 16 + 5)) |
+                            (uint32_t)dma_read(g_dma, (uint16_t)(c * 16 + 6)) << 8;
+            sizes[c] = size ? size : 0x10000;
+        }
+    if (v && snes_dma_start)
+        snes_dma_start(sizes);
     unsigned clocks = ct_bus_clocks, n = ct_bus_n;   /* DMA's accesses aren't the CPU's */
     dma_startDma(g_dma, v, false);
     while (g_dma->dmaBusy)
         dma_doDma(g_dma);
     ct_bus_clocks = clocks;
     ct_bus_n = n;
+}
+
+/* ---- HDMA CPU time (Mesen 2 SnesDmaController, fullsnes) ----
+   Clocks after the 8-clock sync and before the wait back to the CPU:
+   8 overhead, then per enabled channel not finished for the frame: its
+   transfer bytes (8 each) when it transfers this line, 8 to read the next
+   line counter, and when the counter runs out, 16 more to load an
+   indirect address (8 if the new counter is 0 and no later channel is
+   still active: only the high byte is read). */
+static const unsigned hdma_len[8] = {1, 2, 2, 4, 4, 4, 2, 4};
+
+int snes_hdma_enabled(void)
+{
+    for (int c = 0; c < 8; c++)
+        if (g_dma->channel[c].hdmaActive)
+            return 1;
+    return 0;
+}
+
+unsigned snes_hdma_cost(void)
+{
+    unsigned n = 8;
+    for (int c = 0; c < 8; c++) {
+        const DmaChannel *ch = &g_dma->channel[c];
+        if (ch->hdmaActive && !ch->terminated && ch->doTransfer)
+            n += 8 * hdma_len[ch->mode & 7];
+    }
+    for (int c = 0; c < 8; c++) {
+        const DmaChannel *ch = &g_dma->channel[c];
+        if (!ch->hdmaActive || ch->terminated)
+            continue;
+        n += 8;
+        if (((ch->repCount - 1) & 0x7F) != 0 || !ch->indirect)
+            continue;
+        uint16_t at = (uint16_t)(ch->tableAdr + (ch->doTransfer && !ch->indirect ? hdma_len[ch->mode & 7] : 0));
+        uint8_t next = bus_peek((uint32_t)ch->aBank << 16 | at);
+        int last = 1;
+        for (int d = c + 1; d < 8; d++)
+            if (g_dma->channel[d].hdmaActive && !g_dma->channel[d].terminated)
+                last = 0;
+        n += next == 0 && last ? 8 : 16;
+    }
+    return n;
+}
+
+/* HDMA init at the start of the frame, from the channels' state after it
+   (the vendored dma_initHdma runs at line 0's start): 8 overhead, then per
+   enabled channel 8 for the line counter and, if indirect, 16 for the
+   address (8 if the counter is 0). */
+unsigned snes_hdma_init_cost(void)
+{
+    unsigned n = 8;
+    for (int c = 0; c < 8; c++) {
+        const DmaChannel *ch = &g_dma->channel[c];
+        if (!ch->hdmaActive)
+            continue;
+        n += 8;
+        if (ch->indirect)
+            n += ch->repCount == 0 ? 8 : 16;
+    }
+    return n;
 }
 
 static void hdmaen_write(uint16_t reg, uint8_t v)

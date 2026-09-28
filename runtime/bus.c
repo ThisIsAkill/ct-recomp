@@ -247,6 +247,8 @@ static enum region decode_addr(uint32_t a, uint32_t *off)
 }
 
 unsigned ct_bus_clocks, ct_bus_n;
+uint8_t ct_bus_log[CT_BUS_LOG];
+uint8_t ct_bus_fetch;
 
 unsigned bus_access_clocks(uint32_t a)
 {
@@ -261,7 +263,10 @@ unsigned bus_access_clocks(uint32_t a)
 
 uint8_t read8(uint32_t a)
 {
-    ct_bus_clocks += bus_access_clocks(a & 0xFFFFFF);
+    unsigned ck = bus_access_clocks(a & 0xFFFFFF);
+    ct_bus_clocks += ck;
+    if (ct_bus_n < CT_BUS_LOG)
+        ct_bus_log[ct_bus_n] = (uint8_t)(ck | ct_bus_fetch);
     ct_bus_n++;
     uint32_t off;
     a &= 0xFFFFFF;
@@ -291,7 +296,10 @@ uint8_t bus_peek(uint32_t a)
 
 void write8(uint32_t a, uint8_t v)
 {
-    ct_bus_clocks += bus_access_clocks(a & 0xFFFFFF);
+    unsigned ck = bus_access_clocks(a & 0xFFFFFF);
+    ct_bus_clocks += ck;
+    if (ct_bus_n < CT_BUS_LOG)
+        ct_bus_log[ct_bus_n] = (uint8_t)(ck | CT_BUS_WRITE);
     ct_bus_n++;
     bus_mdr = v;
     uint32_t off;

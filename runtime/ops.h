@@ -331,18 +331,22 @@ static inline void iny16(CPU *c) { c->Y = (uint16_t)(c->Y + 1); set_nz16(c, c->Y
 static inline void inx16(CPU *c) { c->X = (uint16_t)(c->X + 1); set_nz16(c, c->X); }
 static inline void dex16(CPU *c) { c->X = (uint16_t)(c->X - 1); set_nz16(c, c->X); }
 
-/* MVN with 16-bit index registers: copy C+1 bytes src:X -> dst:Y ascending.
-   Ends with A=$FFFF, DB=dst. */
-static inline void mvn16(CPU *c, uint8_t dst, uint8_t src)
+/* MVN with 16-bit index registers: copy C+1 bytes src:X -> dst:Y ascending,
+   one byte per execution of the instruction: every byte after the first
+   is its own instruction start (ct_insn, 7 cycles each), so interrupts and
+   frame edges fall between bytes. Ends with A=$FFFF, DB=dst. */
+static inline void mvn16(CPU *c, uint32_t at, uint8_t dst, uint8_t src)
 {
     c->DB = dst;
-    do {
+    for (;;) {
         write8((uint32_t)dst << 16 | c->Y, read8((uint32_t)src << 16 | c->X));
         c->X = (uint16_t)(c->X + 1);
         c->Y = (uint16_t)(c->Y + 1);
         c->A = (uint16_t)(c->A - 1);
-        ct_cyc_moved++;
-    } while (c->A != 0xFFFF);
+        if (c->A == 0xFFFF)
+            break;
+        ct_insn(c, at, 0x54, src);
+    }
 }
 
 static inline void op_tdc(CPU *c) { c->A = c->DP; set_nz16(c, c->A); }

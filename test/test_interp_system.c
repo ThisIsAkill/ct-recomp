@@ -81,14 +81,14 @@ static void test_cycles(void)
         0xA9, 0x01, 0x00,       /* $2013 LDA #$0001      3           */
         0xA2, 0x00,             /* $2016 LDX #$00        2 (X=1)     */
         0xA0, 0x00,             /* $2018 LDY #$00        2           */
-        0x54, 0x7E, 0x7E,       /* $201A MVN $7E,$7E     7 x 2 bytes */
+        0x54, 0x7E, 0x7E,       /* $201A MVN $7E,$7E     7 per byte, one step each */
     };
     /* Master clocks, each cycle at its own speed (bsnes CPU::wait): code
        and data in WRAM 8, internal cycles 6. LDA $10: 2 fetches + DL idle
        + read = 16+6+8; LDA abs,X cross: 24+6+8; REP: 16+6; STA abs,X M=0:
        24+6+2x8; branch taken 16+6; MVN per byte: 3 fetches, read, write,
-       2 idle = 52. */
-    static const unsigned want[] = {16, 30, 38, 22, 24, 46, 22, 16, 24, 16, 16, 104};
+       2 idle = 52, a step per byte (PC stays at the MVN until the last). */
+    static const unsigned want[] = {16, 30, 38, 22, 24, 46, 22, 16, 24, 16, 16, 52, 52};
     load(prog, sizeof prog, 0x2000);
     at(&c, 0x2000);
     c.DP = 0x0001;

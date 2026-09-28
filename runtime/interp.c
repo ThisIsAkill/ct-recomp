@@ -11,7 +11,9 @@ typedef struct {
 
 static uint8_t fetch8(CPU *c)
 {
+    ct_bus_fetch = CT_BUS_FETCH;
     uint8_t v = read8((uint32_t)c->PB << 16 | c->PC);
+    ct_bus_fetch = 0;
     c->PC = (uint16_t)(c->PC + 1);
     return v;
 }
@@ -310,21 +312,24 @@ static void branch(CPU *c, uint32_t at, int cond)
     }
 }
 
-static void block_move(CPU *c, int step)
+/* MVN/MVP move one byte per execution (7 cycles: opcode, both banks, the
+   read, the write, two internal); until A wraps to $FFFF the instruction
+   runs again from its own address, so interrupts and frame edges fall
+   between bytes as on hardware. */
+static void block_move(CPU *c, uint32_t at, int step)
 {
     uint8_t dst = fetch8(c), src = fetch8(c);
     c->DB = dst;
-    do {
-        write8((uint32_t)dst << 16 | c->Y, read8((uint32_t)src << 16 | c->X));
-        c->X = (uint16_t)(c->X + step);
-        c->Y = (uint16_t)(c->Y + step);
-        if (c->x) {
-            c->X &= 0xFF;
-            c->Y &= 0xFF;
-        }
-        c->A = (uint16_t)(c->A - 1);
-        ct_cyc_moved++;
-    } while (c->A != 0xFFFF);
+    write8((uint32_t)dst << 16 | c->Y, read8((uint32_t)src << 16 | c->X));
+    c->X = (uint16_t)(c->X + step);
+    c->Y = (uint16_t)(c->Y + step);
+    if (c->x) {
+        c->X &= 0xFF;
+        c->Y &= 0xFF;
+    }
+    c->A = (uint16_t)(c->A - 1);
+    if (c->A != 0xFFFF)
+        c->PC = (uint16_t)at;
 }
 
 /* ALU group: opcodes aaa.bbbbb with a 65816 addressing column. */
@@ -653,8 +658,8 @@ static void step(CPU *c, uint32_t at, uint8_t op)
         break;
 
     /* block move */
-    case 0x54: block_move(c, 1); break;
-    case 0x44: block_move(c, -1); break;
+    case 0x54: block_move(c, at, 1); break;
+    case 0x44: block_move(c, at, -1); break;
 
     case 0x00: ct_fatal("$%06X: BRK executed", at);
     case 0x02: ct_fatal("$%06X: COP executed", at);
@@ -756,6 +761,7 @@ unsigned interp_interrupt(CPU *c, int nmi)
        the pushes and the vector reads at their own speeds (the bus counts
        them). */
     unsigned fetch = cyc_master_per_cycle(c->PB, c->PC);
+    cyc_begin_interrupt(c);
     unsigned clocks0 = ct_bus_clocks;
     push(c, c->PB);
     pushw(c, c->PC);

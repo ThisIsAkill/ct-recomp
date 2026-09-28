@@ -12,14 +12,14 @@ static void put(uint16_t at, const uint8_t *p, unsigned n)
 }
 
 /* Master clock at the start of each instruction, via the trace hook. */
-static uint64_t clk_at[64];
-static uint32_t pc_at[64];
+static uint64_t clk_at[256];
+static uint32_t pc_at[256];
 static int n_at;
 
 static void clock_trace(const CPU *c, uint32_t at)
 {
     (void)c;
-    if (n_at < 64) {
+    if (n_at < 256) {
         pc_at[n_at] = at;
         clk_at[n_at++] = sched_clock();
     }
@@ -67,8 +67,11 @@ static void test_dma_timing(unsigned quirks)
     CHECK(k + 1 < n_at, "STA $420B traced");
     /* STA abs: 4 cycles (opcode+2 operand fetches from WRAM, 8 each; the
        $420B write, 6). */
-    uint64_t d = clk_at[k + 1] - clk_at[k], sta = 3 * 8 + 6;
-    uint64_t t = clk_at[k] + sta + 8;   /* the DMA starts after the NOP's fetch */
+    CHECK(k + 2 < n_at, "NOP after STA $420B traced");
+    /* The pause lands inside the NOP (fetch 8, then the DMA, then its
+       internal cycle 6): measure from the STA to the instruction after. */
+    uint64_t d = clk_at[k + 2] - clk_at[k], sta = 3 * 8 + 6 + 8 + 6;
+    uint64_t t = clk_at[k] + 3 * 8 + 6 + 8;   /* the DMA starts after the NOP's fetch */
     unsigned align = 8 - (unsigned)(t & 7);
     unsigned n = align + 8 + 8 + 8 * 0x140, count = align + 8 + 8 + 8 * 0x40;
     if (!quirks)
@@ -120,10 +123,10 @@ static void test_short_line(void)
 
 /* A port access after a DRAM refresh inside its own instruction is timed
    after the refresh: the SPC700 is brought up to the access's clock. */
-static uint64_t spc_at[64];
+static uint64_t spc_at[256];
 static void spc_trace(const CPU *c, uint32_t at)
 {
-    if (n_at < 64)
+    if (n_at < 256)
         spc_at[n_at] = 2 * spc_host_cycle();
     clock_trace(c, at);
 }
@@ -169,6 +172,76 @@ static void test_refresh_access_clock(void)
     CHECK(straddled == 1, "one STA runs over the refresh: %d", straddled);
 }
 
+
+/* HDMA pauses the CPU once per visible line (Mesen 2's timing, #33): one
+   channel, mode 3 (4 bytes), direct: sync to 8 clocks (2-8), 8 overhead,
+   32 for the bytes, 8 for the next line counter, then 1-N clocks back to
+   the CPU cycle (N its clocks). In a loop of NOPs from WRAM (14 clocks:
+   fetch 8, internal 6) exactly one NOP per line is stretched by that,
+   and at line 0 one more by the frame's HDMA init. */
+static void test_hdma_time(void)
+{
+    uint8_t *w = bus_wram();
+    for (int r = 0; r < 40; r++) {   /* line counter 1, 4 data bytes */
+        uint8_t *e = w + 0x3400 + r * 5;
+        e[0] = 1;
+        e[1] = e[2] = e[3] = e[4] = 0;
+    }
+    static uint8_t prog[120];
+    static const uint8_t setup[] = {
+        0xA9, 0x03, 0x8D, 0x70, 0x43,   /* DMAP7 = 3 */
+        0xA9, 0x21, 0x8D, 0x71, 0x43,   /* BBAD7 = $21 ($2121/$2122) */
+        0xA9, 0x00, 0x8D, 0x72, 0x43,   /* A1T7 = $7E3400 */
+        0xA9, 0x34, 0x8D, 0x73, 0x43,
+        0xA9, 0x7E, 0x8D, 0x74, 0x43,
+        0xA9, 0x80, 0x8D, 0x0C, 0x42,   /* HDMAEN = ch 7 */
+    };
+    memcpy(prog, setup, sizeof setup);
+    memset(prog + sizeof setup, 0xEA, sizeof prog - sizeof setup - 2);   /* NOPs */
+    prog[sizeof prog - 2] = 0x80;   /* BRA back to the NOPs */
+    prog[sizeof prog - 1] = (uint8_t)(sizeof setup - sizeof prog);
+    static CPU c;
+    bus_reset();
+    put(0x2400, prog, sizeof prog);
+    interp_reset(&c);
+    c.e = 0;
+    c.PB = 0x7E;
+    c.PC = 0x2400;
+    c.m = c.x = 1;
+    c.S = 0x01FF;
+    sched_init(&c);
+    sched_run_frame();   /* the HDMA init at line 0 of the next frame */
+    n_at = 0;
+    ct_trace_hook = clock_trace;
+    sched_run_frame();   /* traced: its first 256 instructions, past line 0's HDMA */
+    ct_trace_hook = NULL;
+    int stretched = 0, inits = 0;
+    for (int k = 0; k + 1 < n_at; k++) {
+        uint64_t d = clk_at[k + 1] - clk_at[k];
+        if (pc_at[k] < 0x7E2400 + sizeof setup || pc_at[k] == 0x7E2400 + sizeof prog - 2 ||
+            d == 14 || d == 14 + 40)
+            continue;   /* setup, the BRA, a plain NOP, or one with the refresh */
+        unsigned s = (unsigned)(d - 14);
+        if (s <= 8 + 8 + 8 + 6) {   /* the frame's HDMA init: 8 + 8 for the counter */
+            CHECK(s >= 2 + 8 + 8 + 1, "NOP at $%06X stretched by %u (init 19-30)", pc_at[k], s);
+            inits++;
+            continue;
+        }
+        CHECK(s >= 2 + 8 + 32 + 8 + 1 && s <= 8 + 8 + 32 + 8 + 6,
+              "NOP at $%06X stretched by %u (HDMA 51-62)", pc_at[k], s);
+        stretched++;
+    }
+    /* The trace spans the first lines of the frame: one HDMA per line whose
+       dot 276 it passes. */
+    int lines = 0;
+    uint64_t f0 = 262ull * 1364;   /* frame 1 starts here (frame 0 is full length) */
+    for (int l = 0; l < 8; l++)
+        if (f0 + (uint64_t)l * 1364 + 1104 < clk_at[n_at - 1])
+            lines++;
+    CHECK(inits == 1 && stretched == lines, "HDMA init %d, line HDMA %d, lines %d", inits,
+          stretched, lines);
+}
+
 int main(void)
 {
     th_bus_init();
@@ -176,6 +249,7 @@ int main(void)
     test_dma_timing(SNES_QUIRK_MESEN_DMA_COUNT8);
     test_short_line();
     test_refresh_access_clock();
+    test_hdma_time();
 
     /* HDMA channel 7, mode 3 (4 bytes to $2121 $2121 $2122 $2122): every
        line sets CGRAM[0] (the backdrop) to red = row & 31. */

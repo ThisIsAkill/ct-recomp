@@ -198,7 +198,7 @@ _SPECIAL = {
     (0x02, ''):   lambda i: [f'ct_fatal("${i.addr:06X}: COP executed");'],
     (0xDB, ''):   lambda i: [f'ct_fatal("${i.addr:06X}: STP executed");'],
     (0xCB, ''):   lambda i: [f'ct_fatal("${i.addr:06X}: WAI executed");'],
-    (0x54, '16'): lambda i: [f'mvn16(cpu, 0x{i.operand & 0xFF:02X}, 0x{i.operand >> 8:02X});'],  # MVN
+    (0x54, '16'): lambda i: [f'mvn16(cpu, 0x{i.addr:06X}, 0x{i.operand & 0xFF:02X}, 0x{i.operand >> 8:02X});'],  # MVN
 }
 
 

@@ -57,6 +57,15 @@ int bus_fastrom(void);
    $4200-$5FFF and FastROM, 8 for WRAM, SRAM and SlowROM, 12 for
    $4000-$41FF. The cycle model (cycles.c) charges instructions from them. */
 extern unsigned ct_bus_clocks, ct_bus_n;
+/* The current instruction's bus accesses in order (the cycle model's
+   cycle-by-cycle view): clocks | CT_BUS_WRITE for writes | CT_BUS_FETCH
+   for the interpreter's operand fetches (ct_bus_fetch set). The first
+   CT_BUS_LOG are kept. */
+#define CT_BUS_LOG   64
+#define CT_BUS_WRITE 0x80
+#define CT_BUS_FETCH 0x40
+extern uint8_t ct_bus_log[CT_BUS_LOG];
+extern uint8_t ct_bus_fetch;
 unsigned bus_access_clocks(uint32_t a);
 
 uint8_t *bus_wram(void);

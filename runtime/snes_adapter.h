@@ -31,6 +31,16 @@ extern uint64_t (*snes_master_clock)(void);
    (the frame scheduler sets it). */
 extern uint64_t (*snes_access_clock)(unsigned early);
 
+/* A general DMA ($420B) just ran its transfer (bytes per channel, 0 for
+   channels not enabled); the frame scheduler times the CPU's pause. */
+extern void (*snes_dma_start)(const uint32_t sizes[8]);
+/* HDMA's CPU time (see snes_adapter.c): any channel enabled in $420C; the
+   clocks of this line's HDMA from the channels' state before it; the
+   clocks of the frame's HDMA init from the state after it. */
+int snes_hdma_enabled(void);
+unsigned snes_hdma_cost(void);
+unsigned snes_hdma_init_cost(void);
+
 /* Reference-emulator quirks to reproduce, for comparisons only
    (tools/ref_compare.py's known differences); 0 means hardware behavior. */
 enum {

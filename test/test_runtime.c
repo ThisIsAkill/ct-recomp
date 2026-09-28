@@ -86,7 +86,7 @@ static void test_index_ops(void)
     c.Y = 0x3500;
     c.A = 7;
     c.DB = 0x00;
-    mvn16(&c, 0x7F, 0x7E);
+    mvn16(&c, 0x808000, 0x7F, 0x7E);
     CHECK(c.A == 0xFFFF && c.X == 0x3408 && c.Y == 0x3508 && c.DB == 0x7F, "MVN regs");
     CHECK(read8(0x7F3500) == 0xA0 && read8(0x7F3507) == 0xA7, "MVN data");
 }

@@ -24,7 +24,7 @@ void ct_hook_wram_mvn_stub(CPU *cpu)
         ct_fatal("$7E9690: RAM stub is %02X %02X %02X %02X, expected MVN/RTL", op, dst, src, ret);
     if (cpu->x)
         ct_fatal("$7E9690: RAM stub MVN with 8-bit index not supported");
-    mvn16(cpu, dst, src);
+    mvn16(cpu, 0x7E9690, dst, src);
     op_rtl(cpu);
 }
 

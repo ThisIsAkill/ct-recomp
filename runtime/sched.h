@@ -21,7 +21,8 @@
 
 #define SCHED_CLOCKS_PER_LINE 1364
 #define SCHED_LINES           262
-#define SCHED_HBLANK_CLOCK    1096   /* dot 274 */
+#define SCHED_HBLANK_CLOCK    1096   /* dot 274: $4212 H-blank flag */
+#define SCHED_HDMA_CLOCK      1104   /* dot 276: HDMA on lines 0-224 */
 #define SCHED_VBLANK_LINE     225
 #define SCHED_WIDTH           256
 #define SCHED_HEIGHT          224

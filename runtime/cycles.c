@@ -1,10 +1,12 @@
 #include "cycles.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "bus.h"
 
 int ct_cyc_cross;
 int ct_cyc_taken;
-long ct_cyc_moved;
 
 /* CPU cycles per opcode for M=1 X=1 DL=0 (65C816 datasheet), plus which
    penalties apply. Approximate, not cycle-exact: no DRAM refresh, and
@@ -17,7 +19,6 @@ enum {
     P_DL  = 8,      /* +1 if the low byte of DP is nonzero */
     P_IDX = 16,     /* +1 if the index crossed a page or X=0 (indexed reads) */
     P_BR  = 32,     /* +1 if the branch was taken */
-    P_MV  = 64,     /* 7 per byte moved (MVN/MVP), base unused */
     P_RTI = 128,    /* +1 in native mode */
 };
 static uint8_t cyc_base[256], cyc_pen[256];
@@ -88,7 +89,7 @@ static void build_cycle_table(void)
     cyc(0x4C, 3, 0); cyc(0x5C, 4, 0); cyc(0x6C, 5, 0); cyc(0x7C, 6, 0); cyc(0xDC, 6, 0);
     cyc(0x20, 6, 0); cyc(0xFC, 8, 0); cyc(0x22, 8, 0);
     cyc(0x60, 6, 0); cyc(0x6B, 6, 0); cyc(0x40, 6, P_RTI);
-    cyc(0x54, 0, P_MV); cyc(0x44, 0, P_MV);
+    cyc(0x54, 7, 0); cyc(0x44, 7, 0);                               /* MVN MVP: per byte */
     cyc(0xCB, 3, 0); cyc(0xDB, 3, 0);                               /* WAI STP */
 }
 
@@ -101,11 +102,9 @@ unsigned cyc_master_per_cycle(uint8_t pb, uint16_t pc)
 }
 
 /* The instruction begun and not yet charged. */
-static unsigned stall;   /* cyc_stall clocks for the current instruction */
-
-void cyc_stall(unsigned clocks) { stall += clocks; }
 
 static unsigned elapsed_fetches(void);
+static void build_templates(void);
 static unsigned cur_size(void);
 
 static const uint8_t op_size[256] = {   /* bytes with M=X=1 (recomp/decode.py) */
@@ -130,7 +129,7 @@ static const uint8_t op_size[256] = {   /* bytes with M=X=1 (recomp/decode.py) *
 static struct {
     int pending, compiled;
     uint32_t at;
-    uint8_t op, m16, x16, dl, native;
+    uint8_t op, m16, x16, dl, native, interrupt;
     unsigned speed, size;
 } cur;
 
@@ -138,6 +137,7 @@ void cyc_begin(const CPU *c, uint32_t at, uint8_t op)
 {
     if (!built) {
         build_cycle_table();
+        build_templates();
         built = 1;
     }
     cur.pending = 1;
@@ -149,9 +149,20 @@ void cyc_begin(const CPU *c, uint32_t at, uint8_t op)
     cur.native = !c->e;
     cur.speed = cyc_master_per_cycle((uint8_t)(at >> 16), (uint16_t)at);
     cur.compiled = 0;
+    cur.interrupt = 0;
     ct_cyc_cross = ct_cyc_taken = 0;
-    ct_cyc_moved = 0;
     ct_bus_clocks = ct_bus_n = 0;   /* the interpreter's opcode fetch is before this */
+}
+
+int cyc_in_progress(void) { return cur.pending || cur.interrupt; }
+
+void cyc_done(void) { cur.interrupt = 0; }
+
+void cyc_begin_interrupt(const CPU *c)
+{
+    cyc_begin(c, (uint32_t)c->PB << 16 | c->PC, 0);
+    cur.pending = 0;   /* charged by the caller, not cyc_finish */
+    cur.interrupt = 1;
 }
 
 void cyc_begin_compiled(const CPU *c, uint32_t at, uint8_t op)
@@ -183,35 +194,182 @@ static unsigned cur_size(void)
     return size;
 }
 
-void cyc_next_cycles(unsigned *first, unsigned *second)
-{
-    uint32_t pc = (cur.at & 0xFF0000) | (uint16_t)(cur.at + cur_size());
-    *first = cyc_master_per_cycle((uint8_t)(pc >> 16), (uint16_t)pc);
-    *second = op_size[bus_peek(pc)] == 1 ? 6 : *first;
-}
+/* ---- cycle by cycle ----
+   Each opcode's cycles in order (65C816 datasheet table 5-7):
+     F opcode fetch            O operand fetch
+     D data/stack/vector access (one bus access, in order)
+     I internal cycle (6 clocks)
+   and the conditional ones:
+     d I if the low byte of DP is nonzero    x I if the index crossed a page or X=0
+     b I if the branch was taken             m D if M=0 (16-bit data)
+     w D if X=0 (16-bit index data)          p O if M=0 (16-bit immediate)
+     q O if X=0 (16-bit index immediate)     n D in native mode (RTI's PB)
+   Fetches run at the fetch speed; compiled code never makes its operand
+   fetches, so they are synthesized. */
+static const char *tmpl[256];
 
-int cyc_wide_store(void)
+static void build_templates(void)
 {
-    switch (cur.op) {
-    case 0x81: case 0x83: case 0x85: case 0x87: case 0x8D: case 0x8F: case 0x91:
-    case 0x92: case 0x93: case 0x95: case 0x97: case 0x99: case 0x9D: case 0x9F:
-    case 0x64: case 0x74: case 0x9C: case 0x9E:
-        return cur.m16;
-    case 0x86: case 0x8E: case 0x96: case 0x84: case 0x8C: case 0x94:
-        return cur.x16;
+    static const struct { uint8_t lo; const char *t; } col[] = {
+        {0x01, "FOdIDDDm"}, {0x03, "FOIDm"}, {0x05, "FOdDm"}, {0x07, "FOdDDDDm"},
+        {0x09, "FOp"}, {0x0D, "FOODm"}, {0x0F, "FOOODm"}, {0x11, "FOdDDxDm"},
+        {0x12, "FOdDDDm"}, {0x13, "FOIDDIDm"}, {0x15, "FOdIDm"}, {0x17, "FOdDDDDm"},
+        {0x19, "FOOxDm"}, {0x1D, "FOOxDm"}, {0x1F, "FOOODm"},
+    };
+    for (unsigned hi = 0; hi < 8; hi++)
+        for (unsigned k = 0; k < sizeof col / sizeof col[0]; k++)
+            tmpl[hi << 5 | col[k].lo] = col[k].t;
+    tmpl[0x91] = "FOdDDIDm";   /* STA (dp),Y / abs,Y / abs,X: the index cycle always */
+    tmpl[0x99] = "FOOIDm";
+    tmpl[0x9D] = "FOOIDm";
+    static const uint8_t rmw_ops[] = {0x00, 0x20, 0x40, 0x60, 0xE0, 0xC0};
+    for (unsigned k = 0; k < sizeof rmw_ops; k++) {   /* read, internal, write */
+        tmpl[rmw_ops[k] | 0x06] = "FOdDmImD";
+        tmpl[rmw_ops[k] | 0x0E] = "FOODmImD";
+        tmpl[rmw_ops[k] | 0x16] = "FOdIDmImD";
+        tmpl[rmw_ops[k] | 0x1E] = "FOOIDmImD";
     }
-    return 0;
+    static const uint8_t two[] = {
+        0x0A, 0x2A, 0x4A, 0x6A, 0x1A, 0x3A, 0xE8, 0xC8, 0xCA, 0x88,
+        0xAA, 0xA8, 0x8A, 0x98, 0x9B, 0xBB, 0xBA, 0x9A, 0x5B, 0x7B, 0x1B, 0x3B,
+        0x18, 0x38, 0x58, 0x78, 0xD8, 0xF8, 0xB8, 0xFB, 0xEA,
+    };
+    for (unsigned k = 0; k < sizeof two; k++)
+        tmpl[two[k]] = "FI";
+    tmpl[0x42] = "FO";                                             /* WDM */
+    tmpl[0x04] = tmpl[0x14] = "FOdDmImD";                          /* TSB TRB */
+    tmpl[0x0C] = tmpl[0x1C] = "FOODmImD";
+    tmpl[0x89] = "FOp"; tmpl[0x24] = "FOdDm"; tmpl[0x2C] = "FOODm"; /* BIT */
+    tmpl[0x34] = "FOdIDm"; tmpl[0x3C] = "FOOxDm";
+    tmpl[0xA2] = tmpl[0xA0] = "FOq";                               /* LDX LDY */
+    tmpl[0xA6] = tmpl[0xA4] = "FOdDw";
+    tmpl[0xAE] = tmpl[0xAC] = "FOODw";
+    tmpl[0xB6] = tmpl[0xB4] = "FOdIDw";
+    tmpl[0xBE] = tmpl[0xBC] = "FOOxDw";
+    tmpl[0x86] = tmpl[0x84] = "FOdDw";                             /* STX STY */
+    tmpl[0x8E] = tmpl[0x8C] = "FOODw";
+    tmpl[0x96] = tmpl[0x94] = "FOdIDw";
+    tmpl[0x64] = "FOdDm"; tmpl[0x74] = "FOdIDm";                   /* STZ */
+    tmpl[0x9C] = "FOODm"; tmpl[0x9E] = "FOOIDm";
+    tmpl[0xE0] = tmpl[0xC0] = "FOq";                               /* CPX CPY */
+    tmpl[0xE4] = tmpl[0xC4] = "FOdDw";
+    tmpl[0xEC] = tmpl[0xCC] = "FOODw";
+    tmpl[0xEB] = "FII";                                            /* XBA */
+    tmpl[0x48] = "FIDm"; tmpl[0xDA] = tmpl[0x5A] = "FIDw";         /* PHA PHX PHY */
+    tmpl[0x68] = "FIIDm"; tmpl[0xFA] = tmpl[0x7A] = "FIIDw";       /* PLA PLX PLY */
+    tmpl[0x8B] = tmpl[0x4B] = tmpl[0x08] = "FID";                  /* PHB PHK PHP */
+    tmpl[0xAB] = tmpl[0x28] = "FIID";                              /* PLB PLP */
+    tmpl[0x0B] = "FIDD"; tmpl[0x2B] = "FIIDD";                     /* PHD PLD */
+    tmpl[0xF4] = "FOODD"; tmpl[0xD4] = "FOdDDDD"; tmpl[0x62] = "FOOIDD"; /* PEA PEI PER */
+    tmpl[0xC2] = tmpl[0xE2] = "FOI";                               /* REP SEP */
+    static const uint8_t br[] = {0x10, 0x30, 0x50, 0x70, 0x90, 0xB0, 0xD0, 0xF0, 0x80};
+    for (unsigned k = 0; k < sizeof br; k++)
+        tmpl[br[k]] = "FOb";
+    tmpl[0x82] = "FOOI";                                           /* BRL */
+    tmpl[0x4C] = "FOO"; tmpl[0x5C] = "FOOO"; tmpl[0x6C] = "FOODD"; /* JMP JML */
+    tmpl[0x7C] = "FOOIDD"; tmpl[0xDC] = "FOODDD";
+    tmpl[0x20] = "FOOIDD";                                         /* JSR: push PCH, PCL */
+    tmpl[0xFC] = "FODDOIDD";                                       /* JSR (a,X) */
+    tmpl[0x22] = "FOODIODD";                                       /* JSL: push PB, bank */
+    tmpl[0x60] = "FIIDDI"; tmpl[0x6B] = "FIIDDD"; tmpl[0x40] = "FIIDDDn";   /* RTS RTL RTI */
+    tmpl[0x54] = tmpl[0x44] = "FOODDII";                           /* MVN MVP: one byte */
+    tmpl[0xCB] = tmpl[0xDB] = "FII";                               /* WAI STP */
 }
 
-unsigned cyc_finish(void)
+/* Interrupt entry: a fetch at PB:PC, an internal cycle, the pushes and the
+   vector reads. */
+static const char *const tmpl_int = "FIDDDDDD";
+
+unsigned cyc_cycles(uint8_t *clk, uint8_t *kind, int8_t *idx, unsigned max, unsigned upto)
 {
-    if (!cur.pending)
+    const char *t = cur.interrupt ? tmpl_int : tmpl[cur.op];
+    if (!t)
         return 0;
-    cur.pending = 0;
+    unsigned n = 0, fe = 0, da = 0;   /* next fetch / data log entries */
+    unsigned logged = ct_bus_n < CT_BUS_LOG ? ct_bus_n : CT_BUS_LOG;
+    for (; *t && n < max; t++) {
+        int c = *t, use;
+        switch (c) {
+        case 'd': use = cur.dl; c = 'I'; break;
+        case 'x': use = ct_cyc_cross || cur.x16; c = 'I'; break;
+        case 'b': use = ct_cyc_taken; c = 'I'; break;
+        case 'm': use = cur.m16; c = 'D'; break;
+        case 'w': use = cur.x16; c = 'D'; break;
+        case 'n': use = cur.native; c = 'D'; break;
+        case 'p': use = cur.m16; c = 'O'; break;
+        case 'q': use = cur.x16; c = 'O'; break;
+        default: use = 1;
+        }
+        if (!use)
+            continue;
+        idx[n] = -1;
+        if (c == 'F' || (c == 'O' && cur.compiled)) {
+            clk[n] = (uint8_t)cur.speed;
+            kind[n++] = CY_READ;
+        } else if (c == 'I') {
+            clk[n] = 6;
+            kind[n++] = CY_IDLE;
+        } else {
+            int fetch = c == 'O';
+            unsigned *cursor = fetch ? &fe : &da;
+            while (*cursor < logged && !(ct_bus_log[*cursor] & CT_BUS_FETCH) != !fetch)
+                ++*cursor;
+            if (*cursor >= logged) {
+                if (upto != ~0u)
+                    break;   /* not made yet */
+                /* Compiled code reads some ROM tables (JMP/JSR (a,X)) without
+                   the bus; the count charges those as 6-clock cycles. */
+                clk[n] = 6;
+                kind[n++] = CY_READ;
+                continue;
+            }
+            uint8_t e = ct_bus_log[*cursor];
+            clk[n] = e & 0x3F;
+            idx[n] = (int8_t)*cursor;
+            kind[n++] = (e & CT_BUS_WRITE) ? CY_WRITE : CY_READ;
+            if (*cursor == upto)
+                break;
+            ++*cursor;
+        }
+    }
+    return n;
+}
+
+static unsigned model_clocks(void);
+
+void cyc_check(void)
+{
+    uint8_t clk[128], kind[128];
+    int8_t idx[128];
+    if (cur.interrupt || !tmpl[cur.op] || ct_bus_n > CT_BUS_LOG)
+        return;
+    unsigned n = cyc_cycles(clk, kind, idx, sizeof clk, ~0u), total = 0;
+    for (unsigned k = 0; k < n; k++)
+        total += clk[k];
+    unsigned want = model_clocks();
+    if (total != want) {
+        static uint32_t seen[64];
+        static unsigned n_seen;
+        uint32_t key = cur.op | cur.m16 << 8 | cur.x16 << 9 | cur.dl << 10 | cur.compiled << 11;
+        for (unsigned k = 0; k < n_seen; k++)
+            if (seen[k] == key)
+                return;
+        if (n_seen < 64)
+            seen[n_seen++] = key;
+        fprintf(stderr, "cyc_check $%06X op $%02X m16=%d x16=%d dl=%d compiled=%d: template %u "
+                "clocks in %u cycles, model %u (bus %u accesses)\n", cur.at, cur.op, cur.m16,
+                cur.x16, cur.dl, cur.compiled, total, n, want, ct_bus_n);
+    }
+}
+
+/* Clocks of the instruction begun last, by the per-opcode count: the
+   opcode fetch (and, for compiled code, the operand fetches it never
+   makes) at the fetch speed, every counted bus access at its address's
+   speed, the rest as 6-clock internal cycles. */
+static unsigned model_clocks(void)
+{
     uint8_t pen = cyc_pen[cur.op];
     unsigned n = cyc_base[cur.op];
-    if (pen & P_MV)
-        n = 7u * (unsigned)ct_cyc_moved;
     if ((pen & P_M) && cur.m16)
         n += 1;
     if ((pen & P_M2) && cur.m16)
@@ -228,22 +386,25 @@ unsigned cyc_finish(void)
         n += 1;
     if (!n)
         ct_fatal("interp $%06X: no cycle count for opcode $%02X", cur.at, cur.op);
-    unsigned extra = stall;
-    stall = 0;
-    /* Each cycle at its own speed: the opcode fetch (and, for compiled
-       code, the operand fetches it never makes) at the fetch speed, every
-       counted bus access at its address's speed, the rest as 6-clock
-       internal cycles. */
     unsigned fetches = cur.compiled ? cur.size - 1 : 0;
-    if (pen & P_MV) {
-        /* Per byte: opcode and 2 operand fetches, read, write, 2 internal.
-           The interpreter fetched the operands once; the bus counted them. */
-        unsigned data = ct_bus_clocks - (cur.compiled ? 0 : 2 * cur.speed);
-        return (unsigned)ct_cyc_moved * (3 * cur.speed + 12) + data + extra;
-    }
     unsigned used = 1 + fetches + ct_bus_n;
     unsigned clocks = cur.speed * (1 + fetches) + ct_bus_clocks;
     if (n > used)
         clocks += (n - used) * 6;
-    return clocks + extra;
+    return clocks;
+}
+
+static int check_mode = -1;
+
+unsigned cyc_finish(void)
+{
+    if (!cur.pending)
+        return 0;
+    if (check_mode < 0)
+        check_mode = getenv("CT_CYC_CHECK") != NULL;
+    if (check_mode)
+        cyc_check();
+    cur.pending = 0;
+    cur.interrupt = 0;
+    return model_clocks();
 }
