@@ -65,6 +65,12 @@ reads them to populate `funcs.toml` / `unresolved.toml`.
     `ppu_bg3TilemapWord`, following fullsnes.
   - `CGDATA` ($2122): bit 7 of the high byte is no longer stored (CGRAM is
     15-bit).
+  - Brightness: each 5-bit channel is scaled by brightness / 15 before it
+    is expanded to 8 bits (Mesen 2); upstream scaled the expanded value.
+  - Lines are drawn as they go: `ppu_runLine` sets a line up and
+    `ppu_drawTo` draws it up to a pixel, so a register write partway
+    through a line (the adapter draws up to the write's dot first) changes
+    only the rest of it. Upstream drew each line whole at its start.
 
   Local patches to `apu.c`/`apu.h`: `apu_tick` (the DSP, timer and cycle
   count half of `apu_cycle`, split out so the SPC700 core in

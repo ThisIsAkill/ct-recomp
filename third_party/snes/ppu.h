@@ -50,6 +50,7 @@ struct Ppu {
   uint8_t lastBrightnessMult;
   uint8_t lastMosaicModulo;
   uint8_t renderFlags;
+  int drawLine, drawX;   // ct-recomp: line being drawn, next pixel (256: done)
   uint32_t renderPitch;
   uint8_t *renderBuffer;
   uint8_t extraLeftCur, extraRightCur, extraLeftRight, extraBottomCur;
@@ -133,6 +134,7 @@ void ppu_free(Ppu* ppu);
 void ppu_reset(Ppu* ppu);
 void ppu_handleVblank(Ppu* ppu);
 void ppu_runLine(Ppu* ppu, int line);
+void ppu_drawTo(Ppu *ppu, int x);   // ct-recomp: draw the current line up to pixel x (exclusive)
 uint8_t ppu_read(Ppu* ppu, uint8_t adr);
 void ppu_write(Ppu* ppu, uint8_t adr, uint8_t val);
 void ppu_saveload(Ppu *ppu, SaveLoadFunc *func, void *ctx);

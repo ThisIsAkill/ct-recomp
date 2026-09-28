@@ -165,11 +165,21 @@ void snes_oam_vblank_reload(void)
     g_ppu->oamSecondWrite = false;
 }
 
+/* A write lands partway through the line being drawn: the line is drawn up
+ * to that point first (Mesen 2 SnesPpu::RenderScanline: through pixel
+ * dot - 22 when dot > 22, with dot = the access's H clock / 4). */
+int (*snes_ppu_dot)(void);
+
 static void ppu_reg_write(uint16_t reg, uint8_t v)
 {
     if (reg >= 0x2134) {
         bus_readonly_write(reg, v);
         return;
+    }
+    if (snes_ppu_dot && g_ppu->drawX < 256) {
+        int dot = snes_ppu_dot();
+        if (dot > 22)
+            ppu_drawTo(g_ppu, dot - 21);
     }
     if (reg == 0x2104) {
         oam_write(v);

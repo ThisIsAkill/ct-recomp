@@ -130,6 +130,18 @@ static void access_hv(int *ln, unsigned *h)
     }
 }
 
+/* PPU dot of the CPU access being made (Mesen 2 SnesPpu::GetCycle: dots
+   323 and 327 are 6 clocks), past the end of the line when it falls in the
+   next one. */
+static int ppu_dot(void)
+{
+    uint64_t at = access_clock(0);
+    unsigned h = at >= line_start ? (unsigned)(at - line_start) : 0;
+    if (h >= line_clocks())
+        return 400;
+    return (int)(h <= 1292 ? h >> 2 : h <= 1310 ? (h - 2) >> 2 : (h - 4) >> 2);
+}
+
 static void latch_counters(void)
 {
     int ln;
@@ -321,6 +333,7 @@ void sched_init(CPU *c)
     snes_apu_sync = apu_sync;
     snes_master_clock = sched_clock;
     snes_access_clock = access_clock;
+    snes_ppu_dot = ppu_dot;
     snes_dma_start = dma_start;
     walk_reset();
     dsp_output_hook = dsp_out;
@@ -376,6 +389,7 @@ static void start_line(void)
         dma_initHdma(dma);
     }
     if (line == SCHED_VBLANK_LINE) {
+        ppu_drawTo(ppu, 256);   /* the last line's rest */
         memcpy(present, fb, sizeof present);   /* rows 0-223 are final */
         in_vblank = 1;
         snes_oam_vblank_reload();
@@ -486,8 +500,10 @@ static void advance(unsigned clocks)
             pend.irq_line = 1;
             irq_done = 1;
         } else if (!hblank_done && hclock >= SCHED_HDMA_CLOCK) {
-            if (line < SCHED_VBLANK_LINE)
+            if (line < SCHED_VBLANK_LINE) {
+                ppu_drawTo(snes_hw_ppu(), 256);   /* HDMA runs after the line's last pixel */
                 dma_doHdma(snes_hw_dma());
+            }
             hblank_done = 1;
         } else if (!irq_done && hclock >= (unsigned)irq_at) {
             timeup = 0x80;

@@ -30,6 +30,9 @@ extern uint64_t (*snes_master_clock)(void);
    end of its cycle, counting any DRAM refresh earlier in the instruction
    (the frame scheduler sets it). */
 extern uint64_t (*snes_access_clock)(unsigned early);
+/* PPU dot (0-339) of the access being made, for writes partway through a
+   line; set by the scheduler. */
+extern int (*snes_ppu_dot)(void);
 
 /* A general DMA ($420B) just ran its transfer (bytes per channel, 0 for
    channels not enabled); the frame scheduler times the CPU's pause. */

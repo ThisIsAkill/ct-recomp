@@ -191,6 +191,34 @@ static void test_cgram_15bit(void)
     CHECK(snes_hw_ppu()->cgram[0x10] == 0x7FFF, "CGRAM $10 = $%04X", snes_hw_ppu()->cgram[0x10]);
 }
 
+/* A PPU write partway through a line changes the rest of it: the line is
+   drawn through pixel dot - 22 first (Mesen 2). Forced blank at dot 122
+   leaves pixels 0-100 lit. */
+static int fake_dot;
+static int get_fake_dot(void) { return fake_dot; }
+
+static void test_midline_write(void)
+{
+    bus_reset();
+    Ppu *p = snes_hw_ppu();
+    write8(0x2100, 0x0F);   /* brightness 15 */
+    write8(0x2121, 0x00);
+    write8(0x2122, 0x1F);   /* backdrop: red */
+    write8(0x2122, 0x00);
+    static uint8_t buf[256 * 4 * 2];
+    PpuBeginDrawing(p, buf, 256 * 4, 0);
+    snes_ppu_dot = get_fake_dot;
+    ppu_runLine(p, 0);
+    ppu_runLine(p, 1);
+    fake_dot = 122;
+    write8(0x2100, 0x80);
+    ppu_runLine(p, 2);   /* finishes line 1 */
+    snes_ppu_dot = NULL;
+    CHECK(buf[100 * 4 + 2] > 0 && buf[0 * 4 + 2] > 0, "pixels 0-100 drawn before the write");
+    CHECK(buf[101 * 4 + 2] == 0 && buf[255 * 4 + 2] == 0, "pixel 101 on blanked (R %u)",
+          buf[101 * 4 + 2]);
+}
+
 /* Offset-per-tile (mode 2): the BG3 tilemap row at BG3's V scroll gives
    BG1 a new H offset per tile column, from the second column on. Column 1
    of the screen is pointed at BG1 column 5, the only one with a visible
@@ -218,6 +246,7 @@ static void test_offset_per_tile(void)
     PpuBeginDrawing(p, buf, 256 * 4, 0);
     ppu_runLine(p, 0);
     ppu_runLine(p, 1);   /* screen row 0 */
+    ppu_drawTo(p, 256);
     CHECK(buf[8 * 4 + 2] > 0 && buf[15 * 4 + 2] > 0 && buf[8 * 4 + 1] == 0,
           "column 1 takes the offset: BG1 column 5 (R %u)", buf[8 * 4 + 2]);
     CHECK(buf[0 * 4 + 2] == 0 && buf[7 * 4 + 2] == 0, "column 0 keeps no offset");
@@ -236,5 +265,6 @@ int main(void)
     test_spc_timer_phase();
     test_cgram_15bit();
     test_offset_per_tile();
+    test_midline_write();
     return th_report("snes_bus");
 }

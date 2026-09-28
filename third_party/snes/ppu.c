@@ -46,6 +46,7 @@ void ppu_free(Ppu* ppu) {
 }
 
 void ppu_reset(Ppu* ppu) {
+  ppu->drawX = 256;   // ct-recomp
   memset(ppu->vram, 0, sizeof(ppu->vram));
   ppu->lastBrightnessMult = 0xff;
   ppu->lastMosaicModulo = 0xff;
@@ -131,21 +132,32 @@ int PpuGetCurrentRenderScale(Ppu *ppu, uint32_t render_flags) {
   return hq ? 4 : 1;
 }
 
+// Cache the brightness computation
+// ct-recomp: each 5-bit channel is scaled by brightness / 15 (rounded down)
+// before it is expanded to 8 bits, as Mesen 2 does; upstream scaled the
+// expanded value. The table serves the whole-line renderer and is refreshed
+// at every line (ppu_runLine); the per-pixel path (ppu_handlePixel) scales
+// by the current brightness itself.
+static void ppu_updateBrightness(Ppu *ppu) {
+  if (ppu->brightness != ppu->lastBrightnessMult) {
+    uint8_t ppu_brightness = ppu->brightness;
+    ppu->lastBrightnessMult = ppu_brightness;
+    for (int i = 0; i < 32; i++) {
+      int c = i * ppu_brightness / 15;
+      ppu->brightnessMultHalf[i * 2] = ppu->brightnessMultHalf[i * 2 + 1] = ppu->brightnessMult[i] =
+      (c << 3) | (c >> 2);
+    }
+    // Store 31 extra entries to remove the need for clamping to 31.
+    memset(&ppu->brightnessMult[32], ppu->brightnessMult[31], 31);
+  }
+}
+
 void PpuBeginDrawing(Ppu *ppu, uint8_t *pixels, size_t pitch, uint32_t render_flags) {
   ppu->renderFlags = render_flags;
   ppu->renderPitch = (uint)pitch;
   ppu->renderBuffer = pixels;
 
-  // Cache the brightness computation
-  if (ppu->brightness != ppu->lastBrightnessMult) {
-    uint8_t ppu_brightness = ppu->brightness;
-    ppu->lastBrightnessMult = ppu_brightness;
-    for (int i = 0; i < 32; i++)
-      ppu->brightnessMultHalf[i * 2] = ppu->brightnessMultHalf[i * 2 + 1] = ppu->brightnessMult[i] =
-      ((i << 3) | (i >> 2)) * ppu_brightness / 15;
-    // Store 31 extra entries to remove the need for clamping to 31.
-    memset(&ppu->brightnessMult[32], ppu->brightnessMult[31], 31);
-  }
+  ppu_updateBrightness(ppu);
 
   if (PpuGetCurrentRenderScale(ppu, ppu->renderFlags) == 4) {
     for (int i = 0; i < 256; i++) {
@@ -162,7 +174,10 @@ static inline void ClearBackdrop(PpuPixelPrioBufs *buf) {
 
 
 void ppu_runLine(Ppu *ppu, int line) {
+  ppu_drawTo(ppu, 256);   // ct-recomp: finish the previous line
+  ppu->drawX = 256;
   if(line != 0) {
+    ppu_updateBrightness(ppu);   // ct-recomp: per line
     if (ppu->mosaicSize != ppu->lastMosaicModulo) {
       int mod = ppu->mosaicSize;
       ppu->lastMosaicModulo = mod;
@@ -184,12 +199,10 @@ void ppu_runLine(Ppu *ppu, int line) {
     if (ppu->renderFlags & kPpuRenderFlags_NewRenderer) {
       PpuDrawWholeLine(ppu, line);
     } else {
-      if (ppu->mode == 7)
-        ppu_calculateMode7Starts(ppu, line);
-      if (ppu->mode == 2 || ppu->mode == 4 || ppu->mode == 6)
-        ppu_offsetPerTileLine(ppu);   // ct-recomp: offset-per-tile
-      for (int x = 0; x < 256; x++)
-        ppu_handlePixel(ppu, x, line);
+      // ct-recomp: the line is drawn as it goes (ppu_drawTo), so register
+      // writes partway through it change the rest of it
+      ppu->drawLine = line;
+      ppu->drawX = 0;
 
       uint8 *dst = ppu->renderBuffer + ((line - 1) * ppu->renderPitch);
       if (ppu->extraLeftRight != 0) {
@@ -198,6 +211,23 @@ void ppu_runLine(Ppu *ppu, int line) {
       }
     }
   }
+}
+
+// ct-recomp: draw pixels [drawX, x) of the current line with the registers
+// as they are now. Per-line tables are rebuilt for each stretch.
+void ppu_drawTo(Ppu *ppu, int x) {
+  if (x > 256)
+    x = 256;
+  if (ppu->drawX >= x)
+    return;
+  int line = ppu->drawLine;
+  if (ppu->mode == 7)
+    ppu_calculateMode7Starts(ppu, line);
+  if (ppu->mode == 2 || ppu->mode == 4 || ppu->mode == 6)
+    ppu_offsetPerTileLine(ppu);   // ct-recomp: offset-per-tile
+  for (int i = ppu->drawX; i < x; i++)
+    ppu_handlePixel(ppu, i, line);
+  ppu->drawX = x;
 }
 
 typedef struct PpuWindows {
@@ -1006,9 +1036,13 @@ static void ppu_handlePixel(Ppu* ppu, int x, int y) {
   }
   int row = y - 1;
   uint8 *pixelBuffer = (uint8*) &ppu->renderBuffer[row * ppu->renderPitch + (x + ppu->extraLeftRight) * 4];
-  pixelBuffer[0] = ((b << 3) | (b >> 2)) * ppu->brightness / 15;
-  pixelBuffer[1] = ((g << 3) | (g >> 2)) * ppu->brightness / 15;
-  pixelBuffer[2] = ((r << 3) | (r >> 2)) * ppu->brightness / 15;
+  // ct-recomp: scale the 5-bit value, then expand (as Mesen 2 does).
+  b = b * ppu->brightness / 15;
+  g = g * ppu->brightness / 15;
+  r = r * ppu->brightness / 15;
+  pixelBuffer[0] = (b << 3) | (b >> 2);
+  pixelBuffer[1] = (g << 3) | (g >> 2);
+  pixelBuffer[2] = (r << 3) | (r >> 2);
   pixelBuffer[3] = 0;
 }
 
