@@ -405,6 +405,35 @@ static void test_autojoy_clock(void)
           (long long)clear);
 }
 
+/* A general DMA longer than a frame: the frame edge inside it is flagged
+   (its bytes all landed at its start), the next one isn't. */
+static int in_dma[2], n_edges;
+
+static void dma_edge_hook(long frame)
+{
+    (void)frame;
+    if (n_edges < 2)
+        in_dma[n_edges++] = sched_frame_in_dma();
+}
+
+static void test_frame_in_dma(void)
+{
+    /* DMA ch0: WRAM $7E:0000 -> $2118, 65536 bytes; then BRA . */
+    static const uint8_t prog[] = {
+        0x9C, 0x00, 0x43, 0xA9, 0x18, 0x8D, 0x01, 0x43, 0x9C, 0x02, 0x43, 0x9C, 0x03, 0x43,
+        0xA9, 0x7E, 0x8D, 0x04, 0x43, 0x9C, 0x05, 0x43, 0x9C, 0x06, 0x43,
+        0xA9, 0x01, 0x8D, 0x0B, 0x42, 0x80, 0xFE,
+    };
+    start_prog(prog, sizeof prog);
+    n_edges = 0;
+    sched_set_frame_hook(dma_edge_hook);
+    sched_run_frame();
+    sched_run_frame();
+    sched_set_frame_hook(NULL);
+    CHECK(n_edges == 2 && in_dma[0] && !in_dma[1], "edges in the DMA: %d %d", in_dma[0],
+          in_dma[1]);
+}
+
 int main(void)
 {
     th_bus_init();
@@ -416,6 +445,7 @@ int main(void)
     test_frame_edge_wram();
     test_hblank_rdnmi_clock();
     test_autojoy_clock();
+    test_frame_in_dma();
 
     /* HDMA channel 7, mode 3 (4 bytes to $2121 $2121 $2122 $2122): every
        line sets CGRAM[0] (the backdrop) to red = row & 31. */

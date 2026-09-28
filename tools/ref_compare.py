@@ -13,6 +13,13 @@ frame where WRAM differs and the first where the image differs; for the
 WRAM one, runs both again to that frame and lists the differing WRAM
 ranges. The reference's first frame is skipped (it starts mid-frame).
 
+Frames the probe marks as ending inside a general DMA skip the WRAM
+comparison: the probe moves all of a DMA's bytes at its start and then lets
+the time pass, where hardware (and the reference) moves one byte per 8
+clocks, so a WRAM snapshot there catches the reference partway. Nothing can
+observe the difference (the CPU is stopped for the DMA); the picture is
+still compared.
+
 Known differences: where the reference emulator is known to differ from
 hardware and ct-recomp follows hardware, KNOWN_DIFFERENCES below lists it,
 and the probe reproduces the reference's behavior for that one point
@@ -42,8 +49,8 @@ KNOWN_DIFFERENCES = [
 def read_log(path):
     out = {}
     for line in open(path):
-        f, w, v = line.split()
-        out[int(f)] = (w, v)
+        f, w, v, *flags = line.split()
+        out[int(f)] = (w, v, "dma" in flags)
     return out
 
 
@@ -99,10 +106,15 @@ def main() -> int:
             if g < 2 or g not in theirs:
                 continue
             for k, name in ((0, "wram"), (1, "frame")):
+                if name == "wram" and mine[f][2]:
+                    continue   # the frame edge fell inside a general DMA (see above)
                 if first[name] is None and mine[f][k] != theirs[g][k]:
                     first[name] = f
         compared = sum(1 for f in mine if f + a.offset >= 2 and f + a.offset in theirs)
         print(f"ref_compare: {compared} frames compared (ours f vs reference f{a.offset:+d})")
+        skipped = sum(1 for f in mine if mine[f][2])
+        if skipped:
+            print(f"ref_compare: {skipped} frames end inside a general DMA: WRAM not compared there")
         for name, ref, hw in ([] if a.no_known_differences else KNOWN_DIFFERENCES):
             print(f"ref_compare: known difference reproduced ({name}): {ref}; hardware: {hw}")
         for name in ("wram", "frame"):

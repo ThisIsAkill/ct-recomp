@@ -23,6 +23,8 @@
  * --ref-log FILE  write "frame wram_hash frame_hash" per frame to FILE, the
  *                  hashes tools/mesen_ref.py logs from a reference emulator:
  *                  FNV-1a 64 of WRAM, and of the frame as 15-bit pixels
+ *                  (" dma" appended when the frame edge fell inside a general
+ *                  DMA: its bytes all landed at its start)
  * --wram FILE      write the 128 KB of WRAM to FILE at the last frame edge
  * --vram FILE      likewise the 64 KB of VRAM, then CGRAM (512 bytes) and
  *                  OAM (544 bytes)
@@ -40,6 +42,8 @@
  *                  (repeatable)
  * --first-exec F   write "ADDR clock" to F the first time each instruction
  *                  address runs (for timing comparisons against a reference)
+ * --trace LO:HI F  write "ADDR clock X Y" to F for every instruction starting
+ *                  at master clock LO-HI (for trace diffs against a reference)
  * --interp-only    run everything in the interpreter (no native dispatch)
  * --ref-quirk NAME reproduce a reference emulator's quirk, for comparisons
  *                  only (tools/ref_compare.py): mesen-dma-count8
@@ -123,6 +127,8 @@ static uint32_t at_pc[MAX_AT];
 static int at_seen[MAX_AT], n_at;
 
 static FILE *first_exec;
+static FILE *trace_out;
+static unsigned long long trace_lo, trace_hi;
 static uint8_t *seen_pc;   /* one bit per 24-bit address */
 
 static void trace(const CPU *c, uint32_t at)
@@ -130,6 +136,11 @@ static void trace(const CPU *c, uint32_t at)
     if (first_exec && !(seen_pc[at >> 3] & 1 << (at & 7))) {
         seen_pc[at >> 3] |= (uint8_t)(1 << (at & 7));
         fprintf(first_exec, "%06X %llu\n", at, (unsigned long long)sched_clock());
+    }
+    if (trace_out) {
+        unsigned long long t = sched_clock();
+        if (t >= trace_lo && t <= trace_hi)
+            fprintf(trace_out, "%06X %llu %04X %04X\n", at, t, c->X, c->Y);
     }
     for (int k = 0; k < n_at; k++)
         if (at == at_pc[k] && at_seen[k]++ < 20)
@@ -276,9 +287,9 @@ static void on_frame(long f)
     if (f == last_frame && (wram_path || vram_path || aram_path))
         dump_state();
     if (ref_log)
-        fprintf(ref_log, "%ld %016llx %016llx\n", f,
+        fprintf(ref_log, "%ld %016llx %016llx%s\n", f,
                 (unsigned long long)fnv(0xCBF29CE484222325ull, bus_wram(), 0x20000),
-                (unsigned long long)frame_hash());
+                (unsigned long long)frame_hash(), sched_frame_in_dma() ? " dma" : "");
 }
 
 int main(int argc, char **argv)
@@ -347,6 +358,15 @@ int main(int argc, char **argv)
                 fprintf(stderr, "ct_boot: cannot write %s\n", argv[k]);
                 return 2;
             }
+        } else if (!strcmp(argv[k], "--trace") && k + 2 < argc) {
+            if (sscanf(argv[++k], "%llu:%llu", &trace_lo, &trace_hi) != 2 || trace_lo > trace_hi) {
+                fprintf(stderr, "ct_boot: bad --trace %s\n", argv[k]);
+                return 2;
+            }
+            if (!(trace_out = fopen(argv[++k], "w"))) {
+                fprintf(stderr, "ct_boot: cannot write %s\n", argv[k]);
+                return 2;
+            }
         } else if (!strcmp(argv[k], "--ref-quirk") && k + 1 < argc) {
             if (!strcmp(argv[++k], "mesen-dma-count8"))
                 snes_ref_quirks |= SNES_QUIRK_MESEN_DMA_COUNT8;
@@ -362,7 +382,7 @@ int main(int argc, char **argv)
             fprintf(stderr, "usage: ct_boot [--frames N] [--dump DIR] [--needed-hw FILE] "
                             "[--min-nmis K] [--require-render] [--wav FILE] "
                             "[--require-audio] [--input F1-F2:BUTTONS] [--script FILE] "
-                            "[--expect-pc ADDR] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--aram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--first-exec FILE] [--ref-quirk NAME] [--interp-only]\n");
+                            "[--expect-pc ADDR] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--aram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--first-exec FILE] [--trace LO:HI FILE] [--ref-quirk NAME] [--interp-only]\n");
             return 2;
         }
     }
@@ -410,6 +430,8 @@ int main(int argc, char **argv)
         fclose(hash_log);
     if (first_exec)
         fclose(first_exec);
+    if (trace_out)
+        fclose(trace_out);
     if (ref_log)
         fclose(ref_log);
     if ((wram_path || vram_path) && !dumped_state)

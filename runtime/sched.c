@@ -84,6 +84,10 @@ static int init_done;            /* line 0: the HDMA init point passed */
 static int need_start;           /* line 0 not started yet (sched_init) */
 static unsigned start_delay;     /* clocks before the first instruction */
 static int frame_done;
+/* The last general DMA's span (master clocks). Its bytes all land at the
+   $420B write; the time passes after. */
+static uint64_t dma_lo, dma_hi;
+static int edge_in_dma;   /* this frame edge fell inside it */
 static uint64_t frame_clock;       /* line 0's start */
 static void (*frame_hook)(long frame);
 /* Interrupts entered minus RTIs executed, native or interpreted. */
@@ -369,6 +373,8 @@ void sched_init(CPU *c)
     take_irq = wai_over = skip_check = walked = 0;
     insn_i = 1;
     line_start = frame_clock = 0;
+    dma_lo = dma_hi = 0;
+    edge_in_dma = 0;
     snes_apu_sync = apu_sync;
     snes_master_clock = sched_clock;
     snes_access_clock = access_clock;
@@ -495,10 +501,13 @@ static unsigned line_clocks(void)
     return line == 240 && (frames & 1) ? SCHED_CLOCKS_PER_LINE - 4 : SCHED_CLOCKS_PER_LINE;
 }
 
+int sched_frame_in_dma(void) { return edge_in_dma; }
+
 /* The frame hook sees memory as of the frame edge: WRAM writes the
    current instruction made after it are rolled back meanwhile. */
 static void edge_hook(void)
 {
+    edge_in_dma = dma_lo < line_start && line_start < dma_hi;
     uint8_t *w = bus_wram();
     unsigned n = ct_bus_n < CT_BUS_LOG ? ct_bus_n : CT_BUS_LOG;
     if (edge_undo_from >= 0)
@@ -604,6 +613,7 @@ struct walk {
     int refreshes;
     int edge;                     /* a frame edge passed */
     int undo_from;                /* first write after it (bus access number), or -1 */
+    uint64_t dma_lo, dma_hi;      /* a general DMA's span in it, if any */
 };
 
 static unsigned walk_line_clocks(const struct walk *w)
@@ -736,6 +746,7 @@ static int walk_pending(struct walk *w, unsigned speed)
         count += n;
     } else {
         pend.dma = 0;
+        w->dma_lo = w->t;
         walk_pass(w, 8, 0, NULL);
         count += 8;
         walk_dma_pending(w, &count);
@@ -752,6 +763,7 @@ static int walk_pending(struct walk *w, unsigned speed)
             }
             count += 8 * ((snes_ref_quirks & SNES_QUIRK_MESEN_DMA_COUNT8) ? (size & 0xFF) : size);
         }
+        w->dma_hi = w->t;
     }
     walk_pass(w, speed - count % speed, 0, NULL);
     return 1;
@@ -778,6 +790,7 @@ static void walk_init(struct walk *w)
     w->ls = line_start;
     w->line = line;
     w->frame = frames;
+    w->dma_lo = w->dma_hi = 0;
     w->refresh_done = refresh_done;
     w->hdma_done = hblank_done;
     w->init_done = init_done;
@@ -849,6 +862,10 @@ static void walk_commit(const struct walk *w, uint64_t start, uint64_t t)
 {
     refresh_paid += w->refreshes;
     edge_undo_from = w->undo_from;
+    if (w->dma_hi) {
+        dma_lo = w->dma_lo;
+        dma_hi = w->dma_hi;
+    }
     walked = 1;
     advance((unsigned)(t - start));
     walked = 0;

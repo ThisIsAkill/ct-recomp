@@ -81,6 +81,10 @@ void sched_set_frame_hook(void (*fn)(long frame));
 uint64_t sched_clock(void);
 /* Master clock of the last frame edge (line 0's start). */
 uint64_t sched_frame_clock(void);
+/* In the frame hook: the frame edge fell inside a general DMA, whose bytes
+   all landed at its start (on hardware, and in a reference emulator, only
+   some have by the edge). */
+int sched_frame_in_dma(void);
 long sched_nmi_count(void);
 int sched_line(void);
 
