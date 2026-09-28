@@ -19,7 +19,6 @@ static uint8_t present[SCHED_WIDTH * SCHED_HEIGHT * 4];   /* copied at VBlank */
 static int line;
 static unsigned hclock;         /* master clocks into the current line */
 static uint64_t line_start;     /* master clocks since sched_init at line start */
-static uint64_t spc_done;       /* SPC700 cycles run since sched_init */
 static long frames, nmis;
 static int nmi_pending;
 
@@ -37,6 +36,7 @@ static uint16_t pad[4];         /* current buttons per port (sched_set_joypad) *
 static uint16_t joy[4];         /* $4218-$421F: last auto-read result */
 
 static void apu_sync(unsigned early);
+static uint64_t access_clock(unsigned early);
 static void native_build(void);
 static void tick(CPU *c, uint32_t at, uint8_t op);
 
@@ -88,8 +88,9 @@ static void latch_counters(void)
 }
 
 /* SLHV returns CPU open bus. OPHCT/OPVCT: low byte, then bit 8 with the
-   other bits PPU2 open bus. STAT78: bit 5 PPU2 open bus, NTSC, no
-   interlace, PPU2 version 3. (fullsnes; bsnes readIO) */
+   other bits PPU2 open bus. STAT78: bit 7 the field (toggles every frame,
+   set on odd frames), bit 5 PPU2 open bus, NTSC, PPU2 version 3.
+   (fullsnes; bsnes readIO) */
 static uint8_t slhv_read(uint16_t reg)
 {
     if (wrio & 0x80)
@@ -120,7 +121,7 @@ static uint8_t opvct_read(uint16_t reg)
 static uint8_t stat78_read(uint16_t reg)
 {
     (void)reg;
-    uint8_t v = (uint8_t)(lat_flag << 6 | (snes_ppu2_mdr() & 0x20) | 3);
+    uint8_t v = (uint8_t)((frames & 1) << 7 | lat_flag << 6 | (snes_ppu2_mdr() & 0x20) | 3);
     lat_flag = 0;
     ophct_hi = opvct_hi = 0;
     snes_set_ppu2_mdr(v);
@@ -240,9 +241,10 @@ void sched_init(CPU *c)
     shadow_n = 0;
     memset(prof, 0, sizeof prof);
     nmi_pending = 0;
-    line_start = spc_done = 0;
+    line_start = 0;
     snes_apu_sync = apu_sync;
     snes_master_clock = sched_clock;
+    snes_access_clock = access_clock;
     dsp_output_hook = dsp_out;
     ring_head = ring_len = 0;
     nmitimen = rdnmi = 0;
@@ -278,15 +280,23 @@ void sched_init(CPU *c)
    time) and at the end of each line, so the upload handshake sees the
    driver respond at a plausible pace. Deterministic. */
 
+/* Master clock of the access being made, `early` clocks before its end.
+   Events apply at instruction boundaries, but a DRAM refresh due before
+   that point inside the instruction has already paused the CPU there. */
+static uint64_t access_clock(unsigned early)
+{
+    int64_t h = (int64_t)hclock + cyc_elapsed() - early;
+    if (h < 0)
+        h = 0;
+    uint64_t at = line_start + (uint64_t)h;
+    if (!refresh_done && refresh_at <= (uint64_t)h)
+        at += REFRESH_CLOCKS;
+    return at;
+}
+
 static void apu_sync(unsigned early)
 {
-    /* To the access being made, not the start of its instruction. */
-    uint64_t at = line_start + hclock + cyc_elapsed();
-    uint64_t want = (at > early ? at - early : 0) * SCHED_SPC_HZ / SCHED_MASTER_HZ;
-    if (want > spc_done) {
-        snes_apu_run((uint32_t)(want - spc_done));
-        spc_done = want;
-    }
+    snes_apu_catch_up(access_clock(early));
 }
 
 /* ---- frame ---- */
@@ -351,9 +361,18 @@ static void begin_line(void)
     refresh_done = 0;
 }
 
+/* Clocks in the current line: 1364, except that without interlace line
+   240 of every other frame (STAT78 field bit set; frame 1, 3, ...) is 1360
+   (fullsnes; Mesen 2). Interlace isn't modeled (SETINI bits 0-1 have no
+   effect in the vendored PPU), so this is the non-interlace timing. */
+static unsigned line_clocks(void)
+{
+    return line == 240 && (frames & 1) ? SCHED_CLOCKS_PER_LINE - 4 : SCHED_CLOCKS_PER_LINE;
+}
+
 static unsigned next_event(void)
 {
-    unsigned t = SCHED_CLOCKS_PER_LINE;
+    unsigned t = line_clocks();
     if (!hblank_done && SCHED_HBLANK_CLOCK < t)
         t = SCHED_HBLANK_CLOCK;
     if (!irq_done && (unsigned)irq_at < t)
@@ -378,10 +397,11 @@ static void advance(unsigned clocks)
         } else if (!irq_done && hclock >= (unsigned)irq_at) {
             timeup = 0x80;
             irq_done = 1;
-        } else if (hclock >= SCHED_CLOCKS_PER_LINE) {
+        } else if (hclock >= line_clocks()) {
             apu_sync(0);
-            hclock -= SCHED_CLOCKS_PER_LINE;
-            line_start += SCHED_CLOCKS_PER_LINE;
+            unsigned len = line_clocks();
+            hclock -= len;
+            line_start += len;
             if (++line == SCHED_LINES) {
                 line = 0;
                 frames++;

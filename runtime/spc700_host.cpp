@@ -6,10 +6,10 @@
  * it reaches the cycle it was asked to run to, mid-instruction if need be,
  * so the SPC700 is exactly at the CPU's time on every $2140-$2143 access.
  *
- * Access timing within a cycle (bsnes/ares SMP::read/write): a read of the
- * CPU ports $F4-$F7 samples mid-cycle (the port hook in snes_adapter.c
- * sees the index of this cycle), other reads after the cycle's wait, and
- * writes at the end of the cycle. */
+ * Access timing within a cycle, as Mesen 2 has it (the boot reference,
+ * #33): every read and write lands at the end of its cycle, after the
+ * DSP and timers have stepped. spc_host_cycle_end, if set, runs after
+ * each cycle's access (the CPU-port latch in snes_adapter.c). */
 #include <stdint.h>
 #include <stdlib.h>
 #include <ucontext.h>
@@ -73,11 +73,14 @@ auto SPC700::power() -> void {
 #undef alu
 }  // namespace ares
 
+void (*spc_host_cycle_end)(void);
+void (*spc_host_write_hook)(uint16_t address, uint8_t data);
+
 namespace {
 
 struct Host : ares::SPC700 {
     Apu *apu = nullptr;
-    uint64_t cycle = 0;    /* index of the cycle about to run */
+    uint64_t cycle = 0;    /* cycles run (ticked) so far */
     uint64_t target = 0;   /* run cycles below this, then yield */
     ucontext_t core_ctx, caller_ctx;
     void *stack = nullptr;
@@ -92,27 +95,30 @@ struct Host : ares::SPC700 {
         apu_tick(apu);
         cycle++;
     }
+    void end() {
+        if (spc_host_cycle_end)
+            spc_host_cycle_end();
+    }
 
     auto idle() -> void override {
         begin();
         tick();
+        end();
     }
     auto read(ares::n16 address) -> ares::n8 override {
         begin();
-        uint8_t v;
-        if ((address & 0xFFFC) == 0x00F4) {   /* ports: mid-cycle */
-            v = apu_cpuRead(apu, address);
-            tick();
-        } else {
-            tick();
-            v = apu_cpuRead(apu, address);
-        }
+        tick();
+        uint8_t v = apu_cpuRead(apu, address);
+        end();
         return v;
     }
     auto write(ares::n16 address, ares::n8 data) -> void override {
         begin();
         tick();
         apu_cpuWrite(apu, address, data);
+        if (spc_host_write_hook)
+            spc_host_write_hook(address, data);
+        end();
     }
     auto synchronizing() const -> bool override { return false; }
 };
@@ -133,8 +139,12 @@ extern "C" void spc_host_reset(Apu *apu)
     host.apu = apu;
     host.cycle = host.target = 0;
     host.power();
-    /* SMP::power: PC from the IPL ROM's reset vector. */
+    /* PC from the IPL ROM's reset vector, read through two bus cycles
+       (Mesen 2, the boot reference, #33; bsnes/ares load it with none):
+       the first instruction starts at cycle 2. */
     host.r.pc.w = (uint32_t)(apu_cpuRead(apu, 0xFFFE) | apu_cpuRead(apu, 0xFFFF) << 8);
+    host.tick();
+    host.tick();
     if (!host.stack)
         host.stack = malloc(STACK);
     getcontext(&host.core_ctx);

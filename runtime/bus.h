@@ -17,6 +17,9 @@ void bus_reset(void);
 uint8_t  read8(uint32_t addr);
 void     write8(uint32_t addr, uint8_t v);
 uint16_t read16(uint32_t addr);             /* lo at addr, hi at addr+1 (24-bit) */
+/* The byte at addr without an access: no clocks, no hooks (hardware
+   registers read as the last bus value). */
+uint8_t  bus_peek(uint32_t addr);
 void     write16(uint32_t addr, uint16_t v);
 
 /* Hardware registers $2000-$5FFF in banks $00-$3F/$80-$BF.

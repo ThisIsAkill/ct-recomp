@@ -3,6 +3,7 @@
  * per-line HDMA gradient rendered by the vendored PPU. */
 #include "harness.h"
 #include "sched.h"
+#include "spc700_host.h"
 
 static void put(uint16_t at, const uint8_t *p, unsigned n)
 {
@@ -23,9 +24,11 @@ static void clock_trace(const CPU *c, uint32_t at)
     }
 }
 
-/* General DMA pauses the CPU (bsnes dmaEdge/dmaRun): sync to 8 clocks,
-   8 overhead, 8 per channel plus 8 per byte, re-align 1-6 clocks; plus
-   the line's DRAM refresh if the pause runs past it. */
+/* General DMA pauses the CPU (Mesen 2's timing, #33): it starts after the
+   CPU's next cycle (the NOP's opcode fetch, 8 clocks from WRAM), syncs to
+   8 clocks, then 8 overhead, 8 per channel plus 8 per byte, and re-aligns
+   1-6 clocks to the NOP's internal cycle counting only the low 8 bits of
+   the byte count; plus each line's DRAM refresh the pause runs past. */
 static void test_dma_timing(void)
 {
     static const uint8_t prog[] = {
@@ -34,8 +37,8 @@ static void test_dma_timing(void)
         0x9C, 0x02, 0x43,               /* STZ $4302 */
         0xA9, 0x30, 0x8D, 0x03, 0x43,   /* LDA #$30 / STA $4303: to $xx3000 */
         0xA9, 0x7E, 0x8D, 0x04, 0x43,   /* LDA #$7E / STA $4304: bank $7E */
-        0xA9, 0x40, 0x8D, 0x05, 0x43,   /* LDA #$40 / STA $4305: $0040 bytes */
-        0x9C, 0x06, 0x43,               /* STZ $4306 */
+        0xA9, 0x40, 0x8D, 0x05, 0x43,   /* LDA #$40 / STA $4305 */
+        0xA9, 0x01, 0x8D, 0x06, 0x43,   /* LDA #$01 / STA $4306: $0140 bytes */
         0xA9, 0x01, 0x8D, 0x0B, 0x42,   /* LDA #$01 / STA $420B: go */
         0xEA,                           /* NOP */
         0xCB, 0x80, 0xFD,               /* WAI / BRA */
@@ -56,21 +59,116 @@ static void test_dma_timing(void)
     sched_run_frame();
     ct_trace_hook = NULL;
     int k;
-    for (k = 0; k + 1 < n_at && pc_at[k] != 0x7E2421; k++)
+    for (k = 0; k + 1 < n_at && pc_at[k] != 0x7E2423; k++)
         ;
     CHECK(k + 1 < n_at, "STA $420B traced");
     /* STA abs: 4 cycles (opcode+2 operand fetches from WRAM, 8 each; the
        $420B write, 6). */
     uint64_t d = clk_at[k + 1] - clk_at[k], sta = 3 * 8 + 6;
-    uint64_t lo = sta + 1 + 8 + 8 + 8 * 0x40 + 1, hi = sta + 8 + 8 + 8 + 8 * 0x40 + 6 + 40;
-    CHECK(d >= lo && d <= hi, "STA $420B + $40-byte DMA: %llu clocks, want %llu-%llu",
-          (unsigned long long)d, (unsigned long long)lo, (unsigned long long)hi);
+    uint64_t t = clk_at[k] + sta + 8;   /* the DMA starts after the NOP's fetch */
+    unsigned align = 8 - (unsigned)(t & 7);
+    unsigned n = align + 8 + 8 + 8 * 0x140, count = align + 8 + 8 + 8 * 0x40;
+    uint64_t want = sta + n + 6 - count % 6;
+    /* ~2600 clocks: up to two lines' refresh (40 each) fall inside. */
+    CHECK(d == want || d == want + 40 || d == want + 80,
+          "STA $420B + $140-byte DMA: %llu clocks, want %llu (+40 per refresh)",
+          (unsigned long long)d, (unsigned long long)want);
+}
+
+
+/* Frame edges with the CPU in WAI (NMI off): line 240 of every other
+   frame is 4 clocks short (no interlace), and STAT78 bit 7 is that frame's
+   field. */
+static uint64_t edge_clk[4];
+static int edge_field[4];
+static void edge_hook(long f)
+{
+    if (f < 4) {
+        edge_clk[f] = sched_clock();
+        edge_field[f] = read8(0x213F) >> 7;
+    }
+}
+
+static void test_short_line(void)
+{
+    static const uint8_t prog[] = { 0xCB, 0x80, 0xFD };   /* WAI / BRA */
+    static CPU c;
+    bus_reset();
+    put(0x2400, prog, sizeof prog);
+    interp_reset(&c);
+    c.e = 0;
+    c.PB = 0x7E;
+    c.PC = 0x2400;
+    c.S = 0x01FF;
+    sched_init(&c);
+    sched_set_frame_hook(edge_hook);
+    for (int f = 0; f < 3; f++)
+        sched_run_frame();
+    sched_set_frame_hook(NULL);
+    CHECK(edge_clk[1] == 262 * 1364, "frame 0: %llu clocks", (unsigned long long)edge_clk[1]);
+    CHECK(edge_clk[2] - edge_clk[1] == 262 * 1364 - 4, "frame 1 (short line 240): %llu clocks",
+          (unsigned long long)(edge_clk[2] - edge_clk[1]));
+    CHECK(edge_field[1] == 1 && edge_field[2] == 0, "field bit: %d %d", edge_field[1],
+          edge_field[2]);
+}
+
+/* A port access after a DRAM refresh inside its own instruction is timed
+   after the refresh: the SPC700 is brought up to the access's clock. */
+static uint64_t spc_at[64];
+static void spc_trace(const CPU *c, uint32_t at)
+{
+    if (n_at < 64)
+        spc_at[n_at] = 2 * spc_host_cycle();
+    clock_trace(c, at);
+}
+
+static void test_refresh_access_clock(void)
+{
+    static uint8_t prog[40 * 3 + 3];
+    for (int k = 0; k < 40; k++) {   /* STA $2140 x40: 30 clocks each */
+        prog[3 * k] = 0x8D;
+        prog[3 * k + 1] = 0x40;
+        prog[3 * k + 2] = 0x21;
+    }
+    prog[120] = 0xCB;   /* WAI / BRA */
+    prog[121] = 0x80;
+    prog[122] = 0xFD;
+    static CPU c;
+    bus_reset();
+    put(0x2400, prog, sizeof prog);
+    interp_reset(&c);
+    c.e = 0;
+    c.PB = 0x7E;
+    c.PC = 0x2400;
+    c.m = c.x = 1;
+    c.S = 0x01FF;
+    sched_init(&c);
+    n_at = 0;
+    ct_trace_hook = spc_trace;
+    sched_run_frame();
+    ct_trace_hook = NULL;
+    double r = 32040.0 * 64 / 21477270.0;   /* SPC700 half-cycles per master clock */
+    int straddled = 0;
+    for (int k = 0; k + 1 < n_at && pc_at[k + 1] < 0x7E2400 + 120; k++) {
+        uint64_t d = clk_at[k + 1] - clk_at[k];
+        CHECK(d == 30 || d == 70, "STA $2140 %d: %llu clocks", k, (unsigned long long)d);
+        uint64_t m = clk_at[k + 1];   /* the write ends the instruction */
+        straddled += d == 70;
+        int64_t target = (int64_t)((double)m * r) - 1;
+        int64_t hi = target + 1 > 4 ? target + 1 : 4;   /* it starts at 4 (2-cycle reset) */
+        CHECK((int64_t)spc_at[k + 1] >= target && (int64_t)spc_at[k + 1] <= hi,
+              "STA %d: SPC700 at %llu, want %lld", k, (unsigned long long)spc_at[k + 1],
+              (long long)target);
+    }
+    CHECK(straddled == 1, "one STA runs over the refresh: %d", straddled);
 }
 
 int main(void)
 {
     th_bus_init();
     test_dma_timing();
+    test_short_line();
+    test_refresh_access_clock();
 
     /* HDMA channel 7, mode 3 (4 bytes to $2121 $2121 $2122 $2122): every
        line sets CGRAM[0] (the backdrop) to red = row & 31. */

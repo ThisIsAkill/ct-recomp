@@ -4,23 +4,24 @@ Written by `tools/progress.py`. Do not edit by hand.
 
 | Metric | Value |
 |---|---|
-| Routines recompiled | 397 |
-| Emitted C functions (routine x entry state) | 411 |
-| ROM bytes covered | 39399 |
-| Functions known total (validated + unresolved) | 1033 |
-| Functions validated | 397 |
-| Functions unresolved (pending sync) | 636 |
+| Routines recompiled | 398 |
+| Emitted C functions (routine x entry state) | 412 |
+| ROM bytes covered | 39860 |
+| Functions known total (validated + pending + unresolved) | 1033 |
+| Functions validated | 398 |
+| Functions unresolved (pending sync) | 634 |
+| Manual roots not yet emittable | 1 |
 | Opcodes implemented | 251 / 256 |
 | Opcodes used by recompiled routines | 138 / 256 |
 | Opcode x width combinations implemented | 446 |
-| Tests passing | 24 / 24 |
-| Test assertions checked | 610258361 |
+| Tests passing | 56 / 57 |
+| Test assertions checked | 610244168 |
 
 ## Coverage by bank
 
 | Bank | Bytes |
 |---|---|
-| $C0 | 25972 |
+| $C0 | 26433 |
 | $C1 | 9062 |
 | $C2 | 2095 |
 | $C3 | 863 |
@@ -32,7 +33,7 @@ Written by `tools/progress.py`. Do not edit by hand.
 
 | Bank | Validated | Unresolved | Known total |
 |---|---|---|---|
-| $C0 | 192 | 636 | 828 |
+| $C0 | 193 | 634 | 827 |
 | $C1 | 106 | 0 | 106 |
 | $C2 | 71 | 0 | 71 |
 | $C3 | 1 | 0 | 1 |
@@ -399,6 +400,7 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Camera_UpdateScroll | $C09AD3 | m1x0, m1x1 | 290 | bankc0 |
 | Camera_CheckZoneMatch | $C09C37 | m1x1 | 37 | bankc0 |
 | Camera_ApplyVelocity | $C09C5C | m0x1 | 359 | bankc0 |
+| Map_LoadAndApplyConfig | $C0A33B | m1x0 | 461 | bankc0 |
 | CODE_FN_C0A508 | $C0A508 | m1x0 | 1 | bankc0 |
 | Field_WriteScreenDesignation | $C0A509 | m1x0 | 24 | bankc0 |
 | Map_BuildExitGrid | $C0A66B | m1x0 | 167 | bankc0 |
@@ -450,27 +452,60 @@ $00 BRK imm, $01 ORA dp_x_ind, $02 COP imm, $03 ORA sr, $04 TSB dp, $05 ORA dp, 
 
 | Test | Result |
 |---|---|
-| runtime | Passed |
-| runtime_fatal_open_bus | Passed |
-| runtime_fatal_rom_write | Passed |
-| runtime_fatal_unhooked | Passed |
-| runtime_fatal_decimal | Passed |
-| runtime_fatal_entry | Passed |
-| c1_math_mul8 | Passed |
-| interp_c1_math_mul8 | Passed |
-| c1_math_mulaccum | Passed |
+| boot_menu | Passed |
+| boot_interp | Passed |
+| lockstep_boot | Passed |
 | interp_c1_math_mulaccum | Passed |
-| c1_math_divide | Passed |
 | interp_c1_math_divide | Passed |
-| c1_math_shifts | Passed |
+| c1_math_mulaccum | Passed |
+| interp_c1_text_reencode | Passed |
+| c1_text_divten | Passed |
+| c1_math_divide | Passed |
+| sync_determinism | Passed |
+| interp_c1_text_format | Passed |
+| c1_text_reencode | Passed |
+| sdl_boot | Passed |
+| tas_convert | Passed |
+| runtime | Passed |
+| interp_c1_ui_gauge | Passed |
 | interp_c1_math_shifts | Passed |
 | c1_text_format | Passed |
-| interp_c1_text_format | Passed |
-| c1_text_divten | Passed |
-| interp_c1_text_divten | Passed |
-| c1_text_reencode | Passed |
-| interp_c1_text_reencode | Passed |
+| manual_root | Passed |
+| c1_math_shifts | Passed |
+| lockstep_report | Passed |
+| resample | Passed |
 | c1_ui_gauge | Passed |
-| interp_c1_ui_gauge | Passed |
-| diff_all | Passed |
-| sync_determinism | Skipped |
+| c1_math_mul8 | Passed |
+| native | Passed |
+| diff_open_bus | Passed |
+| runtime_fatal_entry | Passed |
+| runtime_fatal_rom_write | Passed |
+| interp_c1_math_mul8 | Passed |
+| runtime_fatal_decimal | Passed |
+| runtime_fatal_open_bus | Passed |
+| runtime_fatal_unhooked | Passed |
+| input | Passed |
+| stack_guard | Passed |
+| interp_modes | Passed |
+| interp_system | Passed |
+| replay | Passed |
+| hw_map | Passed |
+| dsp | Passed |
+| snes_bus | Passed |
+| sched | Passed |
+| check_agnostic | Passed |
+| diff_all_4 | Passed |
+| interp_c1_text_divten | Passed |
+| diff_all_3 | Passed |
+| diff_all_2 | Passed |
+| diff_all_7 | Passed |
+| lockstep_leene_square | Passed |
+| sdl_audio_60s | Failed |
+| native_coverage | Passed |
+| lockstep_gato_battle | Passed |
+| battle_no_flicker | Passed |
+| diff_all_1 | Passed |
+| diff_all_6 | Passed |
+| sdl_record | Passed |
+| diff_all_5 | Passed |
+| diff_all_0 | Passed |

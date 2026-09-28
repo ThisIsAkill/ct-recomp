@@ -9,6 +9,7 @@
 #include "dma.h"
 #include "sched.h"
 #include "snes_adapter.h"
+#include "spc700_host.h"
 
 static void test_ppu_registers(void)
 {
@@ -129,30 +130,32 @@ static void test_readonly_writes(void)
           hw_note_text(before));
 }
 
-/* SPC700 reads of $F4-$F7 happen mid-cycle (bsnes SMP::read): a CPU
-   write that lands after the middle of the SPC cycle doing the read isn't
-   seen by it. Master clock as the adapter sees it, set by the test. */
+/* A CPU write reaches the SPC700's port latch at once when the SPC700 is
+   within one half-cycle of its input clock of the CPU's time, otherwise
+   after the SPC700's next cycle (Mesen 2's timing, #33). Master clock of
+   the access as the adapter sees it, set by the test. */
 static uint64_t fake_clock;
-static uint64_t test_clock(void) { return fake_clock; }
+static uint64_t test_clock(unsigned early) { (void)early; return fake_clock; }
 
 static void test_port_write_timing(void)
 {
     bus_reset();
-    snes_master_clock = test_clock;
+    CHECK(spc_host_cycle() == 2, "SPC700 reset reads its vector in 2 cycles: %llu",
+          (unsigned long long)spc_host_cycle());
+    snes_access_clock = test_clock;
     Apu *apu = snes_hw_apu();
-    snes_apu_run(100);   /* SPC cycles 0-99 done; the next is cycle 100 */
-    /* Cycle 100 spans master clocks [100, 101) * SCHED_MASTER_HZ / SPC_HZ;
-       its middle is at 100.5 of those units. */
-    double unit = (double)SCHED_MASTER_HZ / SCHED_SPC_HZ;
-    fake_clock = (uint64_t)(100.75 * unit);   /* after the middle */
+    snes_apu_run(100);
+    double half = 21477270.0 / (32040.0 * 64);   /* master clocks per half-cycle */
+    double h = 2.0 * (double)spc_host_cycle();   /* SPC700 time, half-cycles */
+    fake_clock = (uint64_t)((h + 1.5) * half);   /* 1.5 half-cycles ahead */
     write8(0x2140, 0x5A);
-    CHECK(apu_inport_read(apu, 0) != 0x5A, "write after the read's middle: not seen yet");
-    snes_apu_run(1);                          /* now in cycle 101 */
-    CHECK(apu_inport_read(apu, 0) == 0x5A, "seen in the next cycle");
-    fake_clock = (uint64_t)(101.25 * unit);   /* before cycle 101's middle */
+    CHECK(apu_inport_read(apu, 0) != 0x5A, "1.5 half-cycles ahead: not seen yet");
+    snes_apu_run(1);
+    CHECK(apu_inport_read(apu, 0) == 0x5A, "seen after the SPC700's next cycle");
+    fake_clock = (uint64_t)((h + 2.5) * half);   /* half a half-cycle ahead */
     write8(0x2140, 0x77);
-    CHECK(apu_inport_read(apu, 0) == 0x77, "write before the read's middle: seen");
-    snes_master_clock = NULL;
+    CHECK(apu_inport_read(apu, 0) == 0x77, "within a half-cycle: seen at once");
+    snes_access_clock = NULL;
 }
 
 int main(void)

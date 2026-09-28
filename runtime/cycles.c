@@ -106,6 +106,7 @@ static unsigned stall;   /* cyc_stall clocks for the current instruction */
 void cyc_stall(unsigned clocks) { stall += clocks; }
 
 static unsigned elapsed_fetches(void);
+static unsigned cur_size(void);
 
 static const uint8_t op_size[256] = {   /* bytes with M=X=1 (recomp/decode.py) */
     2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 1, 1, 3, 3, 3, 4,
@@ -157,11 +158,7 @@ void cyc_begin_compiled(const CPU *c, uint32_t at, uint8_t op)
 {
     cyc_begin(c, at, op);
     cur.compiled = 1;
-    cur.size = op_size[op];
-    if (cur.m16 && (op & 0x1F) == 0x09)   /* ORA AND EOR ADC BIT LDA CMP SBC #imm */
-        cur.size++;
-    if (cur.x16 && (op == 0xA0 || op == 0xA2 || op == 0xC0 || op == 0xE0))   /* LDY LDX CPY CPX */
-        cur.size++;
+    cur.size = cur_size();   /* immediates grow with M (ORA..SBC #) and X (LDY LDX CPY CPX) */
 }
 
 static unsigned elapsed_fetches(void)
@@ -174,6 +171,36 @@ unsigned cyc_elapsed(void)
     if (!cur.pending)
         return 0;
     return cur.speed * (1 + elapsed_fetches()) + ct_bus_clocks;
+}
+
+static unsigned cur_size(void)
+{
+    unsigned size = op_size[cur.op];
+    if (cur.m16 && (cur.op & 0x1F) == 0x09)
+        size++;
+    if (cur.x16 && (cur.op == 0xA0 || cur.op == 0xA2 || cur.op == 0xC0 || cur.op == 0xE0))
+        size++;
+    return size;
+}
+
+void cyc_next_cycles(unsigned *first, unsigned *second)
+{
+    uint32_t pc = (cur.at & 0xFF0000) | (uint16_t)(cur.at + cur_size());
+    *first = cyc_master_per_cycle((uint8_t)(pc >> 16), (uint16_t)pc);
+    *second = op_size[bus_peek(pc)] == 1 ? 6 : *first;
+}
+
+int cyc_wide_store(void)
+{
+    switch (cur.op) {
+    case 0x81: case 0x83: case 0x85: case 0x87: case 0x8D: case 0x8F: case 0x91:
+    case 0x92: case 0x93: case 0x95: case 0x97: case 0x99: case 0x9D: case 0x9F:
+    case 0x64: case 0x74: case 0x9C: case 0x9E:
+        return cur.m16;
+    case 0x86: case 0x8E: case 0x96: case 0x84: case 0x8C: case 0x94:
+        return cur.x16;
+    }
+    return 0;
 }
 
 unsigned cyc_finish(void)

@@ -278,6 +278,17 @@ uint8_t read8(uint32_t a)
     }
 }
 
+uint8_t bus_peek(uint32_t a)
+{
+    uint32_t off;
+    switch (decode_addr(a & 0xFFFFFF, &off)) {
+    case R_WRAM: return wram[off];
+    case R_SRAM: return sram[off];
+    case R_ROM:  return rom[off];
+    default:     return bus_mdr;
+    }
+}
+
 void write8(uint32_t a, uint8_t v)
 {
     ct_bus_clocks += bus_access_clocks(a & 0xFFFFFF);

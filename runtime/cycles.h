@@ -33,6 +33,14 @@ void cyc_stall(unsigned clocks);
    so far (internal cycles in between aren't known; see cycles.c). */
 unsigned cyc_elapsed(void);
 
+/* Master clocks of the two CPU cycles after the current instruction: the
+   next opcode fetch, then its operand fetch or, for a one-byte opcode, a
+   6-clock internal cycle. */
+void cyc_next_cycles(unsigned *first, unsigned *second);
+/* The current instruction stores 16 bits (STA/STZ with M=0, STX/STY with
+   X=0). */
+int cyc_wide_store(void);
+
 /* Opcode fetch speed at PB:PC: 6 for FastROM (banks $80-$FF ROM with
    MEMSEL bit 0), otherwise 8. */
 unsigned cyc_master_per_cycle(uint8_t pb, uint16_t pc);

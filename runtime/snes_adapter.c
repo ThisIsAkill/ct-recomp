@@ -191,9 +191,37 @@ static void ppu_reg_write(uint16_t reg, uint8_t v)
 /* ---- $2140-$2143 APU communication ports, mirrored through $217F ----
  * CPU side: writes land in the SPC700's input ports (what it reads at
  * $F4-$F7), reads return its output ports (what it wrote there).
- * apu_cpuRead/apu_cpuWrite are the SPC700's own memory map, not this. */
+ * apu_cpuRead/apu_cpuWrite are the SPC700's own memory map, not this.
+ *
+ * CPU/SPC700 timing follows Mesen 2, the reference the boot is compared
+ * against (#33); bsnes/ares resolve a handshake within a cycle
+ * differently. SPC700 time is counted in half-cycles of its 2.05 MHz
+ * input clock (2 per SPC700 cycle), at master * 32040 * 64 / 21477270
+ * (Mesen's NTSC master rate):
+ * - Before any CPU port access the SPC700 runs whole cycles while its
+ *   count is below that value (truncated) minus 1.
+ * - A CPU write that changes a port lands in the SPC700's latch at once
+ *   if the SPC700 is within one half-cycle of the CPU's time, otherwise
+ *   after the SPC700's next cycle (all four latches together).
+ * - SPC700 accesses land at the end of their cycle (spc700_host.cpp). */
 
 void (*snes_apu_sync)(unsigned early);
+uint64_t (*snes_master_clock)(void);
+uint64_t (*snes_access_clock)(unsigned early);
+
+#define SPC_HALF_PER_MASTER (32040.0 * 64 / 21477270.0)
+
+static uint8_t port_new[4];   /* last CPU write per port */
+static uint8_t port_vis[4];   /* what the SPC700 reads at $F4-$F7 */
+static int port_pending;
+
+void snes_apu_catch_up(uint64_t master)
+{
+    int64_t target = (int64_t)((double)master * SPC_HALF_PER_MASTER) - 1;
+    int64_t half = 2 * (int64_t)spc_host_cycle();
+    if (half < target)
+        spc_host_run((uint32_t)((target - half + 1) / 2));
+}
 
 static uint8_t apu_reg_read(uint16_t reg)
 {
@@ -202,32 +230,46 @@ static uint8_t apu_reg_read(uint16_t reg)
     return g_apu->outPorts[reg & 3];
 }
 
-/* The SPC700 reads its input ports mid-cycle (bsnes SMP::read: half a
-   wait, the read, half a wait); a CPU write that lands later in that
-   cycle isn't seen yet. The SPC700 runs whole instructions, so each port
-   keeps its previous value and when the new one arrived (master clocks),
-   and a read before then returns the previous value. */
-uint64_t (*snes_master_clock)(void);
-
-static uint8_t port_prev[4];
-static uint64_t port_time[4];
-
-static uint8_t inport_read(Apu *apu, int port)
-{
-    /* Read in the middle of the SPC700 cycle making it, the write at
-       port_time: compare in master x SPC units. */
-    if ((2 * spc_host_cycle() + 1) * SCHED_MASTER_HZ < 2 * port_time[port] * (uint64_t)SCHED_SPC_HZ)
-        return port_prev[port];
-    return apu->inPorts[port];
-}
-
 static void apu_reg_write(uint16_t reg, uint8_t v)
 {
     if (snes_apu_sync)
         snes_apu_sync(0);
-    port_prev[reg & 3] = g_apu->inPorts[reg & 3];
-    port_time[reg & 3] = (snes_master_clock ? snes_master_clock() : 0) + cyc_elapsed();
-    g_apu->inPorts[reg & 3] = v;
+    int p = reg & 3;
+    if (port_new[p] == v)
+        return;
+    port_new[p] = v;
+    g_apu->inPorts[p] = v;
+    uint64_t master = snes_access_clock ? snes_access_clock(0) : cyc_elapsed();
+    if ((double)master * SPC_HALF_PER_MASTER - 2.0 * (double)spc_host_cycle() <= 1.0)
+        port_vis[p] = v;
+    else
+        port_pending = 1;
+}
+
+static uint8_t inport_read(Apu *apu, int port)
+{
+    (void)apu;
+    return port_vis[port];
+}
+
+static void spc_cycle_end(void)
+{
+    if (port_pending) {
+        memcpy(port_vis, port_new, sizeof port_vis);
+        port_pending = 0;
+    }
+}
+
+/* $F1 bits 4 and 5 clear input ports 0-1 and 2-3: the latch and the
+   pending value both. */
+static void spc_write(uint16_t address, uint8_t data)
+{
+    if (address != 0xF1)
+        return;
+    if (data & 0x10)
+        port_new[0] = port_new[1] = port_vis[0] = port_vis[1] = 0;
+    if (data & 0x20)
+        port_new[2] = port_new[3] = port_vis[2] = port_vis[3] = 0;
 }
 
 void snes_apu_run(uint32_t spc_cycles)
@@ -263,23 +305,36 @@ static void dma_reg_write(uint16_t reg, uint8_t v)
  * state but do nothing until then. */
 
 
-/* The CPU is paused while general DMA runs; charge that time to the
-   instruction that wrote $420B (bsnes CPU::dmaEdge/dmaRun): sync to the
-   8-clock DMA counter, 8 clocks overhead, per enabled channel 8 clocks
-   plus 8 per byte (size 0 = 65536), then back to the CPU cycle in
-   progress, the 6-clock I/O write. */
+/* General DMA started by a $420B write, as Mesen 2 times it (the boot
+   reference, #33): it starts after the CPU's next cycle (the next opcode
+   fetch, or the $420C byte of a 16-bit store), waits to a multiple of 8
+   master clocks since power-on, takes 8 clocks, then per enabled channel
+   8 plus 8 per byte (size 0 = 65536), and finally waits 1 to N clocks,
+   N the resuming CPU cycle's clocks, to a multiple of N counted from the
+   start of the wait. Mesen's count for that last wait keeps each channel's
+   byte count in 8 bits (only size mod 256 counts there, not in the time
+   the transfer takes); hardware counts every byte (fullsnes). Followed
+   here to match the reference. The CPU cycle before the DMA is charged by
+   its own instruction as usual; this returns the DMA's clocks. */
 static unsigned dma_clocks(uint8_t channels)
 {
-    uint64_t t = snes_master_clock ? snes_master_clock() : 0;
-    unsigned n = 8 - (unsigned)(t & 7) + 8;
+    unsigned first, second;
+    cyc_next_cycles(&first, &second);
+    if (cyc_wide_store()) {   /* $420B low byte: the $420C write comes first */
+        second = first;
+        first = 6;
+    }
+    uint64_t t = (snes_access_clock ? snes_access_clock(0) : cyc_elapsed()) + first;
+    unsigned n = 8 - (unsigned)(t & 7) + 8, count = n;
     for (int c = 0; c < 8; c++) {
         if (!(channels & (1 << c)))
             continue;
         unsigned size = dma_read(g_dma, (uint16_t)(c * 16 + 5)) |
                         dma_read(g_dma, (uint16_t)(c * 16 + 6)) << 8;
         n += 8 + 8 * (size ? size : 0x10000);
+        count += 8 + 8 * (size & 0xFF);
     }
-    return n + 6 - n % 6;   /* 1-6: bsnes steps clockCount - n % clockCount */
+    return n + second - count % second;
 }
 
 static void mdmaen_write(uint16_t reg, uint8_t v)
@@ -309,6 +364,8 @@ void snes_hw_init(void)
         g_dma = dma_init(&g_snes_stub);
     }
     apu_inport_read = inport_read;
+    spc_host_cycle_end = spc_cycle_end;
+    spc_host_write_hook = spc_write;
 
     for (uint16_t r = 0x2100; r <= 0x213F; r++)
         bus_hook(r, ppu_reg_read, ppu_reg_write);
@@ -328,8 +385,9 @@ void snes_hw_reset(void)
     ppu1_mdr = ppu2_mdr = 0;
     vram_latch = 0;
     oamadd_reload = 0;
-    memset(port_prev, 0, sizeof port_prev);
-    memset(port_time, 0, sizeof port_time);
+    memset(port_new, 0, sizeof port_new);
+    memset(port_vis, 0, sizeof port_vis);
+    port_pending = 0;
     dma_reset(g_dma);
     apu_reset(g_apu);
     spc_host_reset(g_apu);
