@@ -108,6 +108,11 @@ set_tests_properties(sync_determinism PROPERTIES SKIP_RETURN_CODE 77)
 add_test(NAME manual_root COMMAND ${Python3_EXECUTABLE} ${GAME_DIR}/test/test_manual_root.py)
 list(APPEND ct_game_tests sync_determinism manual_root)
 
+# tools/ct_decompress.py against the game's own decompressor, call by call.
+add_test(NAME decompress COMMAND ${Python3_EXECUTABLE} ${GAME_DIR}/test/test_decompress.py
+    ${CMAKE_BINARY_DIR})
+list(APPEND ct_game_tests decompress)
+
 # Boot from reset in the interpreter to frame 1500, on the title screen:
 # no fatal, NMIs running (1387 by then; the bound leaves room for timing
 # fixes), frame not black,

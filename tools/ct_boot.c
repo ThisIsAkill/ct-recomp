@@ -40,6 +40,14 @@
  * --at ADDR        print frame, line and master clock each time the
  *                  instruction at ADDR (hex) runs, the first 20 times
  *                  (repeatable)
+ * --log-entry ADDR[:MEM] print one line every time the instruction at ADDR
+ *                  (hex) runs: "entry ADDR frame F line L clock C A X Y S DP
+ *                  DB PB m x" and the 16 bytes at MEM (hex, bank 0 WRAM;
+ *                  default DP), for tools that read a routine's arguments
+ *                  (repeatable)
+ * --snap-at ADDR DIR  write the 128 KB of WRAM to DIR/snap_NNNN.bin each time
+ *                  the instruction at ADDR (hex) runs (first 256 times), for
+ *                  checking what a routine left in memory
  * --first-exec F   write "ADDR clock" to F the first time each instruction
  *                  address runs (for timing comparisons against a reference)
  * --trace LO:HI[@N] F  write "ADDR clock X Y" to F for every instruction
@@ -127,6 +135,15 @@ static void check_watch(uint32_t at)
 static uint32_t at_pc[MAX_AT];
 static int at_seen[MAX_AT], n_at;
 
+#define MAX_LOG 64
+static uint32_t log_pc[MAX_LOG];
+static int log_mem[MAX_LOG];   /* bank 0 address to dump, -1: DP */
+static int n_log;
+
+static uint32_t snap_pc = ~0u;
+static const char *snap_dir;
+static unsigned n_snaps;
+
 static FILE *first_exec;
 static FILE *trace_out;
 static unsigned long long trace_lo, trace_hi;
@@ -144,6 +161,30 @@ static void trace(const CPU *c, uint32_t at)
         if (t >= trace_lo && t <= trace_hi && sched_frame_count() >= trace_from)
             fprintf(trace_out, "%06X %llu %04X %04X\n", at, t, c->X, c->Y);
     }
+    if (at == snap_pc && n_snaps < 256) {
+        char path[4096];
+        snprintf(path, sizeof path, "%s/snap_%04u.bin", snap_dir, n_snaps++);
+        FILE *f = fopen(path, "wb");
+        if (!f || fwrite(bus_wram(), 1, 0x20000, f) != 0x20000)
+            fprintf(stderr, "ct_boot: cannot write %s\n", path);
+        if (f)
+            fclose(f);
+    }
+    for (int k = 0; k < n_log; k++)
+        if (at == log_pc[k]) {
+            printf("entry %06X frame %ld line %d clock %llu A %04X X %04X Y %04X S %04X DP %04X "
+                   "DB %02X PB %02X m %d x %d dp", at, sched_frame_count(), sched_line(),
+                   (unsigned long long)sched_clock(), c->A, c->X, c->Y, c->S, c->DP, c->DB, c->PB,
+                   c->m, c->x);
+            for (unsigned b = 0; b < 16; b++) {
+                unsigned a = (uint16_t)((log_mem[k] < 0 ? c->DP : (unsigned)log_mem[k]) + b);
+                if (a < 0x2000)
+                    printf(" %02X", bus_wram()[a]);
+                else
+                    printf(" --");
+            }
+            printf("\n");
+        }
     for (int k = 0; k < n_at; k++)
         if (at == at_pc[k] && at_seen[k]++ < 20)
             printf("at $%06X: frame %ld line %d clock %llu\n", at, sched_frame_count(), sched_line(),
@@ -361,6 +402,13 @@ int main(int argc, char **argv)
             watch[n_watch++].len = n;
         } else if (!strcmp(argv[k], "--at") && k + 1 < argc && n_at < MAX_AT) {
             at_pc[n_at++] = (uint32_t)strtoul(argv[++k], NULL, 16);
+        } else if (!strcmp(argv[k], "--snap-at") && k + 2 < argc) {
+            snap_pc = (uint32_t)strtoul(argv[++k], NULL, 16);
+            snap_dir = argv[++k];
+        } else if (!strcmp(argv[k], "--log-entry") && k + 1 < argc && n_log < MAX_LOG) {
+            char *end;
+            log_pc[n_log] = (uint32_t)strtoul(argv[++k], &end, 16);
+            log_mem[n_log++] = *end == ':' ? (int)strtoul(end + 1, NULL, 16) : -1;
         } else if (!strcmp(argv[k], "--first-exec") && k + 1 < argc) {
             if (!(first_exec = fopen(argv[++k], "w")) || !(seen_pc = calloc(1 << 21, 1))) {
                 fprintf(stderr, "ct_boot: cannot write %s\n", argv[k]);
@@ -391,7 +439,7 @@ int main(int argc, char **argv)
             fprintf(stderr, "usage: ct_boot [--frames N] [--dump DIR] [--needed-hw FILE] "
                             "[--min-nmis K] [--require-render] [--wav FILE] "
                             "[--require-audio] [--input F1-F2:BUTTONS] [--script FILE] "
-                            "[--expect-pc ADDR] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--aram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--first-exec FILE] [--trace LO:HI[@N] FILE] [--ref-quirk NAME] [--interp-only]\n");
+                            "[--expect-pc ADDR] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--aram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--log-entry ADDR[:MEM]] [--snap-at ADDR DIR] [--first-exec FILE] [--trace LO:HI[@N] FILE] [--ref-quirk NAME] [--interp-only]\n");
             return 2;
         }
     }
