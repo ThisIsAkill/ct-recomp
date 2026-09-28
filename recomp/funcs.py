@@ -20,6 +20,12 @@ class FuncMeta:
     db: int | None
     module: str
     manual: bool = False   # hand-declared root (e.g. reset entry): seeds M/X propagation
+    # Where the entry came from when not a disassembly or call site: "profile"
+    # = an entry state observed at run time (ct_boot --profile). It proves the
+    # state occurs, not that it is the only one; dispatch still matches M/X
+    # exactly. profile_states: states added that way to any entry.
+    source: str | None = None
+    profile_states: tuple[str, ...] = ()
 
     def entry_states(self) -> list[State]:
         return [parse_state(s, e=bool(self.e)) for s in self.states]
@@ -79,8 +85,14 @@ def load(path: str) -> list[FuncMeta]:
         seen.add(t['name'])
         if t['e']:
             raise DecodeError(f'funcs.toml: {t["name"]}: emulation-mode entry not supported')
+        if t.get('source') not in (None, 'profile'):
+            raise DecodeError(f'funcs.toml: {t["name"]}: unknown source {t["source"]!r}')
+        extra = tuple(t.get('profile_states', ()))
+        if not set(extra) <= set(t['states']):
+            raise DecodeError(f'funcs.toml: {t["name"]}: profile_states not all in states')
         out.append(FuncMeta(t['name'], t['addr'], tuple(t['states']), t['e'],
-                            t.get('dp'), t.get('db'), t['module'], bool(t.get('manual'))))
+                            t.get('dp'), t.get('db'), t['module'], bool(t.get('manual')),
+                            t.get('source'), extra))
     return out
 
 

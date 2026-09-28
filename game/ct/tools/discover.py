@@ -8,8 +8,13 @@ candidate whose entry state is the caller's state at the call site. Repeats unti
 appear or --max candidates exist. Names: ChronoRET label, else second
 disassembly label, else Sub_XXXXXX.
 
-usage: discover.py [--chronoret BANK] [--max N] [--write]
+usage: discover.py [--chronoret BANK] [--seed-profile FILE] [--max N] [--write]
   --chronoret  also seed with the bank's ChronoRET routines not yet registered
+  --seed-profile  also seed with the ROM entries a run observed but didn't run
+           native (ct_boot --profile N output: "not recompiled", "recompiled
+           only for another M/X"), in the M/X they were entered with. Written
+           with source = "profile" (new entries) or listed in profile_states
+           (states added to registered ones); validated like any other.
   --write  append decodable candidates to funcs.toml (module bankXX);
            state additions for existing entries are reported, not written
 """
@@ -71,6 +76,43 @@ def main() -> int:
     add_states: dict[str, set] = {}
     failures: dict[tuple, str] = {}
     skipped: list[str] = []
+    profile_new: set[int] = set()
+    profile_added: dict[str, set] = {}
+    if '--seed-profile' in args:
+        path = args[args.index('--seed-profile') + 1]
+        by_addr = {fm.addr: fm for fm in metas}
+        line_re = re.compile(r'\$([0-9A-F]{6}) m([01])x([01])e0\s.*'
+                             r'(not recompiled|recompiled only for another M/X)')
+        for line in open(path):
+            m = line_re.search(line)
+            if not m:
+                continue
+            addr, tag = int(m.group(1), 16), f'm{m.group(2)}x{m.group(3)}'
+            if decode.snes_to_file(addr) is None or (addr >> 16) in (0x7E, 0x7F):
+                continue   # not ROM (code in WRAM: #92)
+            known = by_addr.get(addr)
+            if known is not None:
+                if tag not in known.states:
+                    add_states.setdefault(known.name, set()).add(tag)
+                    profile_added.setdefault(known.name, set()).add(tag)
+                    metas = [funcs.FuncMeta(x.name, x.addr, x.states + (tag,), x.e, x.dp, x.db,
+                                            x.module, x.manual) if x.name == known.name else x
+                             for x in metas]
+                    by_addr = {fm.addr: fm for fm in metas}
+                continue
+            if addr in cands:
+                fm = cands[addr]
+                if tag not in fm.states:
+                    cands[addr] = funcs.FuncMeta(fm.name, addr, fm.states + (tag,), 0, 0, None,
+                                                 fm.module)
+                continue
+            name = names.get(addr, f'Sub_{addr:06X}')
+            if name in used_names:
+                name = f'{name}_{addr:06X}'
+            used_names.add(name)
+            cands[addr] = funcs.FuncMeta(name, addr, (tag,), 0, 0, None, f'bank{addr >> 16:02x}')
+            profile_new.add(addr)
+
     if '--chronoret' in args:
         bank = int(args[args.index('--chronoret') + 1], 16)
         cret = os.environ.get('CHRONORET', os.path.join(REPO, '..', 'ChronoRET'))
@@ -196,15 +238,27 @@ def main() -> int:
             cur = [s.strip().strip('"') for s in m.group(1).split(',') if s.strip()]
             cur += [s for s in sorted(tags) if s not in cur]
             new_line = ', '.join(f'"{s}"' for s in cur)
-            text = text[:m.start(1)] + new_line + text[m.end(1):]
+            prof = sorted(tags & profile_added.get(name, set()))
+            end = text.index('\n', m.end(0))   # end of the states line
+            pm = re.match(r'\nprofile_states = \[([^\]]*)\]', text[end:])
+            if pm:
+                had = [s.strip().strip('"') for s in pm.group(1).split(',') if s.strip()]
+                prof = sorted(set(had) | set(prof))
+                tail = text[end + pm.end():]
+            else:
+                tail = text[end:]
+            listed = ', '.join(f'"{s}"' for s in prof)
+            extra = f'\nprofile_states = [{listed}]' if prof else ''
+            text = text[:m.start(1)] + new_line + text[m.end(1):end] + extra + tail
         open(path, 'w').write(text)
     if '--write' in args and ok:
         with open(os.path.join(GAME, 'funcs.toml'), 'a') as f:
             f.write('\n# ---- discovered by tools/discover.py (entry state from call sites) ----\n')
             for fm in sorted(ok, key=lambda m: m.addr):
                 states = ', '.join(f'"{s}"' for s in fm.states)
+                src = 'source = "profile"\n' if fm.addr in profile_new else ''
                 f.write(f'\n[[func]]\nname = "{fm.name}"\naddr = 0x{fm.addr:06X}\n'
-                        f'states = [{states}]\ne = 0\nmodule = "{fm.module}"\n')
+                        f'states = [{states}]\ne = 0\nmodule = "{fm.module}"\n{src}')
     else:
         for fm in sorted(ok, key=lambda m: m.addr):
             print(f'ok    {fm.name:<40} ${fm.addr:06X} {",".join(fm.states)}')

@@ -115,6 +115,7 @@ add_test(NAME lockstep_report COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/
 # TAS movie converter on synthetic .bk2/.lsmv movies.
 add_test(NAME tas_convert COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_tas_convert.py)
 add_test(NAME decode_calls COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_decode_calls.py)
+add_test(NAME funcs_meta COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_funcs_meta.py)
 
 if(SDL2_FOUND)
     add_executable(test_input test/test_input.c)
