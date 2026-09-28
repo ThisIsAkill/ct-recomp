@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Regenerate a game's PROGRESS.md from its funcs.toml, the emitter, and ctest.
+"""Regenerate a game's PROGRESS.md from its funcs.toml, the emitter, and ctest,
+and the progress summary in README.md (between the progress markers):
+functions recompiled out of those known, the share of instructions a
+1500-frame boot runs native (BUILD_DIR/ct_boot --profile), and milestones
+closed (GitHub, through gh; left out if gh can't answer).
 
 usage: progress.py GAME_DIR BUILD_DIR
 """
@@ -45,6 +49,56 @@ def run_tests(build: str) -> tuple[list[tuple[str, str]], int, int, int]:
     total = int(m.group(3))
     failed = int(m.group(2)) if m.group(2) else 0
     return results, total - failed, total, checks
+
+
+README_START, README_END = '<!-- progress:start -->', '<!-- progress:end -->'
+
+
+def boot_native(build: str) -> float | None:
+    """Percent of a 1500-frame boot's instructions that ran native."""
+    probe = os.path.join(build, 'ct_boot')
+    if not os.path.exists(probe):
+        return None
+    r = subprocess.run([probe, '--frames', '1500', '--profile', '0'], capture_output=True,
+                       text=True)
+    m = re.search(r'([0-9.]+)% native', r.stdout + r.stderr)
+    return float(m.group(1)) if m else None
+
+
+def milestones() -> tuple[int, int] | None:
+    """(closed, total) milestones of the GitHub repo, or None."""
+    try:
+        r = subprocess.run(['gh', 'api', 'repos/{owner}/{repo}/milestones?state=all',
+                            '--jq', '[.[] | .state]'], capture_output=True, text=True,
+                           timeout=60, cwd=ROOT)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if r.returncode:
+        return None
+    states = re.findall(r'"(open|closed)"', r.stdout)
+    return (states.count('closed'), len(states)) if states else None
+
+
+def update_readme(recompiled: int, known: int, native: float | None,
+                  ms: tuple[int, int] | None) -> None:
+    path = os.path.join(ROOT, 'README.md')
+    text = open(path).read()
+    if README_START not in text or README_END not in text:
+        return
+    lines = [README_START, '',
+             f'**{100 * recompiled / known:.1f}% recompiled**: {recompiled} of {known} known '
+             f'functions are compiled to C.', '']
+    if native is not None:
+        lines += [f'- Native at runtime: {native:.1f}% of the instructions in a 1500-frame '
+                  'boot run as compiled C (the rest run in the interpreter).']
+    if ms is not None:
+        lines += [f'- Milestones: {ms[0]} of {ms[1]} closed.']
+    lines += ['', 'Updated by `tools/progress.py` with every push; details in '
+              '[game/ct/PROGRESS.md](game/ct/PROGRESS.md).', '', README_END]
+    head, rest = text.split(README_START, 1)
+    tail = rest.split(README_END, 1)[1]
+    with open(path, 'w') as f:
+        f.write(head + '\n'.join(lines) + tail)
 
 
 def main() -> int:
@@ -126,6 +180,8 @@ def main() -> int:
 
     with open(os.path.join(GAME, 'PROGRESS.md'), 'w') as f:
         f.write('\n'.join(out))
+    update_readme(len(metas), len(metas) + len(pending) + len(unresolved),
+                  boot_native(os.path.abspath(build)), milestones())
     print(f'PROGRESS.md: {len(metas)} routines, {len(covered)} bytes, {len(ops)}/256 opcodes, '
           f'{passed}/{total} tests')
     return 0 if passed == total else 1

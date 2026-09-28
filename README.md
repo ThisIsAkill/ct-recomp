@@ -9,6 +9,19 @@ Trigger lives in `game/ct/`.
 Planned features after boot (MSU-1, achievements, save states, widescreen and
 more) are listed in [ROADMAP.md](ROADMAP.md).
 
+## Progress
+
+<!-- progress:start -->
+
+**38.5% recompiled**: 398 of 1033 known functions are compiled to C.
+
+- Native at runtime: 3.0% of the instructions in a 1500-frame boot run as compiled C (the rest run in the interpreter).
+- Milestones: 0 of 7 closed.
+
+Updated by `tools/progress.py` with every push; details in [game/ct/PROGRESS.md](game/ct/PROGRESS.md).
+
+<!-- progress:end -->
+
 ## Layout
 
 - `recomp/` — the translator (Python): decoder with static M/X tracking, C emitter.
@@ -51,7 +64,8 @@ mkdir -p shots && build/ct_boot --frames 1500 --dump shots   # headless: PNGs of
 a game controller works too. Ctrl+Q or closing the window quits.
 `ct_sdl --record FILE` saves your pad input as a script; `ct_boot --script FILE
 --frames N` replays it exactly (N is on its last line), and `ct_sdl --script
-FILE` plays it back in the window. `ct_boot` also takes `--input F1-F2:BUTTONS`
+FILE` plays it back in the window. A `reset F` line in a script presses the reset button as
+frame F begins. `ct_boot` also takes `--input F1-F2:BUTTONS`
 to script the pad, `--wav FILE` for audio, `--hash-log FILE` for per-frame
 state hashes (`tools/lockstep.py` compares native and interpreted runs with
 them), and `--needed-hw FILE` to report where emulation stops.
@@ -62,7 +76,7 @@ Reference comparison: `tools/ref_compare.py --probe build/ct_boot --mesen PATH
 `xvfb-run`, with a private settings folder) and reports the first frame where
 WRAM or the picture differs, with the differing WRAM ranges.
 `tools/tas_convert.py MOVIE OUT` turns a TASVideos BizHawk `.bk2` or lsnes
-`.lsmv` movie (from power-on) into an input script for both. Replays of a new
+`.lsmv` movie (from power-on) into an input script for both, resets included. Replays of a new
 game into Leene Square and into the first battle are in `game/ct/test/replay/`.
 
 The ROM is never committed, and CI never sees it.
