@@ -37,28 +37,16 @@ src = "dscotton"
 reason = "$C05AB1: JSR $C05F74 (m1x0): target not in funcs.toml"
 
 [[unresolved]]
-name = "Field_TickCoreServices"
-addr = 0xC000DE
-src = "dscotton"
-reason = "$C000E0: JSL $FDC2C1 (m1x1): target not in funcs.toml"
-
-[[unresolved]]
 name = "Field_RunMinimalFrame"
 addr = 0xC000EB
 src = "dscotton"
 reason = "$C088FC: JSR $C08924 (m1x1): target not in funcs.toml"
 
 [[unresolved]]
-name = "Field_LoadLocationResources"
-addr = 0xC000F4
-src = "dscotton"
-reason = "$C00112: JSL $FDFFFA (m1x0): target not in funcs.toml"
-
-[[unresolved]]
 name = "Sub_01A5"
 addr = 0xC001A5
 src = "chronoret"
-reason = "$C001AA: JSL $FDC2C1 (m1x1): target not in funcs.toml"
+reason = "$C05977: JSR $C05F74 (m1x0): target not in funcs.toml"
 
 [[unresolved]]
 name = "Field_PrepareBattleEntry"
@@ -103,22 +91,10 @@ src = "dscotton"
 reason = "entry M/X state unknown: not documented, no caller found within synced scope"
 
 [[unresolved]]
-name = "Field_RebuildMapVideoState"
-addr = 0xC00A50
-src = "dscotton"
-reason = "$C00A5D: JSL $FDC0D7 (m1x0): target not in funcs.toml"
-
-[[unresolved]]
 name = "AudioDrvSync"
 addr = 0xC00AFF
 src = "chronoret"
 reason = "entry M/X state unknown: not documented, no caller found within synced scope"
-
-[[unresolved]]
-name = "Field_EnableNmiIrqAfterInit"
-addr = 0xC00B28
-src = "dscotton"
-reason = "$C00B28: JSL $FDC124 (m1x0): target not in funcs.toml"
 
 [[unresolved]]
 name = "Sub_0C76"
@@ -211,22 +187,10 @@ src = "dscotton"
 reason = "entry M/X state unknown: not documented, no caller found within synced scope"
 
 [[unresolved]]
-name = "Sub_18D9"
-addr = 0xC018D9
-src = "chronoret"
-reason = "$C01905: JSL $FDC2C1 (m1x1): target not in funcs.toml"
-
-[[unresolved]]
 name = "CODE_C0193E"
 addr = 0xC0193E
 src = "dscotton"
 reason = "entry M/X state unknown: not documented, no caller found within synced scope"
-
-[[unresolved]]
-name = "Sub_1985"
-addr = 0xC01985
-src = "chronoret"
-reason = "$C019B6: JSL $FDC2C1 (m1x1): target not in funcs.toml"
 
 [[unresolved]]
 name = "CODE_C019A7"
@@ -439,12 +403,6 @@ src = "dscotton"
 reason = "entry M/X state unknown: not documented, no caller found within synced scope"
 
 [[unresolved]]
-name = "Field_ProcessDeferredTasks"
-addr = 0xC0274D
-src = "dscotton"
-reason = "$C027E4: JSR $C027EB (m1x0): target not in funcs.toml"
-
-[[unresolved]]
 name = "UNREACH_C0277E"
 addr = 0xC0277E
 src = "dscotton"
@@ -454,19 +412,19 @@ reason = "entry M/X state unknown: not documented, no caller found within synced
 name = "Sub_2824"
 addr = 0xC02824
 src = "chronoret"
-reason = "$C00A5D: JSL $FDC0D7 (m1x0): target not in funcs.toml"
+reason = "$C0717D: JSR $C07199 (m1x1): target not in funcs.toml"
 
 [[unresolved]]
 name = "Field_RebuildScreenAndSettleFull"
 addr = 0xC02848
 src = "dscotton"
-reason = "$C00A5D: JSL $FDC0D7 (m1x0): target not in funcs.toml"
+reason = "$C0717D: JSR $C07199 (m1x1): target not in funcs.toml"
 
 [[unresolved]]
 name = "Field_RebuildScreen"
 addr = 0xC0286C
 src = "dscotton"
-reason = "$C00A5D: JSL $FDC0D7 (m1x0): target not in funcs.toml"
+reason = "$C0717D: JSR $C07199 (m1x1): target not in funcs.toml"
 
 [[unresolved]]
 name = "CODE_C028D6"
@@ -2713,18 +2671,6 @@ src = "dscotton"
 reason = "$C088FC: JSR $C08924 (m1x1): target not in funcs.toml"
 
 [[unresolved]]
-name = "Camera_MoveDispatch"
-addr = 0xC08A6D
-src = "dscotton"
-reason = "$C090CF: JSR $C08A9E (m0x0): Camera_TryStepToTarget has no m0x0 entry"
-
-[[unresolved]]
-name = "Camera_TryStepToTarget"
-addr = 0xC08A9E
-src = "dscotton"
-reason = "$C08AAF: JSR $C09C37 (m1x0): Camera_CheckZoneMatch has no m1x0 entry"
-
-[[unresolved]]
 name = "Camera_MoveRight"
 addr = 0xC08AB5
 src = "dscotton"
@@ -3313,18 +3259,6 @@ src = "dscotton"
 reason = "entry M/X state unknown: not documented, no caller found within synced scope"
 
 [[unresolved]]
-name = "Field_ProcessAnimQueue"
-addr = 0xC0CA76
-src = "chronoret"
-reason = "$C0CF2D: JSR $C0E97A (m1x1): target not in funcs.toml"
-
-[[unresolved]]
-name = "Obj_BuildSpriteFrameStep"
-addr = 0xC0CAD9
-src = "chronoret"
-reason = "$C0CF2D: JSR $C0E97A (m1x1): target not in funcs.toml"
-
-[[unresolved]]
 name = "Sub_CB0A"
 addr = 0xC0CB0A
 src = "chronoret"
@@ -3659,12 +3593,6 @@ name = "Sub_E8C2"
 addr = 0xC0E8C2
 src = "chronoret"
 reason = "entry M/X state unknown: not documented, no caller found within synced scope"
-
-[[unresolved]]
-name = "Sub_E97A"
-addr = 0xC0E97A
-src = "chronoret"
-reason = "$C0E980: JSL $0BC1BD (m1x0): target not in funcs.toml"
 
 [[unresolved]]
 name = "CODE_C0EA51"

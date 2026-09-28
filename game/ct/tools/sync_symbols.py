@@ -40,11 +40,11 @@ with an unknown entry state and are only resolved by propagation (below).
 
 Validation
 ----------
-recomp/decode.py (via recomp/funcs.py's Registry) requires every callee of
-a function to already be a registered entry with a matching state tag
-before the *caller* can be decoded at all -- so we cannot "decode and see"
-our way to an undocumented callee's entry state; decoding never reaches
-past the first unregistered call. Instead:
+recomp/decode.py (via recomp/funcs.py's Registry) decodes a call to an
+unregistered callee (or one without that entry state) as an interpreter
+call (#30), assuming M/X come back unchanged -- so a caller no longer
+waits on its callees, but decoding still never learns an undocumented
+callee's own entry state from the call. Instead:
 
 1. Propagation: a lightweight, resolver-free walk (reuses decode_insn /
    next_state, not decode_function) over every routine whose entry state

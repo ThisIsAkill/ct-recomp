@@ -1968,6 +1968,20 @@ manual = true
 # ==== sync_symbols: bank $C0 (auto) ====
 
 [[func]]
+name = "Field_TickCoreServices"
+addr = 0xC000DE
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Field_LoadLocationResources"
+addr = 0xC000F4
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+
+[[func]]
 name = "Sub_011B"
 addr = 0xC0011B
 states = ["m1x0"]
@@ -2094,6 +2108,20 @@ e = 0
 module = "bankc0"
 
 [[func]]
+name = "Field_RebuildMapVideoState"
+addr = 0xC00A50
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Field_EnableNmiIrqAfterInit"
+addr = 0xC00B28
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+
+[[func]]
 name = "InitHW"
 addr = 0xC00B4E
 states = ["m1x0"]
@@ -2117,6 +2145,20 @@ module = "bankc0"
 [[func]]
 name = "Field_InitLocationStateVars"
 addr = 0xC00B86
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Sub_18D9"
+addr = 0xC018D9
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Sub_1985"
+addr = 0xC01985
 states = ["m1x0"]
 e = 0
 module = "bankc0"
@@ -2194,6 +2236,13 @@ module = "bankc0"
 [[func]]
 name = "Dialog_HandleRenderResult"
 addr = 0xC02126
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Field_ProcessDeferredTasks"
+addr = 0xC0274D
 states = ["m1x0"]
 e = 0
 module = "bankc0"
@@ -2752,6 +2801,20 @@ e = 0
 module = "bankc0"
 
 [[func]]
+name = "Camera_MoveDispatch"
+addr = 0xC08A6D
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Camera_TryStepToTarget"
+addr = 0xC08A9E
+states = ["m0x1"]
+e = 0
+module = "bankc0"
+
+[[func]]
 name = "Camera_CommitFrameDeltas"
 addr = 0xC09175
 states = ["m1x0"]
@@ -3214,6 +3277,20 @@ e = 0
 module = "bankc0"
 
 [[func]]
+name = "Field_ProcessAnimQueue"
+addr = 0xC0CA76
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Obj_BuildSpriteFrameStep"
+addr = 0xC0CAD9
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+
+[[func]]
 name = "Sub_CB3A"
 addr = 0xC0CB3A
 states = ["m1x0", "m1x1"]
@@ -3251,6 +3328,13 @@ module = "bankc0"
 [[func]]
 name = "Sub_E952"
 addr = 0xC0E952
+states = ["m1x0", "m1x1"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Sub_E97A"
+addr = 0xC0E97A
 states = ["m1x0", "m1x1"]
 e = 0
 module = "bankc0"
