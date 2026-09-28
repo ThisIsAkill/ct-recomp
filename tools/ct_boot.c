@@ -40,6 +40,8 @@
  * --first-exec F   write "ADDR clock" to F the first time each instruction
  *                  address runs (for timing comparisons against a reference)
  * --interp-only    run everything in the interpreter (no native dispatch)
+ * --ref-quirk NAME reproduce a reference emulator's quirk, for comparisons
+ *                  only (tools/ref_compare.py): mesen-dma-count8
  *
  * --min-nmis K     exit 1 unless at least K NMIs were taken
  * --require-render exit 1 if the last frame is all black
@@ -335,6 +337,13 @@ int main(int argc, char **argv)
                 fprintf(stderr, "ct_boot: cannot write %s\n", argv[k]);
                 return 2;
             }
+        } else if (!strcmp(argv[k], "--ref-quirk") && k + 1 < argc) {
+            if (!strcmp(argv[++k], "mesen-dma-count8"))
+                snes_ref_quirks |= SNES_QUIRK_MESEN_DMA_COUNT8;
+            else {
+                fprintf(stderr, "ct_boot: unknown --ref-quirk %s\n", argv[k]);
+                return 2;
+            }
         } else if (!strcmp(argv[k], "--interp-only")) {
             sched_set_native(0);
         } else if (!strcmp(argv[k], "--expect-pc") && k + 1 < argc && n_expect < MAX_EXPECT)
@@ -343,7 +352,7 @@ int main(int argc, char **argv)
             fprintf(stderr, "usage: ct_boot [--frames N] [--dump DIR] [--needed-hw FILE] "
                             "[--min-nmis K] [--require-render] [--wav FILE] "
                             "[--require-audio] [--input F1-F2:BUTTONS] [--script FILE] "
-                            "[--expect-pc ADDR] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--first-exec FILE] [--interp-only]\n");
+                            "[--expect-pc ADDR] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--first-exec FILE] [--ref-quirk NAME] [--interp-only]\n");
             return 2;
         }
     }

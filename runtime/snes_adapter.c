@@ -208,6 +208,7 @@ static void ppu_reg_write(uint16_t reg, uint8_t v)
 void (*snes_apu_sync)(unsigned early);
 uint64_t (*snes_master_clock)(void);
 uint64_t (*snes_access_clock)(unsigned early);
+unsigned snes_ref_quirks;
 
 #define SPC_HALF_PER_MASTER (32040.0 * 64 / 21477270.0)
 
@@ -311,11 +312,10 @@ static void dma_reg_write(uint16_t reg, uint8_t v)
    master clocks since power-on, takes 8 clocks, then per enabled channel
    8 plus 8 per byte (size 0 = 65536), and finally waits 1 to N clocks,
    N the resuming CPU cycle's clocks, to a multiple of N counted from the
-   start of the wait. Mesen's count for that last wait keeps each channel's
-   byte count in 8 bits (only size mod 256 counts there, not in the time
-   the transfer takes); hardware counts every byte (fullsnes). Followed
-   here to match the reference. The CPU cycle before the DMA is charged by
-   its own instruction as usual; this returns the DMA's clocks. */
+   start of the wait (every byte counts: fullsnes, bsnes). The CPU cycle
+   before the DMA is charged by its own instruction as usual; this returns
+   the DMA's clocks. SNES_QUIRK_MESEN_DMA_COUNT8 reproduces Mesen's count
+   for the last wait, which keeps each channel's byte count in 8 bits. */
 static unsigned dma_clocks(uint8_t channels)
 {
     unsigned first, second;
@@ -332,7 +332,8 @@ static unsigned dma_clocks(uint8_t channels)
         unsigned size = dma_read(g_dma, (uint16_t)(c * 16 + 5)) |
                         dma_read(g_dma, (uint16_t)(c * 16 + 6)) << 8;
         n += 8 + 8 * (size ? size : 0x10000);
-        count += 8 + 8 * (size & 0xFF);
+        count += 8 + 8 * ((snes_ref_quirks & SNES_QUIRK_MESEN_DMA_COUNT8) ? (size & 0xFF)
+                                                                   : (size ? size : 0x10000));
     }
     return n + second - count % second;
 }

@@ -3,6 +3,7 @@
 
 usage: ref_compare.py --probe PATH --mesen PATH --rom ROM --frames N
                       [--script FILE] [--offset D] [--setting Name.Path=value ...]
+                      [--no-known-differences]
 
 Runs `PROBE --ref-log` and tools/mesen_ref.py side by side for N frames
 with the same input script, and compares the per-frame hashes (WRAM, and
@@ -12,8 +13,14 @@ frame where WRAM differs and the first where the image differs; for the
 WRAM one, runs both again to that frame and lists the differing WRAM
 ranges. The reference's first frame is skipped (it starts mid-frame).
 
+Known differences: where the reference emulator is known to differ from
+hardware and ct-recomp follows hardware, KNOWN_DIFFERENCES below lists it,
+and the probe reproduces the reference's behavior for that one point
+(`--ref-quirk`) so everything else is still compared exactly. Nothing else
+is tolerated; --no-known-differences compares plain hardware behavior.
+
 Exit 0 if nothing differs, 1 if something does (a report, not a test
-verdict: timing is approximate by design), 2 on bad usage.
+verdict), 2 on bad usage.
 """
 import argparse
 import os
@@ -22,6 +29,14 @@ import sys
 import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+# (probe --ref-quirk name, what the reference does, what hardware does)
+KNOWN_DIFFERENCES = [
+    ("mesen-dma-count8",
+     "Mesen 2: after a general DMA, the wait back to a whole CPU cycle counts "
+     "each channel's bytes in 8 bits (size mod 256)",
+     "every byte counts (fullsnes, bsnes)"),
+]
 
 
 def read_log(path):
@@ -54,7 +69,10 @@ def main() -> int:
     ap.add_argument("--script")
     ap.add_argument("--offset", type=int, default=0)
     ap.add_argument("--setting", action="append", default=[])
+    ap.add_argument("--no-known-differences", action="store_true")
     a = ap.parse_args()
+    quirks = [] if a.no_known_differences else \
+        [x for name, _, _ in KNOWN_DIFFERENCES for x in ("--ref-quirk", name)]
     env = dict(os.environ, CT_ROM=a.rom)
     script = ["--script", a.script] if a.script else []
     settings = [x for s in a.setting for x in ("--setting", s)]
@@ -62,7 +80,7 @@ def main() -> int:
         ours_log, ref_log = os.path.join(tmp, "ours.log"), os.path.join(tmp, "ref.log")
         ref_frames = a.frames + max(a.offset, 0)
         ours = subprocess.Popen([a.probe, "--frames", str(a.frames), "--ref-log", ours_log,
-                                 *script], env=env, stdout=subprocess.PIPE,
+                                 *quirks, *script], env=env, stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, text=True)
         ref = subprocess.run([sys.executable, os.path.join(HERE, "mesen_ref.py"), "--mesen",
                               a.mesen, "--rom", a.rom, "--frames", str(ref_frames), "--out",
@@ -85,6 +103,8 @@ def main() -> int:
                     first[name] = f
         compared = sum(1 for f in mine if f + a.offset >= 2 and f + a.offset in theirs)
         print(f"ref_compare: {compared} frames compared (ours f vs reference f{a.offset:+d})")
+        for name, ref, hw in ([] if a.no_known_differences else KNOWN_DIFFERENCES):
+            print(f"ref_compare: known difference reproduced ({name}): {ref}; hardware: {hw}")
         for name in ("wram", "frame"):
             f = first[name]
             print(f"ref_compare: first {name} divergence: " +
@@ -92,7 +112,8 @@ def main() -> int:
         f = first["wram"]
         if f is not None:
             ours_wram, ref_wram = os.path.join(tmp, "ours.wram"), os.path.join(tmp, "ref.wram")
-            subprocess.run([a.probe, "--frames", str(f), "--wram", ours_wram, *script], env=env,
+            subprocess.run([a.probe, "--frames", str(f), "--wram", ours_wram, *quirks, *script],
+                           env=env,
                            capture_output=True)
             subprocess.run([sys.executable, os.path.join(HERE, "mesen_ref.py"), "--mesen",
                             a.mesen, "--rom", a.rom, "--frames", str(f + a.offset), "--out",

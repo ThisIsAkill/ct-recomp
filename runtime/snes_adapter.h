@@ -31,6 +31,13 @@ extern uint64_t (*snes_master_clock)(void);
    (the frame scheduler sets it). */
 extern uint64_t (*snes_access_clock)(unsigned early);
 
+/* Reference-emulator quirks to reproduce, for comparisons only
+   (tools/ref_compare.py's known differences); 0 means hardware behavior. */
+enum {
+    SNES_QUIRK_MESEN_DMA_COUNT8 = 1,   /* general DMA end wait counts bytes mod 256 */
+};
+extern unsigned snes_ref_quirks;
+
 /* Start of VBlank: outside forced blank, the OAM address reloads from the
    last OAMADD ($2102/$2103) write. Called by the frame scheduler. */
 void snes_oam_vblank_reload(void);

@@ -3,6 +3,7 @@
  * per-line HDMA gradient rendered by the vendored PPU. */
 #include "harness.h"
 #include "sched.h"
+#include "snes_adapter.h"
 #include "spc700_host.h"
 
 static void put(uint16_t at, const uint8_t *p, unsigned n)
@@ -27,9 +28,10 @@ static void clock_trace(const CPU *c, uint32_t at)
 /* General DMA pauses the CPU (Mesen 2's timing, #33): it starts after the
    CPU's next cycle (the NOP's opcode fetch, 8 clocks from WRAM), syncs to
    8 clocks, then 8 overhead, 8 per channel plus 8 per byte, and re-aligns
-   1-6 clocks to the NOP's internal cycle counting only the low 8 bits of
-   the byte count; plus each line's DRAM refresh the pause runs past. */
-static void test_dma_timing(void)
+   1-6 clocks to the NOP's internal cycle counting every byte; plus each
+   line's DRAM refresh the pause runs past. With SNES_QUIRK_MESEN_DMA_COUNT8
+   that last count keeps only the low 8 bits of the byte count. */
+static void test_dma_timing(unsigned quirks)
 {
     static const uint8_t prog[] = {
         0xA9, 0x80, 0x8D, 0x00, 0x43,   /* LDA #$80 / STA $4300: B->A, 1 register */
@@ -45,6 +47,7 @@ static void test_dma_timing(void)
     };
     static CPU c;
     bus_reset();
+    snes_ref_quirks = quirks;
     put(0x2400, prog, sizeof prog);
     interp_reset(&c);
     c.e = 0;
@@ -68,11 +71,14 @@ static void test_dma_timing(void)
     uint64_t t = clk_at[k] + sta + 8;   /* the DMA starts after the NOP's fetch */
     unsigned align = 8 - (unsigned)(t & 7);
     unsigned n = align + 8 + 8 + 8 * 0x140, count = align + 8 + 8 + 8 * 0x40;
+    if (!quirks)
+        count = n;
     uint64_t want = sta + n + 6 - count % 6;
     /* ~2600 clocks: up to two lines' refresh (40 each) fall inside. */
     CHECK(d == want || d == want + 40 || d == want + 80,
-          "STA $420B + $140-byte DMA: %llu clocks, want %llu (+40 per refresh)",
-          (unsigned long long)d, (unsigned long long)want);
+          "STA $420B + $140-byte DMA (quirks %u): %llu clocks, want %llu (+40 per refresh)",
+          quirks, (unsigned long long)d, (unsigned long long)want);
+    snes_ref_quirks = 0;
 }
 
 
@@ -166,7 +172,8 @@ static void test_refresh_access_clock(void)
 int main(void)
 {
     th_bus_init();
-    test_dma_timing();
+    test_dma_timing(0);
+    test_dma_timing(SNES_QUIRK_MESEN_DMA_COUNT8);
     test_short_line();
     test_refresh_access_clock();
 
