@@ -190,11 +190,11 @@ class Registry:
         bank = i.addr & 0xFF0000
         out = []
         for k in range(count):
-            lo = decode.snes_to_file(bank | ((i.operand + 2 * k) & 0xFFFF))
-            hi = decode.snes_to_file(bank | ((i.operand + 2 * k + 1) & 0xFFFF))
+            lo = decode.read_byte(self.rom, bank | ((i.operand + 2 * k) & 0xFFFF))
+            hi = decode.read_byte(self.rom, bank | ((i.operand + 2 * k + 1) & 0xFFFF))
             if lo is None or hi is None:
                 raise DecodeError(f'${i.addr:06X}: jump table not in ROM')
-            out.append(bank | self.rom[lo] | self.rom[hi] << 8)
+            out.append(bank | lo | hi << 8)
         return out
 
     def tail_required(self, site: int, target: int, st: State) -> set:

@@ -486,11 +486,33 @@ def operand_bytes(mode: str, st: State, addr: int, mnemonic: str) -> int:
     return _OPERAND_BYTES[mode]
 
 
-def decode_insn(rom: bytes, addr: int, st: State) -> Insn:
+class Image:
+    """What the decoder reads: the ROM, plus code the game puts in WRAM (an
+    overlay, #92: `data` as it sits at `base`, a 24-bit WRAM address).
+    Anything else in WRAM is not code the translation can see."""
+
+    def __init__(self, rom: bytes, base: int | None = None, data: bytes = b''):
+        self.rom, self.base, self.data = rom, base, data
+
+    def byte(self, addr: int) -> int | None:
+        if self.base is not None and 0 <= addr - self.base < len(self.data):
+            return self.data[addr - self.base]
+        off = snes_to_file(addr)
+        return None if off is None or off >= len(self.rom) else self.rom[off]
+
+
+def read_byte(mem, addr: int) -> int | None:
+    """A byte of ROM (bytes) or of an Image, None if neither maps addr."""
+    if isinstance(mem, Image):
+        return mem.byte(addr)
     off = snes_to_file(addr)
-    if off is None:
+    return None if off is None else mem[off]
+
+
+def decode_insn(rom, addr: int, st: State) -> Insn:
+    opcode = read_byte(rom, addr)
+    if opcode is None:
         raise DecodeError(f'${addr:06X}: not a ROM address')
-    opcode = rom[off]
     mnemonic, mode = OPCODES[opcode]
     n = operand_bytes(mode, st, addr, mnemonic)
     operand = None
@@ -498,8 +520,10 @@ def decode_insn(rom: bytes, addr: int, st: State) -> Insn:
         # Operand bytes wrap within the bank.
         val = 0
         for k in range(n):
-            o = snes_to_file((addr & 0xFF0000) | ((addr + 1 + k) & 0xFFFF))
-            val |= rom[o] << (8 * k)
+            b = read_byte(rom, (addr & 0xFF0000) | ((addr + 1 + k) & 0xFFFF))
+            if b is None:
+                raise DecodeError(f'${addr:06X}: operand not in ROM')
+            val |= b << (8 * k)
         operand = val
     return Insn(addr, opcode, mnemonic, mode, operand, 1 + n, st.m, st.x, st.e)
 

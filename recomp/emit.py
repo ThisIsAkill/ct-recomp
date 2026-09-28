@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import tomllib
 
 import decode
 import funcs
@@ -232,7 +233,12 @@ def implemented_opcodes() -> set[int]:
     return {op for op, _ in TEMPLATES} | {0x20, 0x22, 0x4C, 0x5C, 0x7C, 0xFC}   # emit_function
 
 
+_OVERLAY = ''   # set while emitting an overlay: names its WRAM functions
+
+
 def c_name(addr: int, st: decode.State) -> str:
+    if _OVERLAY and addr >> 16 in (0x7E, 0x7F):
+        return f'f_{_OVERLAY}_{addr:06X}_{st.tag()}'
     return f'f_{addr:06X}_{st.tag()}'
 
 
@@ -472,6 +478,69 @@ def emit_prototypes(reg: funcs.Registry, metas: list[funcs.FuncMeta]) -> tuple[s
     return '\n'.join(h), '\n'.join(c)
 
 
+def fnv64(data: bytes) -> int:
+    h = 0xCBF29CE484222325
+    for b in data:
+        h = ((h ^ b) * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
+    return h
+
+
+def emit_overlays(reg: funcs.Registry, manifest: str | None) -> tuple[str, list[str]]:
+    """ct_overlays.c: code the game puts in WRAM (#92), recompiled from the
+    images a game build step wrote (manifest: [[overlay]] name, dst, image,
+    [[overlay.entry]] addr, states). Each entry is decoded from its image
+    (calls into ROM compile as usual; anything else in WRAM is an interpreter
+    call) and kept only if it decodes, emits, and stays inside the image.
+    The table records the WRAM bytes each function was decoded from and
+    their FNV-1a 64 hash: the runtime runs it only while they still match.
+    Returns the source and the entries left out, with why."""
+    global _OVERLAY
+    overlays = []
+    if manifest:
+        with open(manifest, 'rb') as f:
+            overlays = tomllib.load(f).get('overlay', [])
+    c = [HEADER, '#include "ops.h"', '#include "ct_funcs.h"', '']
+    table, skipped = [], []
+    _EXTERNS.clear()
+    _EXTERNS.update(reg.externs)
+    for ov in overlays:
+        data = open(ov['image'], 'rb').read()
+        base = ov['dst']
+        img = f'img_{ov["name"]}'
+        c += [f'static const uint8_t {img}[{len(data)}] = {{'] + \
+             ['    ' + ', '.join(f'0x{b:02X}' for b in data[k:k + 16]) + ','
+              for k in range(0, len(data), 16)] + ['};', '']
+        image = decode.Image(reg.rom, base, data)
+        _OVERLAY = ov['name']
+        try:
+            for e in ov.get('entry', []):
+                for tag in e['states']:
+                    st = decode.parse_state(tag)
+                    fm = funcs.FuncMeta(f'{ov["name"]}_{e["addr"]:06X}', e['addr'], (tag,), 0,
+                                        None, None, 'overlays')
+                    try:
+                        fn = decode.decode_function(image, e['addr'], st, reg)
+                        lo, hi = fn.extent()
+                        if any(not base <= i.addr < base + len(data) for i in fn.insns):
+                            raise EmitError('runs outside its image')
+                        body = emit_function(fm, fn)
+                    except (DecodeError, EmitError) as ex:
+                        skipped.append(f'{fm.name} {tag}: {ex}')
+                        continue
+                    c += body + ['']
+                    name = c_name(e['addr'], st)
+                    h = fnv64(data[lo - base:hi - base + 1])
+                    table.append(f'    {{"{fm.name}", 0x{e["addr"]:06X}, {int(st.m)}, {int(st.x)}, '
+                                 f'0x{lo:06X}, 0x{hi:06X}, 0x{h:016X}ull, {name}, {img}, '
+                                 f'0x{base:06X}, {len(data)}}},')
+        finally:
+            _OVERLAY = ''
+    c += ['const ct_overlay_func ct_overlay_funcs[] = {'] + \
+         (table or ['    {0, 0, 0, 0, 0, 0, 0, 0},']) + \
+         ['};', f'const unsigned ct_overlay_func_count = {len(table)};', '']
+    return '\n'.join(c), skipped
+
+
 def modules(metas: list[funcs.FuncMeta]) -> list[str]:
     return sorted({fm.module for fm in metas})
 
@@ -492,6 +561,7 @@ def main(argv: list[str]) -> int:
     ap.add_argument('--out', help='output directory (required unless --list-modules)')
     ap.add_argument('--rom')
     ap.add_argument('--funcs', required=True, help="the game's funcs.toml")
+    ap.add_argument('--overlays', help='manifest of WRAM code images to recompile (#92)')
     a = ap.parse_args(argv)
     metas = funcs.load(a.funcs)
     if a.list_modules:
@@ -511,6 +581,10 @@ def main(argv: list[str]) -> int:
     hdr, tab = emit_prototypes(reg, metas)
     write_if_changed(os.path.join(a.out, 'ct_funcs.h'), hdr)
     write_if_changed(os.path.join(a.out, 'ct_funcs.c'), tab)
+    src, skipped = emit_overlays(reg, a.overlays)
+    for why in skipped:
+        print(f'emit: overlay entry left to the interpreter: {why}', file=sys.stderr)
+    write_if_changed(os.path.join(a.out, 'ct_overlays.c'), src)
     return 0
 
 

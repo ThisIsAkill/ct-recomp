@@ -22,8 +22,23 @@ execute_process(
 if(NOT ct_list_ok EQUAL 0)
     message(FATAL_ERROR "emit.py --list-modules failed")
 endif()
-set(CT_GEN_OUTPUTS ${CT_OUT}/ct_funcs.h ${CT_OUT}/ct_funcs.c)
-set(CT_GEN_SOURCES)
+# Code the game decompresses into WRAM (#92): images from the ROM, checked
+# against overlays.toml's hashes, then recompiled with the rest.
+set(CT_OVERLAYS_TOML ${GAME_DIR}/overlays.toml)
+set(CT_OVERLAY_MANIFEST ${CT_OUT}/overlays/manifest.toml)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CT_OVERLAYS_TOML})
+add_custom_command(
+    OUTPUT ${CT_OVERLAY_MANIFEST}
+    COMMAND ${CMAKE_COMMAND} -E env CT_ROM=${CT_ROM}
+            ${Python3_EXECUTABLE} ${GAME_DIR}/tools/overlay_images.py ${CT_OVERLAYS_TOML}
+            ${CT_OUT}/overlays
+    DEPENDS ${CT_OVERLAYS_TOML} ${GAME_DIR}/tools/overlay_images.py
+            ${GAME_DIR}/tools/ct_decompress.py
+    COMMENT "overlay images"
+    VERBATIM)
+
+set(CT_GEN_OUTPUTS ${CT_OUT}/ct_funcs.h ${CT_OUT}/ct_funcs.c ${CT_OUT}/ct_overlays.c)
+set(CT_GEN_SOURCES ${CT_OUT}/ct_overlays.c)
 foreach(m ${CT_MODULES})
     list(APPEND CT_GEN_OUTPUTS ${CT_OUT}/${m}.c ${CT_OUT}/${m}.h)
     list(APPEND CT_GEN_SOURCES ${CT_OUT}/${m}.c)
@@ -32,8 +47,8 @@ add_custom_command(
     OUTPUT ${CT_GEN_OUTPUTS}
     COMMAND ${CMAKE_COMMAND} -E env CT_ROM=${CT_ROM}
             ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/recomp/emit.py --out ${CT_OUT}
-            --funcs ${CT_FUNCS_TOML}
-    DEPENDS ${CT_RECOMP_PY} ${CT_FUNCS_TOML}
+            --funcs ${CT_FUNCS_TOML} --overlays ${CT_OVERLAY_MANIFEST}
+    DEPENDS ${CT_RECOMP_PY} ${CT_FUNCS_TOML} ${CT_OVERLAY_MANIFEST}
     COMMENT "emit ${CT_MODULES}"
     VERBATIM)
 

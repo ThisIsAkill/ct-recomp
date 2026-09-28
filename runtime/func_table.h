@@ -41,4 +41,22 @@ typedef struct {
 extern const ct_jumptable ct_jumptables[];
 extern const unsigned ct_jumptable_count;
 
+/* Code the game puts in WRAM, recompiled from the image it was loaded from
+ * (overlays, #92; ct_overlays.c). One entry per function and entry state:
+ * it runs native only while WRAM $lo-$hi (the bytes it was decoded from)
+ * still hashes to `hash` (FNV-1a 64); otherwise it is interpreted. */
+typedef struct {
+    const char *name;
+    uint32_t addr;      /* entry, 24-bit WRAM address */
+    uint8_t m, x;
+    uint32_t lo, hi;    /* bytes decoded from, inclusive */
+    uint64_t hash;
+    void (*fn)(CPU *);
+    const uint8_t *image;   /* the whole blob it came from (tests load it) */
+    uint32_t base, size;    /* where the blob sits in WRAM */
+} ct_overlay_func;
+
+extern const ct_overlay_func ct_overlay_funcs[];
+extern const unsigned ct_overlay_func_count;
+
 #endif

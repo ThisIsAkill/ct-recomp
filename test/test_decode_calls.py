@@ -3,7 +3,8 @@
 compiled become interpreter calls (#30), with the continuation decoded in
 the call's own M/X; decode.assumed_calls marks the calls whose M/X rest on
 such an assumption until a REP/SEP grounds them; a JMP to the routine's own
-entry is a loop, not a tail call; WDM is never code."""
+entry is a loop, not a tail call; WDM is never code; code in WRAM decodes
+from its image (decode.Image) and nowhere else."""
 import os
 import sys
 
@@ -71,6 +72,20 @@ try:
     check(False, 'WDM rejected')
 except decode.DecodeError as ex:
     check('WDM' in str(ex), f'WDM rejected: {ex}')
+
+# Code in WRAM (an overlay image, #92): $7E4000: JSR $4010 / BRA +1 / RTS,
+# where $7E4010 (in the image) runs interpreted; nothing past the image is read.
+img = decode.Image(rom_with(b''), 0x7E4000, bytes([0x20, 0x10, 0x40, 0x80, 0x00, 0x60]))
+fn = decode.decode_function(img, 0x7E4000, m1x0, Resolver())
+check([i.addr for i in fn.insns] == [0x7E4000, 0x7E4003, 0x7E4005], 'decoded from the image')
+check({k[0]: t for k, (t, _) in fn.interp_calls.items()} == {0x7E4000: 0x7E4010},
+      'call inside the image runs interpreted')
+try:
+    decode.decode_function(decode.Image(rom_with(b''), 0x7E4000, bytes([0xEA])), 0x7E4000,
+                           m1x0, Resolver())
+    check(False, 'running off the image end is rejected')
+except decode.DecodeError:
+    pass
 
 print(f"decode_calls: {'ok' if not fails else str(fails) + ' failed'}")
 sys.exit(1 if fails else 0)

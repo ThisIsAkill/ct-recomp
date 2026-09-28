@@ -10,6 +10,12 @@
  * compared: random entry state pointed a store, MVN, or the WRAM port at
  * saved return addresses/registers. Counted as "stack clobber".
  *
+ * Overlay functions (#92, code the game puts in WRAM) run with their blob
+ * loaded into WRAM. A trial where either side changes the bytes the
+ * function was compiled from is not compared: generated code keeps
+ * running what it was compiled from, which the runtime never allows (it
+ * interprets once they change). Counted as "self-modified".
+ *
  * Each (function, entry state) seeds its own PRNG stream from its address
  * and M/X, so a trial's input doesn't depend on which other functions ran:
  * a name filter or a shard reproduces exactly the trials of the full sweep.
@@ -165,10 +171,27 @@ static uint64_t seed_for(const ct_func *f)
     return k ? k : 1;   /* xorshift state must be nonzero */
 }
 
+/* An overlay function (#92) as a ct_func: WRAM entry, no DB/DP assumption. */
+static ct_func overlay_func(const ct_overlay_func *o)
+{
+    return (ct_func){o->name, o->addr, o->m, o->x, (uint16_t)(o->hi - o->lo + 1), -1, -1, 0,
+                     o->fn};
+}
+
+/* An overlay function's blob (#92), loaded into WRAM before every trial. */
+static const ct_overlay_func *diff_overlay;
+
+static void load_overlay(uint8_t *wram)
+{
+    if (diff_overlay)
+        memcpy(wram + (diff_overlay->base & 0x1FFFF), diff_overlay->image, diff_overlay->size);
+}
+
 static void diff_func(const ct_func *f, int trials)
 {
     static const char tag[] = "diff";
     long fatal_both = 0, faulted_checked = 0, timeouts = 0, clobbers = 0, fails0 = th_fails;
+    long selfmod = 0;
     Result ra, rb;
     int t;
     th_rng = seed_for(f);
@@ -179,6 +202,7 @@ static void diff_func(const ct_func *f, int trials)
         }
         uint16_t dp = f->dp >= 0 ? (uint16_t)f->dp : 0;
         fill(&w0[dp], 0x100);
+        load_overlay(w0);
 
         CPU in;
         uint32_t r = rnd32();
@@ -215,6 +239,13 @@ static void diff_func(const ct_func *f, int trials)
         if (ra.clobber || rb.clobber) {
             clobbers++;   /* fuzz artifact: live stack frames overwritten */
             continue;
+        }
+        if (diff_overlay) {
+            uint32_t lo = diff_overlay->lo & 0x1FFFF, n = diff_overlay->hi - diff_overlay->lo + 1;
+            if (memcmp(wa + lo, w0 + lo, n) || memcmp(bus_wram() + lo, w0 + lo, n)) {
+                selfmod++;   /* its own code bytes changed (see top) */
+                continue;
+            }
         }
         if (ra.fatal && rb.fatal && strstr(ra.msg, "budget exhausted") &&
             strstr(rb.msg, "budget exhausted")) {
@@ -286,8 +317,11 @@ static void diff_func(const ct_func *f, int trials)
         CHECK(!memcmp(ra.alu, rb.alu, 4), "%s %s: math registers differ", tag, f->name);
     }
     printf("  %-30s $%06X m%dx%d  %d trials, %ld fatal in both (%ld compared at the fault), "
-           "%ld timed out, %ld stack clobber\n",
-           f->name, f->addr, f->m, f->x, t, fatal_both, faulted_checked, timeouts, clobbers);
+           "%ld timed out, %ld stack clobber%s",
+           f->name, f->addr, f->m, f->x, t, fatal_both, faulted_checked, timeouts, clobbers,
+           diff_overlay ? "" : "\n");
+    if (diff_overlay)
+        printf(", %ld self-modified\n", selfmod);
 }
 
 /* --replay: instruction-level trace diff of one saved trial, generated vs
@@ -332,6 +366,12 @@ static int replay(const char *path)
     fclose(fp);
 
     const ct_func *f = NULL;
+    static ct_func ov;
+    for (unsigned k = 0; k < ct_overlay_func_count; k++)
+        if (!strcmp(ct_overlay_funcs[k].name, snap->func_name)) {
+            ov = overlay_func(&ct_overlay_funcs[k]);
+            f = &ov;   /* its image is in the snapshot's WRAM */
+        }
     for (unsigned k = 0; k < ct_func_count; k++)
         if (!strcmp(ct_funcs[k].name, snap->func_name))
             f = &ct_funcs[k];
@@ -451,5 +491,13 @@ int main(int argc, char **argv)
     for (unsigned k = 0; k < ct_func_count; k++)
         if (k % shards == shard && (!filter || strstr(ct_funcs[k].name, filter)))
             diff_func(&ct_funcs[k], trials);
+    for (unsigned k = 0; k < ct_overlay_func_count; k++)
+        if ((ct_func_count + k) % shards == shard &&
+            (!filter || strstr(ct_overlay_funcs[k].name, filter))) {
+            ct_func f = overlay_func(&ct_overlay_funcs[k]);
+            diff_overlay = &ct_overlay_funcs[k];
+            diff_func(&f, trials);
+            diff_overlay = NULL;
+        }
     return th_report("diff");
 }
