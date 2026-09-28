@@ -30,7 +30,8 @@ user's own, and with WRAM
 powered on as zeros and the DSP at 32040 Hz (SpcClockSpeedAdjustment=40,
 Mesen's default, set explicitly), as the frame scheduler has them, and with
 frame skipping off (at unlimited speed Mesen otherwise skips rendering
-frames, depending on wall-clock time).
+frames, depending on wall-clock time), and a standard controller on port 1
+(with an empty settings file none is connected, and input is ignored).
 --setting passes more Mesen settings. The Linux build carries a static
 libstdc++ that crashes in std::regex next to the system one; the system
 libstdc++ is preloaded to avoid that.
@@ -117,10 +118,11 @@ local function frame_hash()
   return h
 end
 
--- Buttons for the frame in progress (frames completed + 1), set whenever
--- the game polls the pad.
+-- Buttons for the frame whose auto-joypad read this is, set whenever the
+-- game polls the pad: Mesen counts the frame at VBlank start, just before
+-- that read, so its count is already the probe's script frame.
 emu.addEventCallback(function()
-  local m = buttons(emu.getState()["frameCount"] + 1)
+  local m = buttons(emu.getState()["frameCount"])
   local t = {}
   for _, n in ipairs(names) do t[n[1]] = (m & n[2]) ~= 0 end
   emu.setInput(t, 0, 0)
@@ -184,13 +186,15 @@ def main() -> int:
                 "wram_out": lua_str(os.path.abspath(a.wram_out)) if a.wram_out else "",
             })
         settings = ["Debug.ScriptWindow.AllowIoOsAccess=true", "Snes.RamPowerOnState=AllZeros",
-                    "Snes.SpcClockSpeedAdjustment=40", "Snes.DisableFrameSkipping=true", *a.setting]
+                    "Snes.SpcClockSpeedAdjustment=40", "Snes.DisableFrameSkipping=true",
+                    "Snes.Port1.Type=SnesController", *a.setting]
         env = dict(os.environ, XDG_CONFIG_HOME=home)
         env.pop("WAYLAND_DISPLAY", None)   # X11, inside Xvfb
         stdcxx = "/usr/lib/libstdc++.so.6"
         if os.path.exists(stdcxx):
             env["LD_PRELOAD"] = stdcxx
-        cmd = [xvfb, "-a", a.mesen, "--testrunner", *("--" + s for s in settings),
+        cmd = [xvfb, "-a", a.mesen, "--testrunner", f"--timeout={a.timeout}",
+               *("--" + s for s in settings),
                os.path.abspath(a.rom), lua]
         proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 text=True, start_new_session=True)
