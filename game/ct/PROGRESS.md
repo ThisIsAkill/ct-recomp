@@ -4,42 +4,46 @@ Written by `tools/progress.py`. Do not edit by hand.
 
 | Metric | Value |
 |---|---|
-| Routines recompiled | 410 |
-| Emitted C functions (routine x entry state) | 425 |
-| ROM bytes covered | 46321 |
-| Functions known total (validated + pending + unresolved) | 1033 |
-| Functions validated | 410 |
+| Routines recompiled | 863 |
+| Emitted C functions (routine x entry state) | 888 |
+| ROM bytes covered | 77952 |
+| Functions known total (validated + pending + unresolved) | 1485 |
+| Functions validated | 863 |
 | Functions unresolved (pending sync) | 622 |
-| Manual roots not yet emittable | 1 |
+| Manual roots not yet emittable | 0 |
 | Opcodes implemented | 251 / 256 |
-| Opcodes used by recompiled routines | 139 / 256 |
+| Opcodes used by recompiled routines | 159 / 256 |
 | Opcode x width combinations implemented | 446 |
-| Tests passing | 57 / 57 |
-| Test assertions checked | 610322123 |
+| Tests passing | 58 / 58 |
+| Test assertions checked | 612977549 |
 
 ## Coverage by bank
 
 | Bank | Bytes |
 |---|---|
-| $C0 | 32894 |
-| $C1 | 9062 |
-| $C2 | 2095 |
-| $C3 | 863 |
+| $C0 | 50144 |
+| $C1 | 9421 |
+| $C2 | 8163 |
+| $C3 | 964 |
+| $C7 | 282 |
 | $CD | 887 |
 | $CF | 302 |
 | $D1 | 218 |
+| $FD | 7571 |
 
 ## Symbol sync by bank
 
 | Bank | Validated | Unresolved | Known total |
 |---|---|---|---|
-| $C0 | 205 | 622 | 827 |
-| $C1 | 106 | 0 | 106 |
-| $C2 | 71 | 0 | 71 |
-| $C3 | 1 | 0 | 1 |
+| $C0 | 516 | 622 | 1138 |
+| $C1 | 113 | 0 | 113 |
+| $C2 | 164 | 0 | 164 |
+| $C3 | 3 | 0 | 3 |
+| $C7 | 1 | 0 | 1 |
 | $CD | 21 | 0 | 21 |
 | $CF | 5 | 0 | 5 |
 | $D1 | 1 | 0 | 1 |
+| $FD | 39 | 0 | 39 |
 
 ## Routines
 
@@ -109,7 +113,7 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Loc_C117B3 | $C117B3 | m1x0 | 12 | bankc1 |
 | Loc_C117D1 | $C117D1 | m1x0 | 12 | bankc1 |
 | BattleMenu_UpdateCursorOverlay | $C117DD | m1x0 | 828 | bankc1 |
-| Text_RenderStringVec | $C20003 | m1x0 | 71 | bankc2 |
+| Text_RenderStringVec | $C20003 | m1x0 | 3 | bankc2 |
 | BattleMsg_ShowFromTableCC3A09Vec | $CD0027 | m1x0 | 51 | bankcd |
 | BattleMsg_ShowMsg0BIfKeyChangedVec | $CD002D | m1x0 | 59 | bankcd |
 | BattleMsg_ShowMsg0CIfKeyChangedVec | $CD0030 | m1x0 | 61 | bankcd |
@@ -164,7 +168,7 @@ Written by `tools/progress.py`. Do not edit by hand.
 | BattleSys_ServicePause | $CD3E44 | m1x0 | 49 | bankcd |
 | BattleSys_EntryVec12 | $C10012 | m1x0 | 3 | bankc1 |
 | BattleMenu_RefreshIfDirtyAndTick | $C110FA | m1x0 | 27 | bankc1 |
-| Text_EngineTickVec | $C20009 | m1x0 | 34 | bankc2 |
+| Text_EngineTickVec | $C20009 | m1x0 | 3 | bankc2 |
 | Text_DispatchState | $C2584A | m1x0 | 7 | bankc2 |
 | TextRoutinesUNK200 | $C25893 | m1x0 | 2 | bankc2 |
 | TextRoutinesUNK20104 | $C25895 | m1x0 | 4 | bankc2 |
@@ -234,7 +238,7 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Text_ToDec5 | $C26180 | m1x0 | 61 | bankc2 |
 | Text_ToDec8 | $C261BD | m1x0 | 116 | bankc2 |
 | Text_DivLoop24 | $C26231 | m1x0 | 50 | bankc2 |
-| Gfx_DecompressVector | $C30002 | m1x0 | 863 | bankc3 |
+| Gfx_DecompressVector | $C30002 | m1x0, m0x0 | 3/863 | bankc3 |
 | BattleSys_PerFrameServiceVec | $CD0009 | m1x0 | 56 | bankcd |
 | BattleMsg_GetDurationFrames | $CD01A5 | m1x0 | 14 | bankcd |
 | BattleBg_RestoreBaseGfx | $CD0453 | m1x0 | 83 | bankcd |
@@ -250,6 +254,7 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Sub_CD3ECE | $CD3ECE | m1x0 | 4 | bankcd |
 | BattleSys_VramUploadChunked | $CD3ED2 | m1x0 | 204 | bankcd |
 | Sub_D1ECF3 | $D1ECF3 | m1x0 | 218 | bankd1 |
+| Field_ColdBootInit | $C0000E | m1x0 | 250 | bankc0 |
 | Field_TickCoreServices | $C000DE | m1x0 | 13 | bankc0 |
 | Field_LoadLocationResources | $C000F4 | m1x0 | 39 | bankc0 |
 | Sub_011B | $C0011B | m1x0 | 138 | bankc0 |
@@ -370,7 +375,7 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Camera_RecenterProcess | $C0885A | m1x0 | 139 | bankc0 |
 | Camera_LoadMoveVel | $C088E5 | m1x0 | 9 | bankc0 |
 | Camera_MoveDispatch | $C08A6D | m1x1 | 2136 | bankc0 |
-| Camera_TryStepToTarget | $C08A9E | m0x1 | 23 | bankc0 |
+| Camera_TryStepToTarget | $C08A9E | m0x1, m0x0 | 23 | bankc0 |
 | Camera_CommitFrameDeltas | $C09175 | m1x0 | 55 | bankc0 |
 | Camera_SeekTargetTile | $C091AC | m1x0 | 565 | bankc0 |
 | Camera_ApplyScrollSteps | $C093E1 | m1x0 | 525 | bankc0 |
@@ -398,17 +403,17 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Field_BuildBottomRowStripsInd | $C09890 | m1x0 | 49 | bankc0 |
 | Field_BuildTopRowStrips | $C098C1 | m1x0 | 49 | bankc0 |
 | Field_BuildTopRowStripsInd | $C098F2 | m1x0 | 49 | bankc0 |
-| Obj_FindAtPosition | $C09923 | m1x1 | 187 | bankc0 |
+| Obj_FindAtPosition | $C09923 | m1x1, m1x0 | 187 | bankc0 |
 | Camera_ClampVelToMapEdges | $C099DE | m1x0 | 65 | bankc0 |
 | Camera_CheckBottomEdgeLimit | $C09A1F | m1x0 | 30 | bankc0 |
 | Camera_CheckTopEdgeLimit | $C09A3D | m1x0 | 35 | bankc0 |
 | Camera_CheckRightEdgeLimit | $C09A60 | m1x0 | 30 | bankc0 |
 | Camera_CheckLeftEdgeLimit | $C09A7E | m1x0 | 35 | bankc0 |
-| Camera_CheckZoneTable | $C09AA1 | m1x1 | 39 | bankc0 |
+| Camera_CheckZoneTable | $C09AA1 | m1x1, m1x0 | 39 | bankc0 |
 | Player_TilePropsLookup | $C09AC8 | m1x0, m1x1 | 33 | bankc0 |
 | Camera_UpdateScroll | $C09AD3 | m1x0, m1x1 | 290 | bankc0 |
-| Camera_CheckZoneMatch | $C09C37 | m1x1 | 37 | bankc0 |
-| Camera_ApplyVelocity | $C09C5C | m0x1 | 359 | bankc0 |
+| Camera_CheckZoneMatch | $C09C37 | m1x1, m1x0 | 37 | bankc0 |
+| Camera_ApplyVelocity | $C09C5C | m0x1, m1x0, m1x1 | 359 | bankc0 |
 | Map_LoadAndApplyConfig | $C0A33B | m1x0 | 461 | bankc0 |
 | CODE_FN_C0A508 | $C0A508 | m1x0 | 1 | bankc0 |
 | Field_WriteScreenDesignation | $C0A509 | m1x0 | 24 | bankc0 |
@@ -440,7 +445,7 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Field_ProcessAnimQueue | $C0CA76 | m1x1 | 99 | bankc0 |
 | Obj_BuildSpriteFrameStep | $C0CAD9 | m1x1 | 3818 | bankc0 |
 | Sub_CB3A | $C0CB3A | m1x0, m1x1 | 162 | bankc0 |
-| Sub_E12A | $C0E12A | m1x0 | 1034 | bankc0 |
+| Sub_E12A | $C0E12A | m1x0, m1x1 | 1034 | bankc0 |
 | Sub_E534 | $C0E534 | m0x0 | 339 | bankc0 |
 | Sub_E687 | $C0E687 | m0x0 | 686 | bankc0 |
 | Sub_E935 | $C0E935 | m1x0 | 29 | bankc0 |
@@ -455,6 +460,458 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Map_BuildTilePropGrid | $C0A521 | m1x0 | 330 | bankc0 |
 | Field_CopyMapRectLayers | $C0AF4E | m1x0 | 328 | bankc0 |
 | Field_CopyMapRectMVN | $C0B096 | m1x0 | 80 | bankc0 |
+| ReentryVectors | $C00000 | m1x0 | 173 | bankc0 |
+| _C0L27EB | $C027EB | m1x0 | 57 | bankc0 |
+| Field_RebuildScreenAndSettleFull | $C02848 | m1x0 | 36 | bankc0 |
+| Field_RebuildScreen | $C0286C | m1x0 | 62 | bankc0 |
+| EventCmd_PlayAnimLoop | $C02E67 | m1x0 | 32 | bankc0 |
+| EventCmd_PlayAnim0 | $C02E87 | m1x0 | 30 | bankc0 |
+| EventCmd_PlayAnim1 | $C02E8B | m1x0 | 30 | bankc0 |
+| EventCmd_ResetAnim | $C02E8F | m1x0 | 30 | bankc0 |
+| EventCmd_OpAB | $C02E9A | m1x0 | 103 | bankc0 |
+| EventCmd_OpB7 | $C02F01 | m1x0 | 112 | bankc0 |
+| EventCmd_SetAnimFrame | $C02F71 | m1x0 | 37 | bankc0 |
+| EventCmd_Wait | $C02F96 | m1x0 | 48 | bankc0 |
+| EventCmd_OpB9 | $C02FC6 | m1x0 | 45 | bankc0 |
+| EventCmd_OpBA | $C02FCA | m1x0 | 45 | bankc0 |
+| EventCmd_OpBD | $C02FCE | m1x0 | 45 | bankc0 |
+| EventCmd_OpBC | $C02FD2 | m1x0 | 43 | bankc0 |
+| EventCmd_OpAF | $C02FFD | m1x0 | 5 | bankc0 |
+| EventCmd_ActAsPartyMember | $C03002 | m1x0 | 91 | bankc0 |
+| Obj_StepAlignToTileCenter | $C0305D | m1x0 | 86 | bankc0 |
+| Obj_StepTowardTargetTile | $C030B3 | m1x0 | 161 | bankc0 |
+| Obj_CallTouchFunction | $C03154 | m1x1 | 93 | bankc0 |
+| Obj_TryPushBlocker | $C031B1 | m1x1 | 187 | bankc0 |
+| EventCmd_OpD9 | $C0326C | m1x0 | 494 | bankc0 |
+| EventCmd_OpDA | $C0345A | m1x0 | 229 | bankc0 |
+| EventCmd_OpB1 | $C0353F | m1x0 | 4 | bankc0 |
+| EventCmd_OpB2 | $C03543 | m1x0 | 3 | bankc0 |
+| EventCmd_OpB5 | $C03546 | m1x0 | 9 | bankc0 |
+| EventCmd_OpB6 | $C0354F | m1x0 | 8 | bankc0 |
+| EventCmd_SetDialogTable | $C03557 | m1x0 | 25 | bankc0 |
+| EventCmd_TextboxAuto | $C03570 | m1x0 | 142 | bankc0 |
+| EventCmd_TextboxTop | $C035B5 | m1x0 | 144 | bankc0 |
+| EventCmd_TextboxBottom | $C035FC | m1x0 | 144 | bankc0 |
+| EventCmd_OpC0 | $C03643 | m1x0 | 176 | bankc0 |
+| EventCmd_OpC3 | $C036AA | m1x0 | 178 | bankc0 |
+| EventCmd_OpC4 | $C036DD | m1x0 | 179 | bankc0 |
+| EventCmd_SetPalette | $C03711 | m1x0 | 70 | bankc0 |
+| EventCmd_OpenNameEntry | $C03757 | m1x0 | 41 | bankc0 |
+| EventCmd_IfHasItem | $C03780 | m1x0 | 49 | bankc0 |
+| EventCmd_AddItem | $C037B1 | m1x0 | 22 | bankc0 |
+| EventCmd_OpC7 | $C037C7 | m1x0 | 39 | bankc0 |
+| EventCmd_RemoveItem | $C037E3 | m1x0 | 22 | bankc0 |
+| EventCmd_OpD7 | $C037F9 | m1x0 | 46 | bankc0 |
+| EventCmd_IfGoldGte | $C03827 | m1x0 | 52 | bankc0 |
+| EventCmd_AddGold | $C0385B | m1x0 | 25 | bankc0 |
+| EventCmd_RemoveGold | $C03874 | m1x0 | 25 | bankc0 |
+| EventCmd_PartyReserveCheck | $C0388D | m1x0 | 49 | bankc0 |
+| EventCmd_OpD0 | $C038BE | m1x0 | 21 | bankc0 |
+| EventCmd_PartyMarkInactive | $C038D3 | m1x0 | 21 | bankc0 |
+| EventCmd_IfActivePartyMember | $C038E8 | m1x0 | 49 | bankc0 |
+| EventCmd_AddPartyMember | $C03919 | m1x0 | 53 | bankc0 |
+| EventCmd_RemovePartyMember | $C0394E | m1x0 | 147 | bankc0 |
+| EventCommandD4_39E1 | $C039E1 | m1x0 | 19 | bankc0 |
+| Field_CopySpritePalRow7To6 | $C039F4 | m1x0 | 19 | bankc0 |
+| EventCmd_OpD6 | $C03A07 | m1x0 | 97 | bankc0 |
+| EventCmd_OpD5 | $C03A68 | m1x0 | 27 | bankc0 |
+| EventCmd_StartBattle | $C03A83 | m1x0 | 52 | bankc0 |
+| EventCmd_ChangeLocation | $C03AB7 | m1x0 | 58 | bankc0 |
+| EventCmd_OpDC | $C03AF1 | m1x0 | 42 | bankc0 |
+| EventCmd_OpDD | $C03B1B | m1x0 | 42 | bankc0 |
+| EventCmd_OpDE | $C03B45 | m1x0 | 48 | bankc0 |
+| EventCmd_OpE1 | $C03B4B | m1x0 | 204 | bankc0 |
+| EventCmd_OpDF | $C03B98 | m1x0 | 210 | bankc0 |
+| EventCmd_ChangeLocationFromMem | $C03B9E | m1x0 | 103 | bankc0 |
+| EventCmd_SetExploreMode | $C03C05 | m1x0 | 12 | bankc0 |
+| EventCmd_PlaySound | $C03C11 | m1x0 | 30 | bankc0 |
+| EventCmd_PlayMusic | $C03C2F | m1x0 | 29 | bankc0 |
+| EventCmd_VolumeFade | $C03C4C | m1x0 | 76 | bankc0 |
+| EventCmd_SoundCommand | $C03C98 | m1x0 | 36 | bankc0 |
+| EventCmd_WaitSilence | $C03CBC | m1x0 | 9 | bankc0 |
+| EventCmd_WaitMusicEnd | $C03CC5 | m1x0 | 11 | bankc0 |
+| EventCmd_OpF0 | $C03CD0 | m1x0 | 45 | bankc0 |
+| EventCmd_OpF2 | $C03CFD | m1x0 | 10 | bankc0 |
+| EventCmd_OpF1 | $C03D07 | m1x0 | 115 | bankc0 |
+| EventCmd_OpF3 | $C03D7A | m1x0 | 10 | bankc0 |
+| EventCmd_ShakeScreen | $C03D84 | m1x0 | 19 | bankc0 |
+| EventCmd_CopyTiles | $C03D97 | m1x0 | 46 | bankc0 |
+| EventCmd_CopyTiles2 | $C03DC5 | m1x0 | 47 | bankc0 |
+| EventCmd_ScrollLayers | $C03DF4 | m1x0 | 60 | bankc0 |
+| EventCmd_ScrollScreen | $C03E30 | m1x0 | 44 | bankc0 |
+| EventCmd_PartyRefreshBoth | $C03E5C | m1x0 | 18 | bankc0 |
+| EventCmd_PartyRefreshOp6 | $C03E6E | m1x0 | 14 | bankc0 |
+| EventCmd_PartyRefreshOp7 | $C03E75 | m1x0 | 14 | bankc0 |
+| Loc_C03E7C | $C03E7C | m1x0 | 15 | bankc0 |
+| EventCmd_Op29 | $C03E84 | m1x0 | 82 | bankc0 |
+| EventCmd_DeferTask04 | $C03ED6 | m1x0 | 8 | bankc0 |
+| EventCmd_DeferTask08 | $C03EDE | m1x0 | 10 | bankc0 |
+| EventCmd_DeferTask10 | $C03EE2 | m1x0 | 10 | bankc0 |
+| EventCmd_Op2C | $C03EE6 | m1x0 | 44 | bankc0 |
+| EventCmd_Op2F | $C03F12 | m1x0 | 20 | bankc0 |
+| EventCmd_DrawGeometry | $C03F26 | m1x0 | 137 | bankc0 |
+| EventCmd_Mode7Scene | $C03FAF | m1x0 | 95 | bankc0 |
+| PointersToEv_C04036 | $C04036 | m1x0 | 31 | bankc0 |
+| PointersToEv_C04055 | $C04055 | m1x0 | 8 | bankc0 |
+| PointersToEv_C0405D | $C0405D | m1x0 | 86 | bankc0 |
+| SubroutinesEventCommandFF_40B3 | $C040B3 | m1x0 | 60 | bankc0 |
+| PointersToEv_C040EF | $C040EF | m1x0 | 86 | bankc0 |
+| SubroutinesEventCommandFF_4145 | $C04145 | m1x0 | 60 | bankc0 |
+| _C0L4181 | $C04181 | m1x0 | 16 | bankc0 |
+| SubroutinesEventCommandFF_4191 | $C04191 | m1x0 | 31 | bankc0 |
+| SubroutinesEventCommandFF_41B0 | $C041B0 | m1x0 | 10 | bankc0 |
+| SubroutinesEventCommandFF_41B4 | $C041B4 | m1x0 | 10 | bankc0 |
+| SubroutinesEventCommandFF_41B8 | $C041B8 | m1x0 | 8 | bankc0 |
+| SubroutinesEventCommandFF_41C0 | $C041C0 | m1x0 | 10 | bankc0 |
+| SubroutinesEventCommandFF_41C4 | $C041C4 | m1x0 | 10 | bankc0 |
+| SubroutinesEventCommandFF_41C8 | $C041C8 | m1x0 | 20 | bankc0 |
+| SubroutinesEventCommandFF_41DC | $C041DC | m1x0 | 8 | bankc0 |
+| EventCmd_LoadCrono | $C041E4 | m1x0 | 536 | bankc0 |
+| EventCmd_LoadMarle | $C041EC | m1x0 | 536 | bankc0 |
+| EventCmd_LoadLucca | $C041F4 | m1x0 | 536 | bankc0 |
+| EventCmd_LoadFrog | $C041FC | m1x0 | 536 | bankc0 |
+| EventCmd_LoadRobo | $C04204 | m1x0 | 536 | bankc0 |
+| EventCmd_LoadAyla | $C0420C | m1x0 | 536 | bankc0 |
+| EventCmd_LoadMagus | $C04214 | m1x0 | 534 | bankc0 |
+| EventCmd_LoadPcIfInParty | $C0421E | m1x0 | 600 | bankc0 |
+| EventCmd_LoadPc | $C04476 | m1x0 | 225 | bankc0 |
+| Obj_LoadPcSpriteRecord | $C0448D | m1x0 | 202 | bankc0 |
+| Obj_InitSlotFromScriptId | $C04557 | m1x0 | 57 | bankc0 |
+| EventCmd_LoadNpc | $C04590 | m1x0 | 408 | bankc0 |
+| EventCmd_LoadEnemy | $C046DF | m1x0 | 465 | bankc0 |
+| EventCmd_SetSolidProps | $C04867 | m1x0 | 15 | bankc0 |
+| EventCmd_SetObjectGfx | $C04876 | m1x0 | 28 | bankc0 |
+| EventCmd_PaletteCommand | $C04892 | m1x0 | 444 | bankc0 |
+| EventCmd_Op2E | $C04A4E | m1x0 | 222 | bankc0 |
+| Field_FindFreePaletteTaskSlot | $C04B2C | m1x0 | 29 | bankc0 |
+| EventCmd_SetSpeed | $C04B49 | m1x0 | 15 | bankc0 |
+| EventCmd_SetSpeedFromMem | $C04B58 | m1x0 | 28 | bankc0 |
+| EventCmd_SetObjectCoordTiles | $C04B74 | m1x0 | 79 | bankc0 |
+| EventCmd_SetCoordsFromMem | $C04BC3 | m1x0 | 100 | bankc0 |
+| EventCmd_SetObjectCoordPixels | $C04C27 | m1x0 | 77 | bankc0 |
+| EventCmd_SetSpritePriority | $C04C74 | m1x0 | 97 | bankc0 |
+| EventCmd_ShowObject | $C04CD5 | m1x0 | 11 | bankc0 |
+| EventCmd_HideObject | $C04CE0 | m1x0 | 13 | bankc0 |
+| EventCmd_Op7E | $C04CE6 | m1x0 | 13 | bankc0 |
+| EventCmd_ShowObjectN | $C04CEC | m1x0 | 20 | bankc0 |
+| EventCmd_HideObjectN | $C04CF9 | m1x0 | 20 | bankc0 |
+| EventCmd_NpcJump | $C04D06 | m1x0 | 287 | bankc0 |
+| EventCmd_Op7B | $C04E25 | m1x0 | 78 | bankc0 |
+| EventCmd_Op92 | $C04E73 | m1x0 | 84 | bankc0 |
+| EventCmd_Op9C | $C04EC7 | m1x0 | 67 | bankc0 |
+| EventCmd_Op9D | $C04F0A | m1x0 | 87 | bankc0 |
+| EventCmd_MoveToCoords | $C04F61 | m1x0 | 137 | bankc0 |
+| EventCmd_Op9A | $C04FEA | m1x0 | 154 | bankc0 |
+| EventCmd_MoveToCoords16 | $C05084 | m1x0 | 165 | bankc0 |
+| EventCmd_AnimMoveToCoords | $C05129 | m1x0 | 104 | bankc0 |
+| EventCmd_AnimMoveToCoords16 | $C05191 | m1x0 | 132 | bankc0 |
+| EventCmd_FollowObject | $C05215 | m1x0 | 171 | bankc0 |
+| EventCmd_Op9E | $C052C0 | m1x0 | 138 | bankc0 |
+| EventCmd_MoveTowardObject | $C0534A | m1x0 | 198 | bankc0 |
+| EventCmd_FollowPc | $C05410 | m1x0 | 177 | bankc0 |
+| EventCmd_Op8F | $C05429 | m1x0 | 198 | bankc0 |
+| EventCmd_Op9F | $C054F5 | m1x0 | 144 | bankc0 |
+| EventCmd_MoveTowardPc | $C0550E | m1x0 | 204 | bankc0 |
+| EventCmd_FaceUp | $C05535 | m1x0 | 16 | bankc0 |
+| EventCmd_FaceDown | $C05539 | m1x0 | 16 | bankc0 |
+| EventCmd_FaceLeft | $C0553D | m1x0 | 16 | bankc0 |
+| EventCmd_FaceRight | $C05541 | m1x0 | 16 | bankc0 |
+| EventCmd_SetFacing | $C05545 | m1x0 | 18 | bankc0 |
+| EventCmd_SetFacingFromMem | $C05557 | m1x0 | 33 | bankc0 |
+| EventCmd_ObjectFaceUp | $C0556C | m1x0 | 23 | bankc0 |
+| EventCmd_ObjectFaceDown | $C05579 | m1x0 | 23 | bankc0 |
+| EventCmd_ObjectFaceLeft | $C05586 | m1x0 | 23 | bankc0 |
+| EventCmd_ObjectFaceRight | $C05593 | m1x0 | 23 | bankc0 |
+| EventCmd_FaceTowardObject | $C055A0 | m1x0 | 101 | bankc0 |
+| EventCmd_FaceTowardPc | $C05605 | m1x0 | 107 | bankc0 |
+| Obj_CheckAnimDone | $C05614 | m1x0 | 119 | bankc0 |
+| Obj_ResetAnimToIdle | $C0568B | m1x0 | 27 | bankc0 |
+| Field_LocationInit | $C056A6 | m1x0 | 46 | bankc0 |
+| EventScript_InitBlock | $C05709 | m1x0 | 646 | bankc0 |
+| Sub_595C | $C0595C | m1x0 | 33 | bankc0 |
+| Obj_TestBlockerSlotEB | $C05B8D | m1x1 | 8 | bankc0 |
+| Obj_ScanObjAheadOfFacing | $C05B95 | m1x0 | 93 | bankc0 |
+| Sub_C05BFA | $C05BFA | m1x1 | 42 | bankc0 |
+| Sub_C05C20 | $C05C20 | m1x1 | 39 | bankc0 |
+| Sub_C05C47 | $C05C47 | m1x1 | 42 | bankc0 |
+| Sub_C05C6D | $C05C6D | m1x1 | 39 | bankc0 |
+| Field_LookupOrRegisterId0920 | $C05C90 | m1x0 | 128 | bankc0 |
+| EventCmd_Nop | $C05F6E | m1x0 | 79 | bankc0 |
+| EventCmd_Return | $C05F74 | m1x0 | 66 | bankc0 |
+| EventCmd_CallObjectFn | $C05FB6 | m1x0 | 200 | bankc0 |
+| EventCmd_CallObjectFnSync | $C0607E | m1x0 | 139 | bankc0 |
+| EventCmd_CallObjectFnWait | $C06109 | m1x0 | 224 | bankc0 |
+| EventCmd_CallPcFn | $C061E9 | m1x0 | 213 | bankc0 |
+| EventCmd_CallPcFnSync | $C061FE | m1x0 | 153 | bankc0 |
+| EventCmd_CallPcFnWait | $C06214 | m1x0 | 241 | bankc0 |
+| EventCmd_SetSelfCallLock | $C06240 | m1x0 | 11 | bankc0 |
+| EventCmd_ClearSelfCallLock | $C0624B | m1x0 | 13 | bankc0 |
+| EventCmd_RemoveObject | $C06254 | m1x0 | 25 | bankc0 |
+| EventCmd_DisableProcessing | $C06269 | m1x0 | 29 | bankc0 |
+| EventCmd_EnableProcessing | $C06282 | m1x0 | 23 | bankc0 |
+| EventCmd_SetMoveProps | $C06295 | m1x0 | 19 | bankc0 |
+| EventCmd_SetMoveProps2 | $C062A4 | m1x0 | 17 | bankc0 |
+| EventCmd_GotoForward | $C062B5 | m1x0 | 22 | bankc0 |
+| EventCmd_GotoBack | $C062CB | m1x0 | 24 | bankc0 |
+| EventCmd_IfMemCmpImm8 | $C062DE | m1x0 | 77 | bankc0 |
+| EventCmd_IfMemCmpImm16 | $C06313 | m1x0 | 78 | bankc0 |
+| EventCmd_IfMemCmpMem8 | $C06361 | m1x0 | 91 | bankc0 |
+| EventCmd_IfMemCmpMem16 | $C063A4 | m1x0 | 90 | bankc0 |
+| EventCmd_IfEventMem | $C063E6 | m1x0 | 116 | bankc0 |
+| EventCmd_IfStorylineLt | $C06442 | m1x0 | 37 | bankc0 |
+| EventCommand16OperatorRoutines | $C06487 | m1x1 | 10 | bankc0 |
+| EventCommand16OperatorRoutines_648F | $C0648F | m1x1 | 10 | bankc0 |
+| EventCommand16OperatorRoutines_6497 | $C06497 | m1x1 | 12 | bankc0 |
+| EventCommand16OperatorRoutines_64A1 | $C064A1 | m1x1 | 10 | bankc0 |
+| EventCommand16OperatorRoutines_64A9 | $C064A9 | m1x1 | 12 | bankc0 |
+| EventCommand16OperatorRoutines_64B5 | $C064B5 | m1x1 | 12 | bankc0 |
+| EventCommand16OperatorRoutines_64BF | $C064BF | m1x1 | 10 | bankc0 |
+| EventCommand16OperatorRoutines_64C7 | $C064C7 | m1x1 | 10 | bankc0 |
+| Sub_C064CF | $C064CF | m1x1 | 16 | bankc0 |
+| Sub_C064DB | $C064DB | m1x1 | 16 | bankc0 |
+| Sub_C064E7 | $C064E7 | m1x1 | 18 | bankc0 |
+| Sub_C064F5 | $C064F5 | m1x1 | 18 | bankc0 |
+| Sub_C06503 | $C06503 | m1x1 | 18 | bankc0 |
+| Sub_C06511 | $C06511 | m1x1 | 18 | bankc0 |
+| Sub_C06523 | $C06523 | m1x1 | 16 | bankc0 |
+| Sub_C0652F | $C0652F | m1x1 | 16 | bankc0 |
+| EventCmd_MemToResult | $C0653B | m1x0 | 31 | bankc0 |
+| EventCmd_EventMemToResult | $C0654E | m1x0 | 26 | bankc0 |
+| EventCmd_IfResultEq | $C06568 | m1x0 | 39 | bankc0 |
+| EventCmd_GetPc1Id | $C0658F | m1x0 | 27 | bankc0 |
+| EventCmd_GetObjectCoords | $C065AA | m1x0 | 65 | bankc0 |
+| EventCmd_GetPcCoords | $C065EB | m1x0 | 70 | bankc0 |
+| EventCmd_GetObjectFacing | $C065F8 | m1x0 | 39 | bankc0 |
+| EventCmd_GetPcFacing | $C0661F | m1x0 | 44 | bankc0 |
+| EventCmd_IfObjectDrawn | $C0662C | m1x0 | 41 | bankc0 |
+| EventCmd_IfObjectOnScreen | $C06655 | m1x0 | 80 | bankc0 |
+| EventCmd_IfAnyButton | $C066A5 | m1x0 | 38 | bankc0 |
+| EventCmd_IfPressed02 | $C066B2 | m1x0 | 35 | bankc0 |
+| EventCmd_IfPressed80 | $C066BC | m1x0 | 35 | bankc0 |
+| EventCmd_IfHeld80 | $C066C6 | m1x0 | 35 | bankc0 |
+| EventCmd_IfHeld08 | $C066E5 | m1x0 | 35 | bankc0 |
+| EventCmd_IfHeld40 | $C066EF | m1x0 | 35 | bankc0 |
+| EventCmd_IfHeld04 | $C066F9 | m1x0 | 33 | bankc0 |
+| EventCmd_IfStatusF2_Bit20 | $C06705 | m1x0 | 35 | bankc0 |
+| EventCmd_IfStatusF2_Bit10 | $C0670F | m1x0 | 35 | bankc0 |
+| EventCmd_IfLatch50_02 | $C06719 | m1x0 | 36 | bankc0 |
+| EventCmd_IfLatch50_80 | $C06724 | m1x0 | 39 | bankc0 |
+| EventCmd_IfLatch51_80 | $C06732 | m1x0 | 39 | bankc0 |
+| EventCmd_IfLatch51_08 | $C06740 | m1x0 | 39 | bankc0 |
+| EventCmd_IfLatch51_40 | $C0674E | m1x0 | 39 | bankc0 |
+| EventCmd_IfLatch51_04 | $C0675C | m1x0 | 39 | bankc0 |
+| EventCmd_IfLatch51_20 | $C0676A | m1x0 | 39 | bankc0 |
+| EventCmd_IfLatch51_10 | $C06778 | m1x0 | 37 | bankc0 |
+| EventCmd_Op47 | $C06788 | m1x0 | 14 | bankc0 |
+| EventCmd_ReadAbs8 | $C06792 | m1x0 | 16 | bankc0 |
+| EventScript_ReadAbsSrcPtr | $C067A2 | m1x0 | 37 | bankc0 |
+| EventCmd_ReadAbs16 | $C067C7 | m1x0 | 16 | bankc0 |
+| EventCmd_WriteAbsImm8 | $C067D7 | m1x0 | 12 | bankc0 |
+| EventScript_ReadAbsDestPtr | $C067E3 | m1x0 | 24 | bankc0 |
+| EventCmd_WriteAbsImm16 | $C067FB | m1x0 | 17 | bankc0 |
+| EventCmd_WriteAbsFromMem8 | $C0680C | m1x0 | 29 | bankc0 |
+| EventCmd_WriteAbsFromMem16 | $C06829 | m1x0 | 29 | bankc0 |
+| EventCmd_MemCopy | $C06846 | m1x0 | 95 | bankc0 |
+| EventCmd_SetMem8 | $C068A5 | m1x0 | 33 | bankc0 |
+| EventCmd_SetMem16 | $C068C6 | m1x0 | 35 | bankc0 |
+| EventCmd_CopyMem8 | $C068E9 | m1x0 | 42 | bankc0 |
+| EventCmd_CopyMem16 | $C06913 | m1x0 | 42 | bankc0 |
+| EventCmd_GetEventMem8 | $C0693D | m1x0 | 39 | bankc0 |
+| EventCmd_GetEventMem16 | $C06964 | m1x0 | 39 | bankc0 |
+| EventCmd_GetStoryline | $C0698B | m1x0 | 27 | bankc0 |
+| EventCmd_SetEventMem | $C069A6 | m1x0 | 30 | bankc0 |
+| EventCmd_MemToEventMem8 | $C069C4 | m1x0 | 39 | bankc0 |
+| EventCmd_MemToEventMem16 | $C069EB | m1x0 | 39 | bankc0 |
+| EventCmd_SetStoryline | $C06A12 | m1x0 | 13 | bankc0 |
+| EventCmd_AddImm8 | $C06A1F | m1x0 | 38 | bankc0 |
+| EventCmd_AddMem8 | $C06A45 | m1x0 | 47 | bankc0 |
+| EventCmd_AddMem16 | $C06A74 | m1x0 | 47 | bankc0 |
+| EventCmd_SubImm8 | $C06AA3 | m1x0 | 38 | bankc0 |
+| EventCmd_SubImm16 | $C06AC9 | m1x0 | 40 | bankc0 |
+| EventCmd_SubMem8 | $C06AF1 | m1x0 | 47 | bankc0 |
+| EventCmd_SetMemBit | $C06B20 | m1x0 | 43 | bankc0 |
+| EventCmd_ClearMemBit | $C06B4B | m1x0 | 43 | bankc0 |
+| EventCmd_SetEventBit | $C06B76 | m1x0 | 46 | bankc0 |
+| EventCmd_ClearEventBit | $C06BA4 | m1x0 | 46 | bankc0 |
+| EventCmd_AndMemImm | $C06BD2 | m1x0 | 37 | bankc0 |
+| EventCmd_OrMemImm | $C06BF7 | m1x0 | 37 | bankc0 |
+| EventCmd_XorMemImm | $C06C1C | m1x0 | 37 | bankc0 |
+| EventCmd_ShiftMemRight | $C06C41 | m1x0 | 40 | bankc0 |
+| EventCmd_IncMem8 | $C06C69 | m1x0 | 28 | bankc0 |
+| EventCmd_IncMem16 | $C06C85 | m1x0 | 28 | bankc0 |
+| EventCmd_DecMem8 | $C06CA1 | m1x0 | 28 | bankc0 |
+| EventCmd_SetMemTrue8 | $C06CBD | m1x0 | 25 | bankc0 |
+| EventCmd_SetMemTrue16 | $C06CD6 | m1x0 | 26 | bankc0 |
+| EventCmd_SetMemFalse | $C06CF0 | m1x0 | 25 | bankc0 |
+| EventCmd_GetRandom | $C06D09 | m1x0 | 38 | bankc0 |
+| SubroutineCalledByEventCommand | $C06E27 | m1x0 | 53 | bankc0 |
+| Obj_RecordMovement | $C09E29 | m1x1 | 91 | bankc0 |
+| Player_SelectMoveAnim | $C09E84 | m1x1 | 100 | bankc0 |
+| PointersToUn_C09FF2 | $C09FF2 | m1x1 | 135 | bankc0 |
+| PointersToUn_C0A079 | $C0A079 | m1x1 | 37 | bankc0 |
+| PointersToUn_C0A083 | $C0A083 | m1x1 | 37 | bankc0 |
+| PointersToUn_C0A08D | $C0A08D | m1x1 | 37 | bankc0 |
+| PointersToUn_C0A097 | $C0A097 | m1x1 | 37 | bankc0 |
+| PointersToUn_C0A0A1 | $C0A0A1 | m1x1 | 80 | bankc0 |
+| PointersToUn_C0A0AB | $C0A0AB | m1x1 | 80 | bankc0 |
+| PointersToUn_C0A0B5 | $C0A0B5 | m1x1 | 80 | bankc0 |
+| PointersToUn_C0A0BF | $C0A0BF | m1x1 | 80 | bankc0 |
+| PointersToUn_C0A0C9 | $C0A0C9 | m1x1 | 48 | bankc0 |
+| PointersToUn_C0A0DE | $C0A0DE | m1x1 | 48 | bankc0 |
+| PointersToUn_C0A0F3 | $C0A0F3 | m1x1 | 48 | bankc0 |
+| PointersToUn_C0A108 | $C0A108 | m1x1 | 48 | bankc0 |
+| PointersToUn_C0A11D | $C0A11D | m1x1 | 91 | bankc0 |
+| PointersToUn_C0A132 | $C0A132 | m1x1 | 91 | bankc0 |
+| PointersToUn_C0A147 | $C0A147 | m1x1 | 91 | bankc0 |
+| PointersToUn_C0A15C | $C0A15C | m1x1 | 91 | bankc0 |
+| Field_MoveFollower1 | $C0A26B | m1x1 | 467 | bankc0 |
+| Field_MoveFollower2 | $C0A2CE | m1x1 | 477 | bankc0 |
+| Obj_ComputeMoveDeltas | $C0ABA2 | m1x0 | 199 | bankc0 |
+| Obj_SetVelocityFromAngle | $C0AC69 | m1x0 | 148 | bankc0 |
+| Obj_ComputeVelocityFromAngle | $C0ACFD | m1x0 | 563 | bankc0 |
+| Field_ActivateVisibleObjects | $C0B0E6 | m1x0 | 217 | bankc0 |
+| Battle_ServiceCallEntry | $C18003 | m1x0 | 42 | bankc1 |
+| Loc_C1CFE9 | $C1CFE9 | m1x0 | 28 | bankc1 |
+| Battle_Inv_AddItem | $C1D005 | m1x0 | 81 | bankc1 |
+| Loc_C1D056 | $C1D056 | m1x0 | 48 | bankc1 |
+| Loc_C1D086 | $C1D086 | m1x0 | 28 | bankc1 |
+| Battle_Gold_Add | $C1D0A2 | m1x0 | 75 | bankc1 |
+| Loc_C1D0ED | $C1D0ED | m1x0 | 57 | bankc1 |
+| Menu_ShellEntryVector | $C20000 | m1x0 | 106 | bankc2 |
+| Menu_InitPpuRegs | $C20043 | m1x0 | 205 | bankc2 |
+| Menu_InstallInterruptVectors | $C20110 | m1x0 | 31 | bankc2 |
+| Menu_InitShellDpVars | $C2012F | m1x0 | 47 | bankc2 |
+| Menu_ResetVramQueue | $C203EF | m1x0 | 22 | bankc2 |
+| Menu_WaitFrames | $C20454 | m1x0 | 26 | bankc2 |
+| Menu_WaitVblankThunk | $C2046E | m1x0 | 10 | bankc2 |
+| Menu_ClearWinSlots | $C20471 | m1x0, m0x0 | 25 | bankc2 |
+| Menu_FindFreeSlot | $C2048A | m1x0 | 67 | bankc2 |
+| MenuTask_SpawnScript | $C204D9 | m1x0 | 34 | bankc2 |
+| Overworld_RedrawLayerFull | $C209C5 | m1x0 | 167 | bankc2 |
+| Menu_BuildSpriteNodePtrTable | $C20BF6 | m1x0 | 87 | bankc2 |
+| Menu_ClearCgramShadow | $C21DB5 | m1x0 | 31 | bankc2 |
+| Menu_ResetRngIndex | $C2232D | m1x0 | 9 | bankc2 |
+| PointersTo7E_C223EF | $C223EF | m1x0 | 31 | bankc2 |
+| PointersTo7E_C22402 | $C22402 | m1x0 | 275 | bankc2 |
+| PointersTo7E_C224D5 | $C224D5 | m1x0 | 52 | bankc2 |
+| Sub_C2250D | $C2250D | m1x0 | 17 | bankc2 |
+| PointersTo7E_C2251E | $C2251E | m1x0 | 56 | bankc2 |
+| PointersTo7E_C2258D | $C2258D | m1x0 | 156 | bankc2 |
+| PointersTo7E_C2261D | $C2261D | m1x0 | 151 | bankc2 |
+| Menu_ClearVram | $C226A8 | m1x0 | 44 | bankc2 |
+| Overworld_CacheEventFlags | $C226D6 | m1x0 | 26 | bankc2 |
+| Overworld_WritebackEventFlags | $C226F0 | m1x0 | 19 | bankc2 |
+| Overworld_SetPartyPixelPos | $C22703 | m1x0 | 29 | bankc2 |
+| Overworld_InitCameraScroll | $C22720 | m1x0 | 45 | bankc2 |
+| Overworld_SetMapDescPtr | $C2274D | m1x0 | 27 | bankc2 |
+| Overworld_LoadMainTileGfx | $C22768 | m1x0 | 84 | bankc2 |
+| Overworld_LoadAuxTileGfx | $C227DE | m1x0 | 72 | bankc2 |
+| Overworld_LoadGfxSlot08 | $C22826 | m1x0 | 46 | bankc2 |
+| Overworld_LoadGfxSlot14 | $C22854 | m1x0 | 46 | bankc2 |
+| Overworld_LoadPalettes | $C22882 | m1x0 | 128 | bankc2 |
+| Overworld_CopyMemberPalRow | $C228ED | m0x0 | 21 | bankc2 |
+| Overworld_LoadGfxSlot07 | $C22902 | m1x0 | 46 | bankc2 |
+| Overworld_LoadGfxSlot0B | $C22930 | m1x0 | 46 | bankc2 |
+| Overworld_LoadMetatileDefs | $C2295E | m1x0 | 46 | bankc2 |
+| Overworld_LoadTilemaps | $C2298C | m1x0 | 46 | bankc2 |
+| Overworld_LoadTileProps | $C229BA | m1x0 | 46 | bankc2 |
+| Overworld_LoadRegionMap | $C229E8 | m1x0 | 46 | bankc2 |
+| Overworld_LoadTriggerScripts | $C22A16 | m1x0 | 46 | bankc2 |
+| Overworld_LoadTriggerTables | $C22A44 | m1x0 | 285 | bankc2 |
+| Overworld_LoadPartySpriteGfx | $C22B61 | m1x0 | 91 | bankc2 |
+| Overworld_CopyMemberTilePage | $C22BBC | m0x0 | 19 | bankc2 |
+| Overworld_CopyMemberSpritePal | $C22BCF | m0x0 | 44 | bankc2 |
+| Menu_ClearWram8621Block | $C22BFB | m1x0 | 34 | bankc2 |
+| MenuEngine_SetIdle | $C22C1D | m1x0 | 118 | bankc2 |
+| Overworld_ReloadMapGfx | $C22C93 | m1x0 | 46 | bankc2 |
+| Overworld_LoadAllMapGfx | $C22CC1 | m1x0 | 209 | bankc2 |
+| Overworld_DmaBufToVram | $C22D70 | m0x0 | 33 | bankc2 |
+| Overworld_ApplyStorylineGfx | $C22D91 | m1x0 | 183 | bankc2 |
+| Overworld_SaveWramState | $C22E23 | m1x0 | 79 | bankc2 |
+| Overworld_RestoreWramState | $C22E72 | m1x0 | 79 | bankc2 |
+| Text_Init8600ListHeader | $C25775 | m1x0 | 35 | bankc2 |
+| Text_Clear8621Words | $C25798 | m1x0 | 24 | bankc2 |
+| Text_RenderString | $C257DF | m1x0 | 68 | bankc2 |
+| Text_EngineTick | $C25823 | m1x0 | 31 | bankc2 |
+| Loc_C2631F | $C2631F | m1x0 | 192 | bankc2 |
+| Loc_C263DF | $C263DF | m1x0 | 33 | bankc2 |
+| Loc_C26400 | $C26400 | m0x0 | 83 | bankc2 |
+| Loc_C2645C | $C2645C | m1x0 | 226 | bankc2 |
+| Loc_C265B2 | $C265B2 | m0x0 | 186 | bankc2 |
+| Sub_C268F4 | $C268F4 | m1x0 | 113 | bankc2 |
+| Sub_C26965 | $C26965 | m1x0 | 139 | bankc2 |
+| Sub_C26A34 | $C26A34 | m1x0 | 148 | bankc2 |
+| Sub_C271F9 | $C271F9 | m1x0 | 39 | bankc2 |
+| Sub_C2722C | $C2722C | m1x0 | 40 | bankc2 |
+| Sub_C27254 | $C27254 | m1x0 | 100 | bankc2 |
+| Sub_C272D8 | $C272D8 | m1x0 | 73 | bankc2 |
+| Sub_C27361 | $C27361 | m1x0 | 40 | bankc2 |
+| Sub_C27389 | $C27389 | m1x0 | 209 | bankc2 |
+| Loc_C27B5A | $C27B5A | m1x0 | 37 | bankc2 |
+| Loc_C27B7F | $C27B7F | m1x0 | 32 | bankc2 |
+| Party_DispatchVector | $C28004 | m1x0 | 6 | bankc2 |
+| Menu_LoadPartyD1Recs | $C2834D | m0x0, m1x1 | 56 | bankc2 |
+| Item_AddToInventory | $C28791 | m1x0 | 68 | bankc2 |
+| Item_RemoveFromInventory | $C287D5 | m1x0 | 45 | bankc2 |
+| Item_FindInventorySlot | $C287FA | m1x1 | 28 | bankc2 |
+| Item_ClassifyId | $C28881 | m0x0 | 38 | bankc2 |
+| Party_DispatchOp | $C28C36 | m1x0 | 37 | bankc2 |
+| Sub_C28C5A | $C28C5A | m1x1 | 1 | bankc2 |
+| Party_CheckActiveCharacter | $C28C75 | m1x1 | 24 | bankc2 |
+| Party_AddActiveCharacter | $C28C79 | m1x1 | 58 | bankc2 |
+| Party_RemoveCharacter | $C28CA2 | m1x1 | 45 | bankc2 |
+| Party_CheckRosterCharacter | $C28CCF | m1x1 | 22 | bankc2 |
+| Sub_C28CE5 | $C28CE5 | m1x1 | 33 | bankc2 |
+| Party_MarkRosterInactive | $C28CF7 | m1x1 | 14 | bankc2 |
+| Party_RecalcAllHpFromEquipment | $C28D05 | m1x1 | 23 | bankc2 |
+| Party_RecalcCharHpBonus | $C28D1C | m0x0 | 41 | bankc2 |
+| Party_RestoreAllMpToBaseMax | $C28D45 | m1x1 | 30 | bankc2 |
+| Sub_C28D63 | $C28D63 | m1x1 | 7 | bankc2 |
+| Sub_C28D6A | $C28D6A | m1x1 | 37 | bankc2 |
+| Sub_C28D8F | $C28D8F | m1x1 | 139 | bankc2 |
+| Sub_C28E1E | $C28E1E | m1x1 | 15 | bankc2 |
+| Mode7Engine_Entry | $C30000 | m1x0 | 101 | bankc3 |
+| Gfx_DecompressEntry | $C30557 | m1x0 | 860 | bankc3 |
+| Audio_Init_Entry | $C70000 | m1x0 | 282 | bankc7 |
+| MainInit | $FDC000 | m1x0 | 215 | bankfd |
+| FdCore_EffectPpuSetup | $FDC0D7 | m1x0 | 77 | bankfd |
+| FdCore_EffectStateInit | $FDC124 | m1x0 | 202 | bankfd |
+| FdCore_SetupHdmaChannels | $FDC1EE | m1x0 | 211 | bankfd |
+| FdCore_FrameTick | $FDC2C1 | m1x1 | 30 | bankfd |
+| FdCore_BuildHdmaTablesMode0A | $FDC2EB | m1x1 | 334 | bankfd |
+| FdCore_BuildWin2HdmaA | $FDC439 | m1x0 | 62 | bankfd |
+| FdCore_BuildWin2HdmaB | $FDC477 | m1x0 | 62 | bankfd |
+| FdCore_BuildBg2ScrollHdmaA | $FDC4B5 | m1x0 | 121 | bankfd |
+| FdCore_BuildBg2ScrollHdmaB | $FDC52E | m1x0 | 121 | bankfd |
+| FdCore_UpdateScrollHdmaDataA | $FDC5A7 | m1x0 | 336 | bankfd |
+| FdCore_UpdateScrollHdmaDataB | $FDC6F7 | m1x0 | 336 | bankfd |
+| FdCore_BuildHdmaTablesMode0B | $FDC847 | m1x1 | 334 | bankfd |
+| Sub_FDC995 | $FDC995 | m1x1 | 1041 | bankfd |
+| FdCore_WaveLineIndexReset | $FDCC58 | m1x0 | 6 | bankfd |
+| FdCore_AppendBg3WaveEntriesA | $FDCC5E | m1x0 | 84 | bankfd |
+| FdCore_WaveLineIndexAdvance | $FDCCB2 | m1x0 | 6 | bankfd |
+| FdCore_AppendBg3WaveEntriesB | $FDCCB8 | m1x0 | 84 | bankfd |
+| Sub_FDCD0C | $FDCD0C | m1x1 | 1041 | bankfd |
+| Sub_FDCFCF | $FDCFCF | m1x1 | 1021 | bankfd |
+| Sub_FDD27E | $FDD27E | m1x1 | 1021 | bankfd |
+| FdCore_BuildRowSplitTable | $FDD52D | m1x0 | 167 | bankfd |
+| Warp_SceneInit | $FDDB97 | m1x0 | 294 | bankfd |
+| Warp_BackupWram7F | $FDEAA6 | m1x0 | 17 | bankfd |
+| Boot_InstallVectors | $FDEAF4 | m1x0 | 31 | bankfd |
+| FdCore_PpuInit | $FDEB13 | m1x0 | 120 | bankfd |
+| Warp_ClearSpiralBuffer | $FDECC0 | m1x0 | 21 | bankfd |
+| Warp_BuildGatePalette | $FDEF6F | m1x0 | 146 | bankfd |
+| Warp_DmaTilemapLow | $FDF1C1 | m1x0 | 44 | bankfd |
+| Warp_GenTunnelTexture | $FDF1ED | m1x0 | 23 | bankfd |
+| Warp_GenTextureRows | $FDF204 | m1x0 | 30 | bankfd |
+| Warp_InitShadowOam | $FDF24C | m1x0 | 26 | bankfd |
+| Sub_FDFFE5 | $FDFFE5 | m1x0 | 125 | bankfd |
+| Warp_TransitionShortStub | $FDFFE8 | m1x0 | 98 | bankfd |
+| Warp_GateEntryStub | $FDFFEB | m1x0 | 98 | bankfd |
+| Warp_TransitionStub | $FDFFF1 | m1x0 | 98 | bankfd |
+| PalAnim_LoadMapConfigStub | $FDFFF4 | m1x0 | 269 | bankfd |
+| AnimTile_FrameTickStub | $FDFFF7 | m1x0 | 158 | bankfd |
+| FdCore_ResourceServiceStub | $FDFFFA | m1x0 | 397 | bankfd |
 
 ## Implemented opcodes
 
@@ -464,60 +921,61 @@ $00 BRK imm, $01 ORA dp_x_ind, $02 COP imm, $03 ORA sr, $04 TSB dp, $05 ORA dp, 
 
 | Test | Result |
 |---|---|
-| diff_all_2 | Passed |
-| diff_all_3 | Passed |
-| diff_all_4 | Passed |
-| diff_all_1 | Passed |
 | interp_c1_text_divten | Passed |
+| lockstep_leene_square | Passed |
+| native_coverage | Passed |
+| lockstep_gato_battle | Passed |
+| battle_no_flicker | Passed |
 | interp_c1_math_divide | Passed |
 | interp_c1_math_mulaccum | Passed |
-| lockstep_boot | Passed |
 | boot_interp | Passed |
-| boot_menu | Passed |
-| c1_text_divten | Passed |
+| lockstep_boot | Passed |
 | interp_c1_text_reencode | Passed |
-| c1_math_mulaccum | Passed |
+| c1_text_divten | Passed |
+| boot_menu | Passed |
 | interp_c1_text_format | Passed |
-| sync_determinism | Passed |
+| c1_math_mulaccum | Passed |
 | c1_math_divide | Passed |
-| sdl_boot | Passed |
-| interp_c1_ui_gauge | Passed |
 | c1_text_reencode | Passed |
-| c1_ui_gauge | Passed |
+| sdl_boot | Passed |
+| sync_determinism | Passed |
 | runtime | Passed |
+| interp_c1_ui_gauge | Passed |
 | c1_text_format | Passed |
-| lockstep_report | Passed |
-| c1_math_shifts | Passed |
 | interp_c1_math_shifts | Passed |
+| c1_ui_gauge | Passed |
+| lockstep_report | Passed |
 | resample | Passed |
+| c1_math_shifts | Passed |
 | interp_c1_math_mul8 | Passed |
 | c1_math_mul8 | Passed |
-| diff_open_bus | Passed |
+| decode_calls | Passed |
+| sched | Passed |
+| manual_root | Passed |
+| tas_convert | Passed |
 | runtime_fatal_entry | Passed |
 | runtime_fatal_decimal | Passed |
-| interp_modes | Passed |
 | runtime_fatal_open_bus | Passed |
+| interp_modes | Passed |
 | runtime_fatal_rom_write | Passed |
 | runtime_fatal_unhooked | Passed |
 | stack_guard | Passed |
-| sched | Passed |
 | hw_map | Passed |
-| check_agnostic | Passed |
 | input | Passed |
+| native | Passed |
 | dsp | Passed |
 | interp_system | Passed |
-| native | Passed |
-| snes_bus | Passed |
 | replay | Passed |
-| manual_root | Passed |
-| tas_convert | Passed |
-| lockstep_leene_square | Passed |
-| native_coverage | Passed |
-| diff_all_6 | Passed |
-| lockstep_gato_battle | Passed |
-| diff_all_0 | Passed |
-| battle_no_flicker | Passed |
-| diff_all_7 | Passed |
+| snes_bus | Passed |
+| check_agnostic | Passed |
+| diff_open_bus | Passed |
 | sdl_record | Passed |
+| diff_all_1 | Passed |
 | diff_all_5 | Passed |
+| diff_all_6 | Passed |
+| diff_all_2 | Passed |
+| diff_all_3 | Passed |
+| diff_all_4 | Passed |
+| diff_all_0 | Passed |
+| diff_all_7 | Passed |
 | sdl_audio_60s | Passed |
