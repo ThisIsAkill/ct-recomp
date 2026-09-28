@@ -6293,7 +6293,8 @@ module = "bankc3"
 [[func]]
 name = "Gfx_DecompressEntry"
 addr = 0xC30557
-states = ["m1x0"]
+states = ["m1x0", "m0x0"]
+profile_states = ["m0x0"]
 e = 0
 module = "bankc3"
 
@@ -6576,3 +6577,515 @@ addr = 0xFDFFFA
 states = ["m1x0"]
 e = 0
 module = "bankfd"
+
+# ---- discovered by tools/discover.py (entry state from call sites) ----
+
+[[func]]
+name = "Field_FrameUpdate"
+addr = 0xC000BF
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Field_ReadHVLatch"
+addr = 0xC05A46
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "EventScript_RunObjectScriptSlice"
+addr = 0xC05A93
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Field_UploadCgram"
+addr = 0xC0712E
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Vblank_UploadRightColL1"
+addr = 0xC086AB
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Dma7_TriggerVramWrite_Inc32"
+addr = 0xC086DD
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Vblank_UploadRightColL2"
+addr = 0xC086F7
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Vblank_UploadRightColL3"
+addr = 0xC08729
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Player_ProcessControl"
+addr = 0xC0881E
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Player_ApplyPadMoveIntent"
+addr = 0xC088EE
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Sub_C08924"
+addr = 0xC08924
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Sub_C08925"
+addr = 0xC08925
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Sub_C08944"
+addr = 0xC08944
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Sub_C08963"
+addr = 0xC08963
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Sub_C08982"
+addr = 0xC08982
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Sub_C089A1"
+addr = 0xC089A1
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Sub_C089D2"
+addr = 0xC089D2
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Sub_C08A07"
+addr = 0xC08A07
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Sub_C08A3C"
+addr = 0xC08A3C
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Field_UpdateDrawObjects"
+addr = 0xC0A810
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Vblank_UploadOam"
+addr = 0xC0ECA3
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Vblank_UpdateAnimTileWords"
+addr = 0xC0ED15
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Dialog_DrawChoiceCursor"
+addr = 0xC0F05E
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Dialog_DrawChoiceSlot3"
+addr = 0xC0F110
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Dialog_DrawChoiceSlot2"
+addr = 0xC0F12B
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Dialog_DrawChoiceSlot1"
+addr = 0xC0F142
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Dialog_DrawChoiceSlot0"
+addr = 0xC0F159
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Menu_MarkEquippedRocks"
+addr = 0xC282E1
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Pad_ApplyButtonRemap"
+addr = 0xC28545
+states = ["m0x1"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Pad_RemapOneSet"
+addr = 0xC28555
+states = ["m1x1"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_TickPlayTimeClock"
+addr = 0xC285AE
+states = ["m1x1"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "NewGame_SeedCharStatsAndTechs"
+addr = 0xC2956E
+states = ["m1x1"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "NewGame_InitFlagsAndSettings"
+addr = 0xC295BB
+states = ["m0x0", "m1x1"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Mode7_PlayPendingSong"
+addr = 0xC309A4
+states = ["m1x0"]
+e = 0
+module = "bankc3"
+source = "profile"
+
+[[func]]
+name = "Mode7_List0920_Remove"
+addr = 0xC30CB8
+states = ["m0x0"]
+e = 0
+module = "bankc3"
+source = "profile"
+
+[[func]]
+name = "Mode7_List0920_Add"
+addr = 0xC30CE2
+states = ["m0x0"]
+e = 0
+module = "bankc3"
+source = "profile"
+
+[[func]]
+name = "Mode7_List0940_Add"
+addr = 0xC30CF8
+states = ["m0x0"]
+e = 0
+module = "bankc3"
+source = "profile"
+
+[[func]]
+name = "Sub_C30D0E"
+addr = 0xC30D0E
+states = ["m0x0"]
+e = 0
+module = "bankc3"
+source = "profile"
+
+[[func]]
+name = "Sub_C30D5E"
+addr = 0xC30D5E
+states = ["m0x0"]
+e = 0
+module = "bankc3"
+source = "profile"
+
+[[func]]
+name = "Audio_UploadInstrumentSample"
+addr = 0xC70655
+states = ["m0x0"]
+e = 0
+module = "bankc7"
+source = "profile"
+
+[[func]]
+name = "Audio_NormalizeSongCmd"
+addr = 0xC70734
+states = ["m1x0"]
+e = 0
+module = "bankc7"
+source = "profile"
+
+[[func]]
+name = "Apu_SendByteWaitAck"
+addr = 0xC709DA
+states = ["m1x0"]
+e = 0
+module = "bankc7"
+source = "profile"
+
+[[func]]
+name = "Audio_SetEchoLimit"
+addr = 0xC709FD
+states = ["m1x0"]
+e = 0
+module = "bankc7"
+source = "profile"
+
+[[func]]
+name = "Audio_EvictSamplesAboveLimit"
+addr = 0xC70A12
+states = ["m1x0"]
+e = 0
+module = "bankc7"
+source = "profile"
+
+[[func]]
+name = "PalAnim_LoadScriptedFrame"
+addr = 0xFDE485
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "PalAnim_ScaleBrightnessStep"
+addr = 0xFDE5A4
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "PalAnim_ScaleRGB"
+addr = 0xFDE64F
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Loc_FDE6A1"
+addr = 0xFDE6A1
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+
+[[func]]
+name = "Loc_FDE6D1"
+addr = 0xFDE6D1
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+
+[[func]]
+name = "PalAnim_ScaleRed"
+addr = 0xFDE708
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+
+[[func]]
+name = "Loc_FDE73A"
+addr = 0xFDE73A
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+
+[[func]]
+name = "PalAnim_ScaleRedGreen"
+addr = 0xFDE779
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+
+[[func]]
+name = "Loc_FDE7C0"
+addr = 0xFDE7C0
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+
+[[func]]
+name = "PalAnim_TintToWhiteStep"
+addr = 0xFDE82C
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "PalAnim_WhitenRGB"
+addr = 0xFDE8D7
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+
+[[func]]
+name = "PalAnim_WhitenBlue"
+addr = 0xFDE935
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+
+[[func]]
+name = "PalAnim_WhitenRed"
+addr = 0xFDE962
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+
+[[func]]
+name = "Loc_FDE98F"
+addr = 0xFDE98F
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+
+[[func]]
+name = "Loc_FDE9CA"
+addr = 0xFDE9CA
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+
+[[func]]
+name = "PalAnim_WhitenGreenBlue"
+addr = 0xFDEA11
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+
+[[func]]
+name = "PalAnim_WhitenRedGreen"
+addr = 0xFDEA5C
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Sub_FDFFEE"
+addr = 0xFDFFEE
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "FdCore_VramDmaServiceStub"
+addr = 0xFDFFFD
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Menu_CheckRockTriples"
+addr = 0xFFF958
+states = ["m1x0"]
+e = 0
+module = "bankff"
+source = "profile"
+
+[[func]]
+name = "SaveSlot_Validate"
+addr = 0xFFF9C4
+states = ["m1x1"]
+e = 0
+module = "bankff"
+source = "profile"
+
+[[func]]
+name = "SaveSlot_GetBase"
+addr = 0xFFFBD3
+states = ["m0x0"]
+e = 0
+module = "bankff"
+source = "profile"
+
+[[func]]
+name = "SaveSlot_Checksum"
+addr = 0xFFFBE7
+states = ["m0x0"]
+e = 0
+module = "bankff"
