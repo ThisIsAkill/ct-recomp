@@ -4,24 +4,24 @@ Written by `tools/progress.py`. Do not edit by hand.
 
 | Metric | Value |
 |---|---|
-| Routines recompiled | 398 |
-| Emitted C functions (routine x entry state) | 412 |
-| ROM bytes covered | 39860 |
+| Routines recompiled | 410 |
+| Emitted C functions (routine x entry state) | 425 |
+| ROM bytes covered | 46321 |
 | Functions known total (validated + pending + unresolved) | 1033 |
-| Functions validated | 398 |
-| Functions unresolved (pending sync) | 634 |
+| Functions validated | 410 |
+| Functions unresolved (pending sync) | 622 |
 | Manual roots not yet emittable | 1 |
 | Opcodes implemented | 251 / 256 |
-| Opcodes used by recompiled routines | 138 / 256 |
+| Opcodes used by recompiled routines | 139 / 256 |
 | Opcode x width combinations implemented | 446 |
 | Tests passing | 57 / 57 |
-| Test assertions checked | 610244220 |
+| Test assertions checked | 610322123 |
 
 ## Coverage by bank
 
 | Bank | Bytes |
 |---|---|
-| $C0 | 26433 |
+| $C0 | 32894 |
 | $C1 | 9062 |
 | $C2 | 2095 |
 | $C3 | 863 |
@@ -33,7 +33,7 @@ Written by `tools/progress.py`. Do not edit by hand.
 
 | Bank | Validated | Unresolved | Known total |
 |---|---|---|---|
-| $C0 | 193 | 634 | 827 |
+| $C0 | 205 | 622 | 827 |
 | $C1 | 106 | 0 | 106 |
 | $C2 | 71 | 0 | 71 |
 | $C3 | 1 | 0 | 1 |
@@ -250,6 +250,8 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Sub_CD3ECE | $CD3ECE | m1x0 | 4 | bankcd |
 | BattleSys_VramUploadChunked | $CD3ED2 | m1x0 | 204 | bankcd |
 | Sub_D1ECF3 | $D1ECF3 | m1x0 | 218 | bankd1 |
+| Field_TickCoreServices | $C000DE | m1x0 | 13 | bankc0 |
+| Field_LoadLocationResources | $C000F4 | m1x0 | 39 | bankc0 |
 | Sub_011B | $C0011B | m1x0 | 138 | bankc0 |
 | Field_ExportBattleHandoffData | $C0038F | m1x0 | 180 | bankc0 |
 | Field_ExportScreenTileProps | $C0039B | m1x0 | 127 | bankc0 |
@@ -268,10 +270,14 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Field_LoadTilesetGfx | $C00960 | m1x0 | 231 | bankc0 |
 | Field_LoadTileAssembly12 | $C009DD | m1x0 | 55 | bankc0 |
 | Field_LoadTileAssemblyL3 | $C00A14 | m1x0 | 60 | bankc0 |
+| Field_RebuildMapVideoState | $C00A50 | m1x0 | 175 | bankc0 |
+| Field_EnableNmiIrqAfterInit | $C00B28 | m1x0 | 38 | bankc0 |
 | InitHW | $C00B4E | m1x0 | 22 | bankc0 |
 | Field_InstallNmiVector | $C00B64 | m1x0 | 17 | bankc0 |
 | Field_InstallIrqVector | $C00B75 | m1x0 | 17 | bankc0 |
 | Field_InitLocationStateVars | $C00B86 | m1x0 | 240 | bankc0 |
+| Sub_18D9 | $C018D9 | m1x0 | 139 | bankc0 |
+| Sub_1985 | $C01985 | m1x0 | 77 | bankc0 |
 | Sub_1ADF | $C01ADF | m1x0 | 87 | bankc0 |
 | Sub_1B36 | $C01B36 | m0x0 | 29 | bankc0 |
 | Field_StartLocationMusic | $C01B53 | m1x0 | 61 | bankc0 |
@@ -283,6 +289,7 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Dialog_InitWindowArea | $C020B2 | m1x0 | 64 | bankc0 |
 | Dialog_RenderRequest | $C020F2 | m1x0 | 52 | bankc0 |
 | Dialog_HandleRenderResult | $C02126 | m1x0 | 187 | bankc0 |
+| Field_ProcessDeferredTasks | $C0274D | m1x0 | 215 | bankc0 |
 | Field_ClearOpenedTileQueue | $C028AA | m1x0 | 22 | bankc0 |
 | Field_QueueOpenedTileOffset | $C028C0 | m1x0 | 33 | bankc0 |
 | Field_ReapplyOpenedTileGroups | $C028E1 | m1x0 | 24 | bankc0 |
@@ -362,6 +369,8 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Field_BuildRightColStripsImmediate | $C087F1 | m1x0 | 45 | bankc0 |
 | Camera_RecenterProcess | $C0885A | m1x0 | 139 | bankc0 |
 | Camera_LoadMoveVel | $C088E5 | m1x0 | 9 | bankc0 |
+| Camera_MoveDispatch | $C08A6D | m1x1 | 2136 | bankc0 |
+| Camera_TryStepToTarget | $C08A9E | m0x1 | 23 | bankc0 |
 | Camera_CommitFrameDeltas | $C09175 | m1x0 | 55 | bankc0 |
 | Camera_SeekTargetTile | $C091AC | m1x0 | 565 | bankc0 |
 | Camera_ApplyScrollSteps | $C093E1 | m1x0 | 525 | bankc0 |
@@ -428,12 +437,15 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Sub_C2BF | $C0C2BF | m1x0 | 1064 | bankc0 |
 | Sub_C6E7 | $C0C6E7 | m0x0 | 83 | bankc0 |
 | Obj_AnimTickAndQueue | $C0C98A | m1x1 | 236 | bankc0 |
+| Field_ProcessAnimQueue | $C0CA76 | m1x1 | 99 | bankc0 |
+| Obj_BuildSpriteFrameStep | $C0CAD9 | m1x1 | 3818 | bankc0 |
 | Sub_CB3A | $C0CB3A | m1x0, m1x1 | 162 | bankc0 |
 | Sub_E12A | $C0E12A | m1x0 | 1034 | bankc0 |
 | Sub_E534 | $C0E534 | m0x0 | 339 | bankc0 |
 | Sub_E687 | $C0E687 | m0x0 | 686 | bankc0 |
 | Sub_E935 | $C0E935 | m1x0 | 29 | bankc0 |
 | Sub_E952 | $C0E952 | m1x0, m1x1 | 33/40 | bankc0 |
+| Sub_E97A | $C0E97A | m1x0, m1x1 | 48 | bankc0 |
 | Sub_E9AA | $C0E9AA | m1x0, m1x1 | 85/56 | bankc0 |
 | Sub_E9E2 | $C0E9E2 | m1x0 | 29 | bankc0 |
 | Sub_E9FF | $C0E9FF | m1x0 | 32 | bankc0 |
@@ -452,60 +464,60 @@ $00 BRK imm, $01 ORA dp_x_ind, $02 COP imm, $03 ORA sr, $04 TSB dp, $05 ORA dp, 
 
 | Test | Result |
 |---|---|
-| diff_all_3 | Passed |
-| interp_c1_text_divten | Passed |
 | diff_all_2 | Passed |
+| diff_all_3 | Passed |
+| diff_all_4 | Passed |
+| diff_all_1 | Passed |
+| interp_c1_text_divten | Passed |
 | interp_c1_math_divide | Passed |
 | interp_c1_math_mulaccum | Passed |
 | lockstep_boot | Passed |
-| diff_all_4 | Passed |
 | boot_interp | Passed |
-| diff_all_7 | Passed |
 | boot_menu | Passed |
 | c1_text_divten | Passed |
 | interp_c1_text_reencode | Passed |
-| c1_math_divide | Passed |
 | c1_math_mulaccum | Passed |
-| lockstep_leene_square | Passed |
-| c1_text_reencode | Passed |
 | interp_c1_text_format | Passed |
 | sync_determinism | Passed |
+| c1_math_divide | Passed |
 | sdl_boot | Passed |
 | interp_c1_ui_gauge | Passed |
+| c1_text_reencode | Passed |
 | c1_ui_gauge | Passed |
-| c1_text_format | Passed |
 | runtime | Passed |
+| c1_text_format | Passed |
 | lockstep_report | Passed |
-| manual_root | Passed |
-| resample | Passed |
-| interp_c1_math_shifts | Passed |
-| interp_c1_math_mul8 | Passed |
 | c1_math_shifts | Passed |
+| interp_c1_math_shifts | Passed |
+| resample | Passed |
+| interp_c1_math_mul8 | Passed |
 | c1_math_mul8 | Passed |
-| native | Passed |
-| runtime_fatal_decimal | Passed |
-| runtime_fatal_entry | Passed |
 | diff_open_bus | Passed |
-| runtime_fatal_rom_write | Passed |
-| runtime_fatal_open_bus | Passed |
-| runtime_fatal_unhooked | Passed |
+| runtime_fatal_entry | Passed |
+| runtime_fatal_decimal | Passed |
 | interp_modes | Passed |
+| runtime_fatal_open_bus | Passed |
+| runtime_fatal_rom_write | Passed |
+| runtime_fatal_unhooked | Passed |
 | stack_guard | Passed |
+| sched | Passed |
 | hw_map | Passed |
+| check_agnostic | Passed |
 | input | Passed |
 | dsp | Passed |
 | interp_system | Passed |
+| native | Passed |
 | snes_bus | Passed |
 | replay | Passed |
-| sched | Passed |
-| check_agnostic | Passed |
-| native_coverage | Passed |
+| manual_root | Passed |
 | tas_convert | Passed |
+| lockstep_leene_square | Passed |
+| native_coverage | Passed |
 | diff_all_6 | Passed |
 | lockstep_gato_battle | Passed |
-| battle_no_flicker | Passed |
-| diff_all_1 | Passed |
-| diff_all_5 | Passed |
-| sdl_record | Passed |
 | diff_all_0 | Passed |
+| battle_no_flicker | Passed |
+| diff_all_7 | Passed |
+| sdl_record | Passed |
+| diff_all_5 | Passed |
 | sdl_audio_60s | Passed |
