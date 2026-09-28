@@ -48,7 +48,11 @@ static uint8_t rdnmi;           /* $4210 bit 7: NMI flag, cleared by read */
 static int rdnmi_set;            /* this frame's flag was set */
 static int rdnmi_cleared;        /* line 0: the flag was cleared */
 static int in_vblank;
-static int autojoy_busy;
+static int autojoy_busy;         /* $4212 bit 0 */
+static int autojoy_step;         /* next auto-read step, 35: none in progress */
+static int autojoy_on;           /* enabled at step 1 */
+static uint64_t autojoy_start;   /* step 0's clock */
+static uint16_t autojoy_pad[4];  /* the buttons being read */
 static uint8_t wrio;            /* $4201; bit 7 high->low latches H/V */
 static uint16_t htime, vtime;   /* $4207-$420A, 9 bits each */
 static uint8_t timeup;          /* $4211 bit 7: IRQ flag, the IRQ line */
@@ -219,10 +223,44 @@ static void htime_vtime_write(uint16_t reg, uint8_t v)
         *t = (uint16_t)((*t & 0xFF) | (v & 1) << 8); /* $4208/$420A: bit 8 */
 }
 
+/* Auto joypad read (Mesen 2 InternalRegisters): armed at the start of line
+   225, step 0 at the first multiple of 256 master clocks (since power-on)
+   after clock 130 of that line, minus 128; one step every 128 clocks. At
+   step 1 the read runs if NMITIMEN bit 0 is set: busy, results zeroed;
+   steps 4, 6, ... 34 shift in one bit each (B first); busy ends at step
+   34. Brought up to date at each line start and $4212/$4218-$421F read. */
+static void autojoy_arm(uint64_t now)
+{
+    uint64_t r = now + 130;
+    autojoy_start = ((r + 255) & ~(uint64_t)255) - 128;
+    autojoy_step = 0;
+    memcpy(autojoy_pad, pad, sizeof autojoy_pad);
+}
+
+static void autojoy_update(uint64_t now)
+{
+    for (; autojoy_step <= 34 && autojoy_start + 128u * (unsigned)autojoy_step <= now; autojoy_step++) {
+        int step = autojoy_step;
+        if (step == 1) {
+            autojoy_on = nmitimen & 1;
+            autojoy_busy = autojoy_on;
+            if (autojoy_on)
+                memset(joy, 0, sizeof joy);
+        } else if (step >= 4 && !(step & 1) && autojoy_on) {
+            int k = (step - 4) / 2 + 1;   /* bits in */
+            for (int p = 0; p < 4; p++)
+                joy[p] = (uint16_t)(autojoy_pad[p] >> (16 - k));
+        }
+        if (step == 34)
+            autojoy_busy = 0;
+    }
+}
+
 /* $4218-$421F JOY1L..JOY4H: 16-bit auto-read results, low byte first
    (L: A X L R 0 0 0 0, H: B Y Select Start Up Down Left Right). */
 static uint8_t joy_read(uint16_t reg)
 {
+    autojoy_update(access_clock(4));
     uint16_t v = joy[(reg - 0x4218) >> 1];
     return (uint8_t)(reg & 1 ? v >> 8 : v);
 }
@@ -271,6 +309,7 @@ static uint8_t hvbjoy_read(uint16_t reg)
     int ln;
     unsigned h;
     access_hv(&ln, &h);
+    autojoy_update(access_clock(4));
     int vb = ln >= SCHED_VBLANK_LINE;
     int hb = h < 4 || h > SCHED_HBLANK_CLOCK;
     return (uint8_t)(vb << 7 | hb << 6 | (bus_mdr & 0x3E) | autojoy_busy);
@@ -339,7 +378,8 @@ void sched_init(CPU *c)
     dsp_output_hook = dsp_out;
     ring_head = ring_len = 0;
     nmitimen = rdnmi = 0;
-    in_vblank = autojoy_busy = 0;
+    in_vblank = autojoy_busy = autojoy_on = 0;
+    autojoy_step = 35;
     wrio = 0xFF;
     htime = vtime = 0x1FF;
     timeup = 0;
@@ -393,12 +433,9 @@ static void start_line(void)
         memcpy(present, fb, sizeof present);   /* rows 0-223 are final */
         in_vblank = 1;
         snes_oam_vblank_reload();
-        autojoy_busy = nmitimen & 1;
-        if (nmitimen & 1)
-            memcpy(joy, pad, sizeof joy);   /* auto-read (results readable at once) */
+        autojoy_arm(line_start);
     }
-    if (line == SCHED_VBLANK_LINE + 3)
-        autojoy_busy = 0;
+    autojoy_update(line_start);
     if (line <= SCHED_HEIGHT)
         ppu_runLine(ppu, line);   /* line L draws row L-1 */
 }

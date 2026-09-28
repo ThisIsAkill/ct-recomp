@@ -357,6 +357,54 @@ static void test_hblank_rdnmi_clock(void)
           (long long)(s_last - rise + 2), held ? "held" : "cleared", bus_wram()[0x12]);
 }
 
+/* Auto-joypad busy (Mesen 2): step 0 at the first multiple of 256 master
+   clocks after clock 130 of line 225, minus 128; busy from step 1 to step
+   34 (128 clocks each). */
+static uint64_t aj_prev[2], aj_last[2];
+static int aj_done[2];
+
+static void aj_trace(const CPU *c, uint32_t at)
+{
+    (void)c;
+    int k = at == 0x7E2405 ? 0 : at == 0x7E240C ? 1 : -1;
+    if (at == 0x7E240C)
+        aj_done[0] = 1;
+    if (at == 0x7E2413)
+        aj_done[1] = 1;
+    if (k >= 0 && !aj_done[k]) {
+        aj_prev[k] = aj_last[k];
+        aj_last[k] = sched_clock();
+    }
+}
+
+static void test_autojoy_clock(void)
+{
+    /* LDA #1 / STA $4200 / L1: LDA $4212 / AND #1 / BEQ L1 /
+       L2: LDA $4212 / AND #1 / BNE L2 / BRA . */
+    static const uint8_t prog[] = {
+        0xA9, 0x01, 0x8D, 0x00, 0x42,
+        0xAD, 0x12, 0x42, 0x29, 0x01, 0xF0, 0xF9,
+        0xAD, 0x12, 0x42, 0x29, 0x01, 0xD0, 0xF9,
+        0x80, 0xFE,
+    };
+    start_prog(prog, sizeof prog);
+    memset(aj_done, 0, sizeof aj_done);
+    memset(aj_last, 0, sizeof aj_last);
+    ct_trace_hook = aj_trace;
+    sched_run_frame();
+    sched_run_frame();
+    ct_trace_hook = NULL;
+    uint64_t step0 = ((225ull * 1364 + 130 + 255) & ~255ull) - 128;
+    uint64_t set = step0 + 128, clear = step0 + 34 * 128;
+    /* LDA abs from WRAM: the I/O read is sampled at +26. */
+    CHECK(aj_done[0] && aj_last[0] + 26 >= set && aj_prev[0] + 26 < set,
+          "busy seen from the read at %lld (set at %lld)", (long long)(aj_last[0] + 26),
+          (long long)set);
+    CHECK(aj_done[1] && aj_last[1] + 26 >= clear && aj_prev[1] + 26 < clear,
+          "busy gone at the read at %lld (cleared at %lld)", (long long)(aj_last[1] + 26),
+          (long long)clear);
+}
+
 int main(void)
 {
     th_bus_init();
@@ -367,6 +415,7 @@ int main(void)
     test_hdma_time();
     test_frame_edge_wram();
     test_hblank_rdnmi_clock();
+    test_autojoy_clock();
 
     /* HDMA channel 7, mode 3 (4 bytes to $2121 $2121 $2122 $2122): every
        line sets CGRAM[0] (the backdrop) to red = row & 31. */
