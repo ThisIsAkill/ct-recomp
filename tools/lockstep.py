@@ -81,7 +81,8 @@ def main() -> int:
         logs = {m: os.path.join(tmp, m + ".log") for m in ("native", "interp")}
         procs = {}
         for mode, log in logs.items():
-            cmd = [probe, *args, "--hash-log", log]
+            # native overlay code must never outlive a change to its bytes here
+            cmd = [probe, *args, "--hash-log", log, "--overlay-strict"]
             if mode == "interp":
                 cmd.append("--interp-only")
             procs[mode] = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -90,6 +91,10 @@ def main() -> int:
         codes = {m: p.returncode for m, p in procs.items()}
         hashes = {}
         for mode, log in logs.items():
+            if not os.path.exists(log):   # the probe refused its arguments, or crashed early
+                print(f"lockstep: {mode} run wrote no hash log (exit {codes[mode]}): "
+                      f"{outs[mode].strip()[-300:]}")
+                return 1
             with open(log) as f:
                 hashes[mode] = [line.split() for line in f if line.strip()]
 

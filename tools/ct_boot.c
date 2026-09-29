@@ -53,6 +53,10 @@
  *                  (jumps, calls, interrupts into WRAM code), once per
  *                  address and state, for finding entries into code the
  *                  game puts in WRAM
+ * --overlay-strict / --overlay-fallback  when native overlay code (#92) finds
+ *                  its own bytes changed while it runs: fail loudly (debug
+ *                  builds' default; lockstep and reference runs use it), or
+ *                  carry on in the interpreter (release builds' default)
  * --first-exec F   write "ADDR clock" to F the first time each instruction
  *                  address runs (for timing comparisons against a reference)
  * --trace LO:HI[@N] F  write "ADDR clock X Y" to F for every instruction
@@ -81,6 +85,7 @@
 #include "png.h"
 #include "replay.h"
 #include "sched.h"
+#include "overlay.h"
 #include "snes_adapter.h"
 #include "spc700_host.h"
 #include "ppu.h"
@@ -426,6 +431,10 @@ int main(int argc, char **argv)
                 fprintf(stderr, "ct_boot: cannot write %s\n", argv[k]);
                 return 2;
             }
+        } else if (!strcmp(argv[k], "--overlay-strict")) {
+            ct_overlay_strict = 1;
+        } else if (!strcmp(argv[k], "--overlay-fallback")) {
+            ct_overlay_strict = 0;
         } else if (!strcmp(argv[k], "--snap-at") && k + 2 < argc) {
             snap_pc = (uint32_t)strtoul(argv[++k], NULL, 16);
             snap_dir = argv[++k];
@@ -463,7 +472,7 @@ int main(int argc, char **argv)
             fprintf(stderr, "usage: ct_boot [--frames N] [--dump DIR] [--needed-hw FILE] "
                             "[--min-nmis K] [--require-render] [--wav FILE] "
                             "[--require-audio] [--input F1-F2:BUTTONS] [--script FILE] "
-                            "[--expect-pc ADDR] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--aram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--log-entry ADDR[:MEM]] [--snap-at ADDR DIR] [--wram-entries FILE] [--first-exec FILE] [--trace LO:HI[@N] FILE] [--ref-quirk NAME] [--interp-only]\n");
+                            "[--expect-pc ADDR] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--aram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--log-entry ADDR[:MEM]] [--snap-at ADDR DIR] [--wram-entries FILE] [--overlay-strict|--overlay-fallback] [--first-exec FILE] [--trace LO:HI[@N] FILE] [--ref-quirk NAME] [--interp-only]\n");
             return 2;
         }
     }

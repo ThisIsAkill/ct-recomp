@@ -372,6 +372,7 @@ void sched_init(CPU *c)
     hclock = 0;
     need_start = 1;
     cpu_live = in_cpu = 0;   /* a CPU coroutine from before is dropped */
+    overlay_reset_active();
     reset_armed = 0;
     /* From power-on (emulation mode), the reset sequence runs before the
        first instruction (bsnes CPU::main resetPending): 22 x 6 clocks,
@@ -1130,6 +1131,20 @@ static void exec_one(void);
    may switch to a stack of its own in between. After that RTI the CPU
    must be exactly in the interrupted context (PB:PC, S, M, X, E); anything
    else is fatal, and native code never resumes in a changed one. */
+/* Native overlay code whose own bytes a write has just changed (overlay.h):
+   strict, fail loudly; otherwise the interpreter runs from this instruction
+   until the outermost such function returns, then its dispatch in exec_one
+   takes over as if it had returned (the stale native frames are dropped). */
+static void overlay_bail(CPU *c, overlay_act *a, uint32_t at)
+{
+    if (ct_overlay_strict)
+        ct_fatal("$%06X: the code of overlay %s changed while it ran natively", at, a->f->name);
+    ct_exec_until u = {~0u, a->s0};
+    while (!ct_exec_done(c, &u))
+        exec_one();
+    __builtin_longjmp(a->jb, 1);
+}
+
 static void tick(CPU *c, uint32_t at, uint8_t op)
 {
     c->PB = (uint8_t)(at >> 16);   /* as the interpreter has it at a boundary */
@@ -1167,6 +1182,12 @@ static void tick(CPU *c, uint32_t at, uint8_t op)
         prof_native++;   /* an MVN/MVP byte after the first isn't a new instruction */
     last_at = at;
     insn_i = c->i;
+    if (ct_wram_hit) {
+        ct_wram_hit = 0;
+        overlay_act *a = overlay_stale_active();
+        if (a)
+            overlay_bail(c, a, at);
+    }
     cyc_begin_compiled(c, at, op);
 }
 
@@ -1174,6 +1195,16 @@ static void tick(CPU *c, uint32_t at, uint8_t op)
    CheckForInterrupts): an NMI once seen at a cycle start, else an IRQ if
    the line was up (and I clear) at its last cycle start. An interrupt
    entry is followed by at least one instruction of the handler. */
+/* Its own function: a caller of setjmp is compiled conservatively, and
+   exec_one runs for every interpreted instruction. */
+static __attribute__((noinline)) void run_overlay(const ct_overlay_func *o)
+{
+    overlay_act *a = overlay_enter(o, overlay_last_idx, cpu->S);
+    if (!__builtin_setjmp(a->jb))
+        o->fn(cpu);
+    overlay_leave(a);   /* returned, or left for the interpreter (overlay_bail) */
+}
+
 static void exec_one(void)
 {
     if (skip_check) {
@@ -1208,7 +1239,11 @@ static void exec_one(void)
     const ct_overlay_func *o = f || !native_on ? NULL : overlay_lookup(cpu);
     if (f || o) {
         uint32_t entry = entry_key(cpu);
-        (f ? f->fn : o->fn)(cpu);
+        if (f) {
+            f->fn(cpu);
+        } else {
+            run_overlay(o);
+        }
         if (shadow_n > 0 && shadow_n <= PROF_DEPTH && shadow[shadow_n - 1] == entry)
             shadow_pop();   /* the interpreted JSR/JSL that called it */
         charge(cyc_finish());   /* its last instruction (RTS/RTL) */
@@ -1286,6 +1321,7 @@ static void soft_reset(void)
     dma_lo = dma_hi = 0;
     edge_in_dma = 0;
     walk_reset();
+    overlay_reset_active();   /* the native frames it ran in are gone */
     frames++;
     field_base = frames;
     frame_done = 1;

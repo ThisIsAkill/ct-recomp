@@ -99,6 +99,7 @@ def main() -> int:
         ours_log, ref_log = os.path.join(tmp, "ours.log"), os.path.join(tmp, "ref.log")
         ref_frames = a.frames + max(a.offset, 0)
         ours = subprocess.Popen([a.probe, "--frames", str(a.frames), "--ref-log", ours_log,
+                                 "--overlay-strict",
                                  *quirks, *script], env=env, stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, text=True)
         ref = subprocess.run([sys.executable, os.path.join(HERE, "mesen_ref.py"), "--mesen",

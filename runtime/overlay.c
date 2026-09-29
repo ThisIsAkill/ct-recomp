@@ -12,6 +12,13 @@ static struct {
 } *cache;
 static unsigned n_ovl;
 
+#ifdef NDEBUG
+int ct_overlay_strict = 0;
+#else
+int ct_overlay_strict = 1;
+#endif
+
+
 static int by_addr(const void *a, const void *b)
 {
     uint32_t x = (*(const ct_overlay_func *const *)a)->addr;
@@ -82,9 +89,59 @@ const ct_overlay_func *overlay_lookup(const CPU *c)
         return NULL;
     uint32_t at = (uint32_t)c->PB << 16 | c->PC;
     for (unsigned k = first_at(at); k < n_ovl && ovl[k]->addr == at; k++)
-        if (ovl[k]->m == c->m && ovl[k]->x == c->x && valid(k))
+        if (ovl[k]->m == c->m && ovl[k]->x == c->x && valid(k)) {
+            overlay_last_idx = k;
             return ovl[k];
+        }
     return NULL;
+}
+
+unsigned overlay_last_idx;
+overlay_act ct_ovl_act[OVERLAY_MAX_ACT];
+int ct_ovl_n;
+
+/* The watched range without the dormant functions (see overlay_act). */
+static void rewatch(void)
+{
+    ct_wram_watch_lo = ct_wram_watch_len = 0;
+    for (int k = 0; k < ct_ovl_n; k++) {
+        if (ct_ovl_act[k].dormant)
+            continue;
+        uint32_t lo = ct_ovl_act[k].f->lo & 0x1FFFF, hi = (ct_ovl_act[k].f->hi & 0x1FFFF) + 1;
+        if (ct_wram_watch_len) {
+            uint32_t olo = ct_wram_watch_lo, ohi = olo + ct_wram_watch_len;
+            if (olo < lo)
+                lo = olo;
+            if (ohi > hi)
+                hi = ohi;
+        }
+        ct_wram_watch_lo = lo;
+        ct_wram_watch_len = hi - lo;
+    }
+}
+
+overlay_act *overlay_stale_active(void)
+{
+    for (int k = 0; k < ct_ovl_n; k++)
+        if (!ct_ovl_act[k].dormant && !valid(ct_ovl_act[k].idx))
+            return &ct_ovl_act[k];
+    return NULL;
+}
+
+void overlay_reset_active(void)
+{
+    ct_ovl_n = 0;
+    ct_wram_watch_lo = ct_wram_watch_len = 0;
+    ct_wram_hit = 0;
+}
+
+void ct_overlay_rest(CPU *cpu, uint16_t s0)
+{
+    if (ct_ovl_n > 0 && !ct_ovl_act[ct_ovl_n - 1].dormant) {
+        ct_ovl_act[ct_ovl_n - 1].dormant = 1;
+        rewatch();
+    }
+    ct_interp_rest(cpu, s0);
 }
 
 int overlay_state(uint32_t addr, int m, int x, int *stale)

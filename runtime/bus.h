@@ -36,6 +36,12 @@ extern void (*ct_wram_write_hook)(uint32_t off);
 /* Writes per 256-byte WRAM page, ever growing (bus_reset bumps every page):
    code in WRAM checks them to know its bytes may have changed (overlay.h). */
 extern uint32_t ct_wram_gen[CT_WRAM_SIZE >> 8];
+/* WRAM offsets covered by native overlay code that is running (overlay.h),
+   as one range [ct_wram_watch_lo, lo + ct_wram_watch_len); empty when len
+   is 0. A write inside sets ct_wram_hit, checked at the next native
+   instruction boundary. */
+extern uint32_t ct_wram_watch_lo, ct_wram_watch_len;
+extern int ct_wram_hit;
 
 /* Read handler for write-only registers: returns the last value on the
    data bus, as hardware does (for LDA abs that is the address high byte).

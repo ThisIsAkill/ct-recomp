@@ -75,6 +75,8 @@ void bus_unused_write(uint16_t reg, uint8_t v)
 
 void (*ct_wram_write_hook)(uint32_t off);
 uint32_t ct_wram_gen[CT_WRAM_SIZE >> 8];
+uint32_t ct_wram_watch_lo, ct_wram_watch_len;
+int ct_wram_hit;
 
 /* A WRAM write by the CPU, directly or through $2180: the watch hook, the
    instruction's write journal (ct_bus_wram_*), the write. */
@@ -83,6 +85,8 @@ static void wram_store(uint32_t off, uint8_t v)
     if (ct_wram_write_hook)
         ct_wram_write_hook(off);
     ct_wram_gen[off >> 8]++;
+    if (off - ct_wram_watch_lo < ct_wram_watch_len)
+        ct_wram_hit = 1;
     if (ct_bus_n >= 1 && ct_bus_n <= CT_BUS_LOG) {
         ct_bus_wram_off[ct_bus_n - 1] = off + 1;
         ct_bus_wram_old[ct_bus_n - 1] = wram[off];

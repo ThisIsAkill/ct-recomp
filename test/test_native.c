@@ -125,17 +125,59 @@ static void f_ovl_2800(CPU *cpu)
     op_rts(cpu);
 }
 
+/* $7E2A00: LDA #$07 / STA $7E2A06 / LDA #$01 / STA $17 / RTS: it patches the
+   operand of its own next instruction to $07. Compiled as it was loaded
+   (LDA #$01), which is stale once the STA lands. */
+static const uint8_t patch_bytes[] = {0xA9, 0x07, 0x8F, 0x06, 0x2A, 0x7E, 0xA9, 0x01, 0x85, 0x17,
+                                      0x60};
+
+static void f_ovl_2A00(CPU *cpu)
+{
+    ran_overlay++;
+    cpu_enter(cpu, 0x7E2A00, 1, 0);
+    ct_insn(cpu, 0x7E2A00, 0xA9, 0x07);
+    lda8(cpu, 0x07);
+    ct_insn(cpu, 0x7E2A02, 0x8F, 0x7E);
+    write8(0x7E2A06, a8(cpu));
+    ct_insn(cpu, 0x7E2A06, 0xA9, 0x01);
+    lda8(cpu, 0x01);   /* the stale operand */
+    ct_insn(cpu, 0x7E2A08, 0x85, 0x17);
+    write8(ea_dp(cpu, 0x17), a8(cpu));
+    ct_insn(cpu, 0x7E2A0A, 0x60, 0x60);
+    op_rts(cpu);
+}
+
+/* $7E2B00: JML $7E2C00, handing the rest to the interpreter; $7E2C00 then
+   overwrites $7E2B00 (STA $7E2B00 / RTS). Once handed off the overlay runs
+   none of its own code: no strict failure. */
+static const uint8_t handoff_bytes[] = {0x5C, 0x00, 0x2C, 0x7E};
+
+static void f_ovl_2B00(CPU *cpu)
+{
+    ran_overlay++;
+    cpu_enter(cpu, 0x7E2B00, 1, 0);
+    const uint16_t s0 = cpu->S;
+    ct_insn(cpu, 0x7E2B00, 0x5C, 0x7E);
+    cpu->PB = 0x7E;
+    cpu->PC = 0x2C00;
+    ct_overlay_rest(cpu, s0);
+}
+
 const ct_overlay_func ct_overlay_funcs[] = {
     {"TestOverlay", 0x7E2800, 1, 0, 0x7E2800, 0x7E2804, 0xC029F4EF3B675BA0ull, f_ovl_2800,
      ovl_bytes, 0x7E2800, sizeof ovl_bytes},
+    {"TestSelfPatch", 0x7E2A00, 1, 0, 0x7E2A00, 0x7E2A0A, 0xEFF53BD7C943CCA2ull, f_ovl_2A00,
+     patch_bytes, 0x7E2A00, sizeof patch_bytes},
+    {"TestHandoff", 0x7E2B00, 1, 0, 0x7E2B00, 0x7E2B03, 0xCB21C33BE735E62Bull, f_ovl_2B00,
+     handoff_bytes, 0x7E2B00, sizeof handoff_bytes},
 };
-const unsigned ct_overlay_func_count = 1;
+const unsigned ct_overlay_func_count = 3;
 
 typedef struct {
     uint64_t clock, native_insns, interp_insns;
     char profile[1024];
     long nmis;
-    uint8_t w10, w11, w12, w13, w14, w15;
+    uint8_t w10, w11, w12, w13, w14, w15, w17;
     CPU cpu;
 } Outcome;
 
@@ -173,6 +215,10 @@ static Outcome run_with(uint16_t target, int native, const uint8_t *nmi, size_t 
                                         0x20, 0x60};
     memcpy(w + 0x2600, caller_m0, sizeof caller_m0);
     memcpy(w + 0x2800, ovl_bytes, sizeof ovl_bytes);
+    memcpy(w + 0x2A00, patch_bytes, sizeof patch_bytes);
+    memcpy(w + 0x2B00, handoff_bytes, sizeof handoff_bytes);
+    static const uint8_t overwrite[] = {0x8F, 0x00, 0x2B, 0x7E, 0x60};   /* STA $7E2B00 / RTS */
+    memcpy(w + 0x2C00, overwrite, sizeof overwrite);
     if (ovl_patch)
         w[0x2801] = 0x43;   /* LDA #$43: the bytes no longer match the compiled code */
     static const uint8_t to_m0[] = {0xC2, 0x20, 0x60};   /* REP #$20 / RTS */
@@ -211,6 +257,7 @@ static Outcome run_with(uint16_t target, int native, const uint8_t *nmi, size_t 
     o.w13 = w[0x13];
     o.w14 = w[0x14];
     o.w15 = w[0x15];
+    o.w17 = w[0x17];
     o.cpu = c;
     return o;
 }
@@ -319,6 +366,38 @@ int main(void)
           ran_overlay, pat.w15);
     Outcome ovi = run(0x2800, 0);
     CHECK(same(&ov, &ovi) && ov.w15 == ovi.w15, "overlay native == interpreter");
+
+    /* Overlay code that overwrites itself while running natively: strict
+       mode fails loudly; otherwise the interpreter takes over from the next
+       instruction and runs the patched code, as the interpreter alone does. */
+    Outcome pref = run(0x2A00, 0);
+    CHECK(pref.w17 == 0x07, "interpreter runs the patched LDA: $17=%02X", pref.w17);
+    fatal_msg[0] = 0;
+    ct_fatal_hook = on_fatal;
+    ct_overlay_strict = 1;
+    if (!setjmp(fatal_jmp))
+        run(0x2A00, 1);
+    ct_fatal_hook = NULL;
+    CHECK(strstr(fatal_msg, "code of overlay TestSelfPatch changed while it ran natively") != NULL,
+          "strict: fails loudly: \"%s\"", fatal_msg);
+    ct_overlay_strict = 0;
+    ran_overlay = 0;
+    Outcome pfb = run(0x2A00, 1);
+    ct_overlay_strict = 1;
+    CHECK(ran_overlay == 1 && pfb.w17 == 0x07 && same(&pref, &pfb),
+          "fallback: entered natively (%d), finished interpreted: $17=%02X, same as interpreter %d",
+          ran_overlay, pfb.w17, same(&pref, &pfb));
+
+    /* Handed off, then overwritten: no strict failure. */
+    fatal_msg[0] = 0;
+    ct_fatal_hook = on_fatal;
+    ran_overlay = 0;
+    Outcome hoff = run(0x2B00, 1);
+    ct_fatal_hook = NULL;
+    Outcome hoffi = run(0x2B00, 0);
+    CHECK(!fatal_msg[0] && ran_overlay == 1 && same(&hoff, &hoffi),
+          "handed-off overlay overwritten: no failure (\"%s\"), ran %d, same %d", fatal_msg,
+          ran_overlay, same(&hoff, &hoffi));
 
     /* Native code that never returns: one frame per sched_run_frame all the
        same, and it keeps running across them. */

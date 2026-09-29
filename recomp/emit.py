@@ -643,7 +643,7 @@ def emit_overlays(reg: funcs.Registry, manifest: str | None) -> tuple[str, list[
     if manifest:
         with open(manifest, 'rb') as f:
             overlays = tomllib.load(f).get('overlay', [])
-    c = [HEADER, '#include "ops.h"', '#include "ct_funcs.h"', '']
+    c = [HEADER, '#include "ops.h"', '#include "overlay.h"', '#include "ct_funcs.h"', '']
     table, skipped = [], []
     _EXTERNS.clear()
     _EXTERNS.update(reg.externs)
@@ -673,7 +673,8 @@ def emit_overlays(reg: funcs.Registry, manifest: str | None) -> tuple[str, list[
                     except (DecodeError, EmitError) as ex:
                         skipped.append(f'{fm.name} {tag}: {ex}')
                         continue
-                    c += body + ['']
+                    # handing its rest to the interpreter ends its own code
+                    c += [ln.replace('ct_interp_rest(', 'ct_overlay_rest(') for ln in body] + ['']
                     name = c_name(e['addr'], st)
                     h = fnv64(data[lo - base:hi - base + 1])
                     table.append(f'    {{"{fm.name}", 0x{e["addr"]:06X}, {int(st.m)}, {int(st.x)}, '
