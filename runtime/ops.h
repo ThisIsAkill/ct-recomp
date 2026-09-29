@@ -242,6 +242,18 @@ static inline uint16_t pull16(CPU *c)
 /* RTS: pull return address - 1. RTL: also pull the bank. */
 static inline void op_rts(CPU *c) { c->PC = (uint16_t)(pull16(c) + 1); }
 
+/* RTI (native mode): P, then PC, then PB. Outside the frame scheduler
+   (diff_all) the strict interpreter doesn't run interrupt returns, and
+   generated code fails the same way there. */
+static inline void op_rti(CPU *c, uint32_t at)
+{
+    if (!ct_exec_hook)
+        ct_fatal("interp $%06X: opcode $40 not supported", at);
+    set_p(c, pull8(c));
+    c->PC = pull16(c);
+    c->PB = pull8(c);
+}
+
 static inline void op_rtl(CPU *c)
 {
     c->PC = (uint16_t)(pull16(c) + 1);

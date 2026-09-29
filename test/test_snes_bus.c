@@ -111,8 +111,8 @@ static void test_apu_ports(void)
 }
 
 /* $4210-$421F are read-only: writes are ignored (as on hardware) and
- * noted once per register; reads are unaffected. Menu_InitPpu ($C2940D)
- * zeroes $4216-$4219 this way. */
+ * noted once per register; reads are unaffected (a game's PPU init may
+ * zero $4216-$4219 this way). */
 static void test_readonly_writes(void)
 {
     bus_reset();

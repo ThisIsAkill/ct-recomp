@@ -428,7 +428,8 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
             back = (i.addr & 0xFF0000) | ((ret + 1) & 0xFFFF)
 
             def t(i, targets=targets, cst=cst, is_call=is_call, ret=ret, interp=interp, back=back):
-                body = [f'push16(cpu, 0x{ret:04X});'] if is_call else []
+                body = [_strict_rest(i)] if interp else []   # uncompiled cases: see _strict_rest
+                body += [f'push16(cpu, 0x{ret:04X});'] if is_call else []
                 body.append('switch (cpu->X) {')
                 after = 'break;' if is_call else 'return;'
                 mx = [f'cpu->{r} != {int(v)}' for r, v in (('m', cst.m), ('x', cst.x))
@@ -495,6 +496,8 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
                 t = lambda i, dest=dest, cond=cond, tick=tick: [f'if ({cond}) {{ {tick}goto {dest}; }}']
             else:
                 t = lambda i, dest=dest, tick=tick: [f'{tick}goto {dest};']
+        if i.opcode == 0x40:   # RTI: interrupt handlers (entered through their vectors)
+            t = lambda i: [f'op_rti(cpu, 0x{i.addr:06X});', 'return;']
         if t is None:
             raise EmitError(f'${i.addr:06X}: {i.text()} (opcode ${i.opcode:02X}, '
                             f'width {w or "-"}) not implemented')
