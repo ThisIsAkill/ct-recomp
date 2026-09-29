@@ -140,13 +140,23 @@ end
 -- Mesen's buffer is 256x239: without overscan, visible row r is line r + 7.
 -- A frame during which the interlace (or hi-res) bit was set is 512x478:
 -- each line is two rows of doubled pixels, identical except on lines drawn
--- while interlace was on, where only the current field's row (the odd one
--- on odd frames; checked on a one-line SETINI $05 write) is that line.
+-- while interlace was on, which go only to row 2 * line + field (Mesen 2
+-- SnesPpu::ApplyHiResMode, field = its _oddFrame). _oddFrame flips once a
+-- frame like frameCount; from power-on it equals frameCount's low bit here
+-- (checked on a one-line SETINI $05 write). A reset clears _oddFrame but not
+-- frameCount, and Lua can't read _oddFrame, so after a reset such a frame
+-- is an error rather than a guess.
+local reset_done = false
 local function frame_hash()
   local h = BASIS
   local buf = emu.getScreenBuffer()
   local w, s, field = 256, 1, 0
   if #buf == 512 * 478 then
+    if reset_done then
+      print("mesen_ref: interlaced frame after a reset: its field is not known")
+      emu.stop(3)
+      return 0
+    end
     w, s, field = 512, 2, emu.getState()["frameCount"] & 1
   elseif #buf ~= 256 * 239 then
     error("mesen_ref: unexpected screen buffer size " .. #buf)
@@ -193,7 +203,10 @@ emu.addEventCallback(function()
   end
   -- "reset F": Mesen applies a reset when its frame ends, at the VBlank
   -- where it counts frame F, before that frame's input is read.
-  if resets[f + 1] then emu.reset() end
+  if resets[f + 1] then
+    emu.reset()
+    reset_done = true
+  end
   if f >= frames then
     out:close()
     emu.stop(0)
