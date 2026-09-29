@@ -28,14 +28,6 @@ void ct_hook_wram_mvn_stub(CPU *cpu)
     op_rtl(cpu);
 }
 
-/* $7E3000: program decompressed into WRAM at boot ($C30073). Not recompiled. */
-void ct_hook_wram_boot_program(CPU *cpu);
-void ct_hook_wram_boot_program(CPU *cpu)
-{
-    (void)cpu;
-    ct_fatal("$7E3000: RAM-resident boot program not recompiled");
-}
-
 /* $C28000 MenuOverlay_Launch: menu task scheduler (stack-switching). */
 void ct_hook_menu_overlay(CPU *cpu);
 void ct_hook_menu_overlay(CPU *cpu)

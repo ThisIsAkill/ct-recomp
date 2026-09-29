@@ -33,6 +33,9 @@ void bus_hook(uint16_t reg, hw_read_fn rd, hw_write_fn wr);
 /* Test use: if set, called with the WRAM offset ($00000-$1FFFF) of every
    WRAM byte written, whatever the path (CPU store, WRAM data port, DMA). */
 extern void (*ct_wram_write_hook)(uint32_t off);
+/* Writes per 256-byte WRAM page, ever growing (bus_reset bumps every page):
+   code in WRAM checks them to know its bytes may have changed (overlay.h). */
+extern uint32_t ct_wram_gen[CT_WRAM_SIZE >> 8];
 
 /* Read handler for write-only registers: returns the last value on the
    data bus, as hardware does (for LDA abs that is the address high byte).

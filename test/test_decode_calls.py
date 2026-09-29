@@ -4,7 +4,8 @@ compiled become interpreter calls (#30), with the continuation decoded in
 the call's own M/X; decode.assumed_calls marks the calls whose M/X rest on
 such an assumption until a REP/SEP grounds them; a JMP to the routine's own
 entry is a loop, not a tail call; WDM is never code; code in WRAM decodes
-from its image (decode.Image) and nowhere else."""
+from its image (decode.Image) and nowhere else; jump tables of unknown
+length and JMLs to uncompiled code go through the interpreter's dispatch."""
 import os
 import sys
 
@@ -86,6 +87,22 @@ try:
     check(False, 'running off the image end is rejected')
 except decode.DecodeError:
     pass
+
+# Tables of unknown length and jumps to code that isn't compiled.
+class Dyn(Resolver):
+    jumptables = {}
+
+# $E48000: JSR ($9000,X) / RTS: dispatched at run time, continuation decoded
+fn = decode.decode_function(rom_with(bytes([0xFC, 0x00, 0x90, 0x60])), 0xE48000, m1x0, Dyn())
+check(list(fn.dyn_tables) and [i.addr for i in fn.insns] == [0xE48000, 0xE48003],
+      'JSR (abs,X) of unknown length: dynamic, continuation decoded')
+# JMP ($9000,X): the path ends, what it returns with is unknown
+fn = decode.decode_function(rom_with(bytes([0x7C, 0x00, 0x90])), 0xE48000, m1x0, Dyn())
+check(list(fn.dyn_tables) and ('?', None, None) in fn.exit_states, 'JMP (abs,X): exits unknown')
+# JML $E50000 (not compiled): continues through the interpreter, exits unknown
+fn = decode.decode_function(rom_with(bytes([0x5C, 0x00, 0x00, 0xE5])), 0xE48000, m1x0, Dyn())
+check({k[0]: t for k, (t, _) in fn.interp_tails.items()} == {0xE48000: 0xE50000} and
+      ('?', None, None) in fn.exit_states, 'JML to uncompiled code: interpreter tail')
 
 print(f"decode_calls: {'ok' if not fails else str(fails) + ' failed'}")
 sys.exit(1 if fails else 0)

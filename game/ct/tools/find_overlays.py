@@ -5,7 +5,8 @@ game/ct/overlays.toml.
 Runs BUILD/ct_boot over the boot and the replays in test/replay/, logging
 every call of the decompressor (--log-entry C30557:0300: its arguments are at
 $0300, the direct page it sets: source $00-$02, WRAM destination $03-$04, bank $7F if
-bit 0 of $05) and profiling what runs where (--profile). Each call's source
+bit 0 of $05) and profiling what runs where (--profile, interpreted only, plus
+--wram-entries for code entered from ROM by a jump rather than a call). Each call's source
 is decompressed with ct_decompress.py. A blob is code if a run entered WRAM
 inside it while it was there: a second pass logs every execution of those
 entries with its clock, and each is charged to the latest load covering its
@@ -27,6 +28,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 
 GAME = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # game/ct
 sys.path.insert(0, os.path.join(GAME, 'tools'))
@@ -68,11 +70,18 @@ def main(argv: list[str]) -> int:
         return 2
     probe = os.path.join(argv[0], 'ct_boot')
     rom = decode.load_rom()
-    # pass 1: which WRAM entries run at all
+    # pass 1: which WRAM entries run at all: call and interrupt targets (the
+    # profile) and places execution reaches from ROM by a jump
+    # (--wram-entries); interpreted only, so compiled overlays don't hide theirs
     wram: set[int] = set()
     for name, args in runs():
-        r = subprocess.run([probe, *args, '--profile', '1000000'], capture_output=True, text=True)
+        jumps = os.path.join(tempfile.gettempdir(), f'find_overlays_{os.getpid()}.txt')
+        r = subprocess.run([probe, *args, '--interp-only', '--profile', '1000000',
+                            '--wram-entries', jumps], capture_output=True, text=True)
         wram |= {int(m.group(1), 16) for m in map(PROF_RE.search, r.stdout.splitlines()) if m}
+        if os.path.exists(jumps):
+            wram |= {int(line.split()[0], 16) for line in open(jumps) if line.strip()}
+            os.remove(jumps)
     if len(wram) > 63:
         print(f'find_overlays: {len(wram)} WRAM entries, more than ct_boot logs', file=sys.stderr)
         return 1

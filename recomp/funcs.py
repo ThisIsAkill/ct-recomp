@@ -247,6 +247,8 @@ class Registry:
         key = (target, st.m, st.x, st.e)
         ret = 'RTS' if kind == 'JSR' else 'RTL'
         exit_states = self.assume[key] if key in self.assume else self.function(target, st).exit_states
+        if any(m is None or x is None for _, m, x in exit_states):
+            raise decode.UnknownExit(f'${site:06X}: {kind} {fm.name}: exit M/X unknown')
         exits = {(m, x) for mn, m, x in exit_states if mn == ret}
         if not exit_states:
             return set()   # never returns

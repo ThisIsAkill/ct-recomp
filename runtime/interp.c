@@ -100,7 +100,8 @@ static void (*extern_hook(uint32_t addr, int kind))(CPU *)
 }
 
 /* Jump-table bounds from funcs.toml; same failure as generated code.
-   Strict only. */
+   Strict only. A table funcs.toml doesn't list (its length unknown) is
+   read as the CPU reads it, as generated code does too (#92). */
 static void table_index(const CPU *c, uint32_t at)
 {
     if (sys)
@@ -111,7 +112,6 @@ static void table_index(const CPU *c, uint32_t at)
                 ct_fatal("$%06X: jump table index $%04X out of range", at, c->X);
             return;
         }
-    ct_fatal("interp $%06X: no jumptable entry in funcs.toml", at);
 }
 
 /* ---- flags / stack ---- */
@@ -827,8 +827,9 @@ void ct_interp_rest(CPU *c, uint16_t s0)
         ct_exec_hook(c, &u);
         return;
     }
-    interp_call(c, (uint32_t)c->PB << 16 | c->PC);   /* until the function's own return */
-    if (!ct_exec_done(c, &u))
-        ct_fatal("$%02X%04X: interpreted rest returned with S=%04X, not above $%04X", c->PB,
-                 c->PC, c->S, s0);
+    /* Until the function's own return: an RTS/RTL that leaves S at or below
+       its entry S is a computed jump (a pushed address), not its return. */
+    do
+        interp_call(c, (uint32_t)c->PB << 16 | c->PC);
+    while (!ct_exec_done(c, &u));
 }

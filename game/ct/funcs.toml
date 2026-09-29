@@ -1686,14 +1686,6 @@ addr = 0x7E9690
 kind = "JSL"
 hook = "wram_mvn_stub"
 
-# Boot program decompressed from ROM into WRAM, entered by JML at $C30073.
-[[extern]]
-name = "Wram_BootProgram"
-addr = 0x7E3000
-kind = "JML"
-hook = "wram_boot_program"
-noreturn = true
-
 # ---- (abs,X) jump tables: engine ----
 
 # PartyOp_JumpTable: op in A, not bounded in code (8-bit X). Entry 0 targets

@@ -48,6 +48,11 @@
  * --snap-at ADDR DIR  write the 128 KB of WRAM to DIR/snap_NNNN.bin each time
  *                  the instruction at ADDR (hex) runs (first 256 times), for
  *                  checking what a routine left in memory
+ * --wram-entries F  write "ADDR mMxX" to F for every WRAM address ($7E/$7F)
+ *                  execution arrives at from ROM other than by a return
+ *                  (jumps, calls, interrupts into WRAM code), once per
+ *                  address and state, for finding entries into code the
+ *                  game puts in WRAM
  * --first-exec F   write "ADDR clock" to F the first time each instruction
  *                  address runs (for timing comparisons against a reference)
  * --trace LO:HI[@N] F  write "ADDR clock X Y" to F for every instruction
@@ -144,6 +149,10 @@ static uint32_t snap_pc = ~0u;
 static const char *snap_dir;
 static unsigned n_snaps;
 
+static FILE *wram_entries;
+static uint8_t *wram_entry_seen;   /* per WRAM address: bit 1 << (m << 1 | x) */
+static uint32_t last_at = ~0u;
+
 static FILE *first_exec;
 static FILE *trace_out;
 static unsigned long long trace_lo, trace_hi;
@@ -161,6 +170,16 @@ static void trace(const CPU *c, uint32_t at)
         if (t >= trace_lo && t <= trace_hi && sched_frame_count() >= trace_from)
             fprintf(trace_out, "%06X %llu %04X %04X\n", at, t, c->X, c->Y);
     }
+    if (wram_entries && (at >> 16 == 0x7E || at >> 16 == 0x7F) && last_at != ~0u &&
+        last_at >> 16 != 0x7E && last_at >> 16 != 0x7F) {
+        uint8_t op = bus_peek(last_at);
+        uint8_t bit = (uint8_t)(1u << (c->m << 1 | c->x));
+        if (op != 0x60 && op != 0x6B && op != 0x40 && !(wram_entry_seen[at & 0x1FFFF] & bit)) {
+            wram_entry_seen[at & 0x1FFFF] |= bit;
+            fprintf(wram_entries, "%06X m%dx%d\n", at, c->m, c->x);
+        }
+    }
+    last_at = at;
     if (at == snap_pc && n_snaps < 256) {
         char path[4096];
         snprintf(path, sizeof path, "%s/snap_%04u.bin", snap_dir, n_snaps++);
@@ -402,6 +421,11 @@ int main(int argc, char **argv)
             watch[n_watch++].len = n;
         } else if (!strcmp(argv[k], "--at") && k + 1 < argc && n_at < MAX_AT) {
             at_pc[n_at++] = (uint32_t)strtoul(argv[++k], NULL, 16);
+        } else if (!strcmp(argv[k], "--wram-entries") && k + 1 < argc) {
+            if (!(wram_entries = fopen(argv[++k], "w")) || !(wram_entry_seen = calloc(0x20000, 1))) {
+                fprintf(stderr, "ct_boot: cannot write %s\n", argv[k]);
+                return 2;
+            }
         } else if (!strcmp(argv[k], "--snap-at") && k + 2 < argc) {
             snap_pc = (uint32_t)strtoul(argv[++k], NULL, 16);
             snap_dir = argv[++k];
@@ -439,7 +463,7 @@ int main(int argc, char **argv)
             fprintf(stderr, "usage: ct_boot [--frames N] [--dump DIR] [--needed-hw FILE] "
                             "[--min-nmis K] [--require-render] [--wav FILE] "
                             "[--require-audio] [--input F1-F2:BUTTONS] [--script FILE] "
-                            "[--expect-pc ADDR] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--aram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--log-entry ADDR[:MEM]] [--snap-at ADDR DIR] [--first-exec FILE] [--trace LO:HI[@N] FILE] [--ref-quirk NAME] [--interp-only]\n");
+                            "[--expect-pc ADDR] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--aram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--log-entry ADDR[:MEM]] [--snap-at ADDR DIR] [--wram-entries FILE] [--first-exec FILE] [--trace LO:HI[@N] FILE] [--ref-quirk NAME] [--interp-only]\n");
             return 2;
         }
     }
@@ -490,6 +514,8 @@ int main(int argc, char **argv)
         fclose(first_exec);
     if (trace_out)
         fclose(trace_out);
+    if (wram_entries)
+        fclose(wram_entries);
     if (ref_log)
         fclose(ref_log);
     if ((wram_path || vram_path) && !dumped_state)

@@ -76,10 +76,19 @@ static void test_undeclared_jump_table(void)
     bus_wram()[0x3000] = 0x10;                             /* -> $2010 */
     bus_wram()[0x3001] = 0x20;
 
+    /* Strict mode too reads a table funcs.toml doesn't list, as the CPU does
+       (generated code dispatches it at run time, #92): $2010 is RTS, and so
+       is the JSR's continuation at $2103. */
+    bus_wram()[0x2010] = 0x60;
+    bus_wram()[0x2103] = 0x60;
     cpu_at(&c, 0x2000);
-    EXPECT_MSG(strict(&c, 0x2000), "interp $7E2000: no jumptable entry in funcs.toml");
+    EXPECT_MSG(strict(&c, 0x2000), "");
+    CHECK(c.PC == 0x1234 && c.S == 0x01F0, "strict JMP (abs,X) returned: PC $%04X S $%04X", c.PC,
+          c.S);
     cpu_at(&c, 0x2100);
-    EXPECT_MSG(strict(&c, 0x2100), "interp $7E2100: no jumptable entry in funcs.toml");
+    EXPECT_MSG(strict(&c, 0x2100), "");
+    CHECK(c.PC == 0x1234 && c.S == 0x01F0, "strict JSR (abs,X) returned: PC $%04X S $%04X", c.PC,
+          c.S);
 
     cpu_at(&c, 0x2000);
     EXPECT_MSG(system_steps(&c, 1), "");

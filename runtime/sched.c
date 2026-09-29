@@ -1,6 +1,7 @@
 #include "sched.h"
 
 #include <setjmp.h>
+#include <ucontext.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -12,6 +13,7 @@
 #include "dma.h"
 #include "func_table.h"
 #include "interp.h"
+#include "overlay.h"
 #include "ppu.h"
 #include "snes_adapter.h"
 
@@ -69,6 +71,12 @@ static void dma_start(const uint32_t sizes[8]);
 static void charge(unsigned clocks);
 static unsigned line_clocks(void);
 static void walk_reset(void);
+static void yield_frame(void);
+#define CPU_STACK (8u << 20)
+static ucontext_t cpu_ctx, host_ctx;
+static char *cpu_stack;
+static int cpu_live;   /* started since sched_init */
+static int in_cpu;     /* running on it now */
 static void exec_hook(CPU *c, const ct_exec_until *u);
 static unsigned reset_delay(void);
 static void native_build(void);
@@ -363,6 +371,8 @@ void sched_init(CPU *c)
     line = 0;
     hclock = 0;
     need_start = 1;
+    cpu_live = in_cpu = 0;   /* a CPU coroutine from before is dropped */
+    reset_armed = 0;
     /* From power-on (emulation mode), the reset sequence runs before the
        first instruction (bsnes CPU::main resetPending): 22 x 6 clocks,
        then the interrupt sequence: a fetch at the old PB:PC, an internal
@@ -569,15 +579,19 @@ static void advance(unsigned clocks)
             unsigned len = line_clocks();
             hclock -= len;
             line_start += len;
+            int edge = 0;
             if (++line == SCHED_LINES) {
                 line = 0;
                 frames++;
                 frame_clock = line_start;
                 frame_done = 1;
+                edge = 1;
                 if (frame_hook)
                     edge_hook();
             }
             begin_line();
+            if (edge)
+                yield_frame();   /* back to sched_run_frame's caller, mid-instruction */
         } else {
             break;
         }
@@ -979,6 +993,7 @@ static void native_build(void)
         if (ct_funcs[k].fn && !ct_funcs[k].calls_extern)
             native[n_native++] = &ct_funcs[k];
     qsort(native, n_native, sizeof *native, by_addr);
+    overlay_init();
 }
 
 /* ---- native coverage profile ----
@@ -1032,6 +1047,9 @@ static const char *not_native_reason(uint32_t key)
         return "outside any call (reset code, main loop)";
     if (e)
         return "emulation mode";
+    int stale;
+    if (overlay_state(addr, m, x, &stale))
+        return stale ? "overlay, but its WRAM bytes differ from the image" : "overlay";
     int any = 0, ext = 0, state = 0;
     for (unsigned k = 0; k < ct_func_count; k++) {
         const ct_func *f = &ct_funcs[k];
@@ -1048,7 +1066,7 @@ static const char *not_native_reason(uint32_t key)
     if (state)
         return "recompiled, but DB/DP differ from the recompiled entry";
     if (ext)
-        return "recompiled, but can reach an extern hook";
+        return "recompiled, but takes an extern hook (noreturn, or in a jump table)";
     return "recompiled only for another M/X";
 }
 
@@ -1187,9 +1205,10 @@ static void exec_one(void)
         return;
     }
     const ct_func *f = native_lookup(cpu);
-    if (f) {
+    const ct_overlay_func *o = f || !native_on ? NULL : overlay_lookup(cpu);
+    if (f || o) {
         uint32_t entry = entry_key(cpu);
-        f->fn(cpu);
+        (f ? f->fn : o->fn)(cpu);
         if (shadow_n > 0 && shadow_n <= PROF_DEPTH && shadow[shadow_n - 1] == entry)
             shadow_pop();   /* the interpreted JSR/JSL that called it */
         charge(cyc_finish());   /* its last instruction (RTS/RTL) */
@@ -1286,24 +1305,55 @@ static void exec_hook(CPU *c, const ct_exec_until *u)
         exec_one();
 }
 
+/* The CPU runs on its own stack, as a coroutine (ucontext), and yields to
+   sched_run_frame's caller at every frame edge, wherever it is: in the
+   interpreter, or deep in native code that runs for many frames or never
+   returns (a game's main loop). The next sched_run_frame resumes it there. */
+
+static void yield_frame(void)
+{
+    if (!in_cpu)
+        return;
+    in_cpu = 0;
+    swapcontext(&cpu_ctx, &host_ctx);
+    in_cpu = 1;
+}
+
+static void cpu_main(void)
+{
+    in_cpu = 1;
+    for (;;) {
+        if (setjmp(reset_jmp)) {
+            soft_reset();   /* ends the frame */
+            yield_frame();
+        }
+        reset_armed = 1;
+        for (;;) {
+            if (need_start) {
+                need_start = 0;
+                begin_line();
+                advance(start_delay);
+            }
+            exec_one();
+        }
+    }
+}
+
 long sched_run_frame(void)
 {
     long f0 = frames;
-    if (setjmp(reset_jmp)) {
-        reset_armed = 0;
-        soft_reset();
-        return frames - f0;
-    }
-    reset_armed = 1;
-    if (need_start) {
-        need_start = 0;
-        begin_line();
-        advance(start_delay);
-    }
     frame_done = 0;
-    while (!frame_done)
-        exec_one();
-    reset_armed = 0;
+    if (!cpu_live) {
+        if (!cpu_stack && !(cpu_stack = malloc(CPU_STACK)))
+            ct_fatal("sched: out of memory for the CPU stack");
+        getcontext(&cpu_ctx);
+        cpu_ctx.uc_stack.ss_sp = cpu_stack;
+        cpu_ctx.uc_stack.ss_size = CPU_STACK;
+        cpu_ctx.uc_link = NULL;
+        makecontext(&cpu_ctx, cpu_main, 0);
+        cpu_live = 1;
+    }
+    swapcontext(&host_ctx, &cpu_ctx);
     return frames - f0;
 }
 

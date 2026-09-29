@@ -10,6 +10,9 @@ fnv64 = "6316fcc01010d923"
 seen = ["boot", "gato_battle", "leene_square"]
 source = "profile"
 [[overlay.entry]]
+addr = 0x7E3000
+states = ["m1x0"]
+[[overlay.entry]]
 addr = 0x7E3063
 states = ["m1x0"]
 [[overlay.entry]]

@@ -11,6 +11,7 @@
 #include "harness.h"
 #include "ops.h"
 #include "sched.h"
+#include "overlay.h"
 
 static int ran_native;
 static long nmis_in_native;
@@ -77,6 +78,20 @@ static void native_caller(CPU *cpu, uint32_t base, uint16_t callee)
 static void f_2300(CPU *cpu) { native_caller(cpu, 0x7E2300, 0x2400); }
 static void f_2600(CPU *cpu) { native_caller(cpu, 0x7E2600, 0x2500); }
 
+/* $7E2900: loop: INC $16 / BRA loop, natively, never returning (a main
+   loop): the CPU runs as a coroutine, so each sched_run_frame still returns
+   after one frame. */
+static void f_2900(CPU *cpu)
+{
+    cpu_enter(cpu, 0x7E2900, 1, 0);
+loop:
+    ct_insn(cpu, 0x7E2900, 0xE6, 0x16);
+    write8(ea_dp(cpu, 0x16), (uint8_t)(read8(ea_dp(cpu, 0x16)) + 1));
+    ct_insn(cpu, 0x7E2902, 0x80, 0xFC);
+    ct_cyc_taken = 1;
+    goto loop;
+}
+
 static void f_2100(CPU *cpu) { native_loop(cpu, 0x7E2100); }
 static void f_2200(CPU *cpu) { native_loop(cpu, 0x7E2200); }
 
@@ -86,20 +101,41 @@ const ct_func ct_funcs[] = {
     {"TestLoopDB55", 0x7E2200, 1, 0, 14, 0x55, -1, 0, f_2200},   /* assumes DB=$55 */
     {"TestCaller", 0x7E2300, 1, 0, 10, -1, -1, 0, f_2300},
     {"TestCallerMX", 0x7E2600, 1, 0, 10, -1, -1, 0, f_2600},
+    {"TestForever", 0x7E2900, 1, 0, 4, -1, -1, 0, f_2900},
 };
-const unsigned ct_func_count = 4;
+const unsigned ct_func_count = 5;
 const ct_extern ct_externs[] = {{0, 0, 0}};
 const unsigned ct_extern_count = 0;
 const ct_jumptable ct_jumptables[] = {{0, 0}};
 const unsigned ct_jumptable_count = 0;
-const ct_overlay_func ct_overlay_funcs[] = {{0}};
-const unsigned ct_overlay_func_count = 0;
+/* An overlay (#92): code in WRAM at $7E2800, LDA #$42 / STA $15 / RTS, run
+   natively only while those 5 bytes hash to what it was compiled from. */
+static const uint8_t ovl_bytes[] = {0xA9, 0x42, 0x85, 0x15, 0x60};
+static int ran_overlay;
+
+static void f_ovl_2800(CPU *cpu)
+{
+    ran_overlay++;
+    cpu_enter(cpu, 0x7E2800, 1, 0);
+    ct_insn(cpu, 0x7E2800, 0xA9, 0x42);
+    lda8(cpu, 0x42);
+    ct_insn(cpu, 0x7E2802, 0x85, 0x15);
+    write8(ea_dp(cpu, 0x15), a8(cpu));
+    ct_insn(cpu, 0x7E2804, 0x60, 0x60);
+    op_rts(cpu);
+}
+
+const ct_overlay_func ct_overlay_funcs[] = {
+    {"TestOverlay", 0x7E2800, 1, 0, 0x7E2800, 0x7E2804, 0xC029F4EF3B675BA0ull, f_ovl_2800,
+     ovl_bytes, 0x7E2800, sizeof ovl_bytes},
+};
+const unsigned ct_overlay_func_count = 1;
 
 typedef struct {
     uint64_t clock, native_insns, interp_insns;
     char profile[1024];
     long nmis;
-    uint8_t w10, w11, w12, w13, w14;
+    uint8_t w10, w11, w12, w13, w14, w15;
     CPU cpu;
 } Outcome;
 
@@ -109,6 +145,8 @@ static const uint8_t nmi_count[] = {0xE6, 0x11, 0xAD, 0x10, 0x42, 0x40};   /* IN
 /* LDA $4210 / LDA 2,S / INC A / STA 2,S / RTI: returns one byte past the
    interrupted instruction. */
 static const uint8_t nmi_skew[] = {0xAD, 0x10, 0x42, 0xA3, 0x02, 0x1A, 0x83, 0x02, 0x40};
+
+static int ovl_patch;
 
 static Outcome run_with(uint16_t target, int native, const uint8_t *nmi, size_t nmi_len)
 {
@@ -134,6 +172,9 @@ static Outcome run_with(uint16_t target, int native, const uint8_t *nmi, size_t 
     static const uint8_t caller_m0[] = {0x20, 0x00, 0x25, 0xA9, 0x07, 0x00, 0x85, 0x13, 0xE2,
                                         0x20, 0x60};
     memcpy(w + 0x2600, caller_m0, sizeof caller_m0);
+    memcpy(w + 0x2800, ovl_bytes, sizeof ovl_bytes);
+    if (ovl_patch)
+        w[0x2801] = 0x43;   /* LDA #$43: the bytes no longer match the compiled code */
     static const uint8_t to_m0[] = {0xC2, 0x20, 0x60};   /* REP #$20 / RTS */
     memcpy(w + 0x2500, to_m0, sizeof to_m0);
 
@@ -169,6 +210,7 @@ static Outcome run_with(uint16_t target, int native, const uint8_t *nmi, size_t 
     o.w12 = w[0x12];
     o.w13 = w[0x13];
     o.w14 = w[0x14];
+    o.w15 = w[0x15];
     o.cpu = c;
     return o;
 }
@@ -263,6 +305,64 @@ int main(void)
           ref4.w13, ref4.w14);
     CHECK(same(&ref4, &mx), "callee changed M: rest interpreted == interpreter: clock %llu vs %llu",
           (unsigned long long)mx.clock, (unsigned long long)ref4.clock);
+
+    /* Overlays (#92): code in WRAM runs natively while its bytes match. */
+    ran_overlay = 0;
+    Outcome ov = run(0x2800, 1);
+    CHECK(ran_overlay == 1 && ov.w15 == 0x42, "matching bytes: overlay native (%d), $15=%02X",
+          ran_overlay, ov.w15);
+    ran_overlay = 0;
+    ovl_patch = 1;
+    Outcome pat = run(0x2800, 1);
+    ovl_patch = 0;
+    CHECK(ran_overlay == 0 && pat.w15 == 0x43, "patched byte: interpreted (%d), $15=%02X",
+          ran_overlay, pat.w15);
+    Outcome ovi = run(0x2800, 0);
+    CHECK(same(&ov, &ovi) && ov.w15 == ovi.w15, "overlay native == interpreter");
+
+    /* Native code that never returns: one frame per sched_run_frame all the
+       same, and it keeps running across them. */
+    {
+        static const uint8_t forever[] = {0xE6, 0x16, 0x80, 0xFC};
+        bus_reset();
+        memcpy(bus_wram() + 0x2900, forever, sizeof forever);
+        static CPU fc;
+        interp_reset(&fc);
+        fc.e = 0;
+        fc.PB = 0x7E;
+        fc.PC = 0x2900;
+        fc.m = 1;
+        fc.x = 0;
+        fc.S = 0x01FF;
+        sched_set_native(1);
+        sched_init(&fc);
+        long r1 = sched_run_frame(), r2 = sched_run_frame();
+        uint8_t c2 = bus_wram()[0x16];
+        long r3 = sched_run_frame();
+        CHECK(r1 == 1 && r2 == 1 && r3 == 1 && sched_frame_count() == 3,
+              "a frame per call: %ld %ld %ld, count %ld", r1, r2, r3, sched_frame_count());
+        CHECK(bus_wram()[0x16] != c2, "still running in frame 3");
+    }
+
+    /* The cached check follows CPU writes: a patch, then the original back. */
+    bus_reset();
+    memcpy(bus_wram() + 0x2800, ovl_bytes, sizeof ovl_bytes);
+    overlay_init();
+    CPU oc;
+    cpu_init(&oc);
+    oc.PB = 0x7E;
+    oc.PC = 0x2800;
+    oc.m = 1;
+    oc.x = 0;
+    int a0 = overlay_lookup(&oc) != NULL;
+    write8(0x7E2801, 0x43);
+    int a1 = overlay_lookup(&oc) != NULL;
+    write8(0x7E2801, 0x42);
+    int a2 = overlay_lookup(&oc) != NULL;
+    oc.m = 0;
+    int a3 = overlay_lookup(&oc) != NULL;
+    CHECK(a0 && !a1 && a2 && !a3, "lookup: match %d, patched %d, restored %d, other M %d", a0, a1,
+          a2, a3);
 
     return th_report("native");
 }

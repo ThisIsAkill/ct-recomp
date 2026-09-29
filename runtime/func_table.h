@@ -15,7 +15,7 @@ typedef struct {
     uint8_t m, x;
     uint16_t size;
     int db, dp;         /* entry DB/DP from funcs.toml, -1 if unknown */
-    uint8_t calls_extern; /* can reach an extern hook (never dispatched natively) */
+    uint8_t calls_extern; /* takes an extern hook itself (never dispatched natively) */
     void (*fn)(CPU *);
 } ct_func;
 

@@ -50,7 +50,7 @@ target_link_libraries(ct_interp PUBLIC ct_runtime)
 target_compile_options(ct_interp PRIVATE ${CT_WARN})
 
 # ---- frame scheduler (sched.h) ----
-add_library(ct_sched STATIC runtime/sched.c)
+add_library(ct_sched STATIC runtime/sched.c runtime/overlay.c)
 target_link_libraries(ct_sched PUBLIC ct_interp)
 target_compile_options(ct_sched PRIVATE ${CT_WARN})
 

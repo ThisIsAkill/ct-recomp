@@ -486,6 +486,11 @@ def operand_bytes(mode: str, st: State, addr: int, mnemonic: str) -> int:
     return _OPERAND_BYTES[mode]
 
 
+class UnknownExit(DecodeError):
+    """A callee's exit state is unknown (it ends in a jump through a table
+    of unknown length): call it through the interpreter instead."""
+
+
 class Image:
     """What the decoder reads: the ROM, plus code the game puts in WRAM (an
     overlay, #92: `data` as it sits at `base`, a 24-bit WRAM address).
@@ -609,6 +614,18 @@ class Function:
     # this entry state) -> (target, entry State): run by the interpreter
     # (ct_call_interp); the continuation assumes M/X come back unchanged
     interp_calls: dict = field(default_factory=dict)
+    # JSR/JMP (abs,X) through a table of unknown length (no jumptable entry):
+    # key -> entry State. The target is read at run time and run through the
+    # interpreter's dispatch (compiled targets still run native); a JSR's
+    # continuation assumes M/X come back unchanged, a JMP ends the path.
+    dyn_tables: dict = field(default_factory=dict)
+    # JML to code that isn't compiled -> (target, entry State): execution
+    # continues there through the interpreter's dispatch (a jump into a
+    # program in WRAM, say); what it returns with is unknown.
+    interp_tails: dict = field(default_factory=dict)
+    # (abs,X) table key -> targets of it run through the interpreter (not
+    # compiled for the state, or exits unknown); the others stay compiled
+    table_interp: dict = field(default_factory=dict)
 
     @property
     def size(self) -> int:
@@ -674,6 +691,11 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
                 if resolve is None:
                     raise DecodeError(f'${addr:06X}: {i.text()}: no call resolver')
                 cst = State(nxt.m, nxt.x, nxt.e)
+                missing = getattr(resolve, 'missing', None)
+                if missing is not None and missing(i.operand, cst, 'JML'):
+                    fn.interp_tails[ikey] = (i.operand, cst)
+                    fn.exit_states.add(('?', None, None))
+                    break
                 fn.tails[ikey] = (i.operand, cst)
                 fn.exit_states |= resolve.tail_required(addr, i.operand, cst)
                 break
@@ -696,12 +718,17 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
                 target = (addr & 0xFF0000) | i.operand if mn == 'JSR' else i.operand
                 cst = State(nxt.m, nxt.x, nxt.e)
                 missing = getattr(resolve, 'missing', None)
-                if missing is not None and missing(target, cst, mn):
+                exits = None
+                if missing is None or not missing(target, cst, mn):
+                    try:
+                        exits = resolve(addr, target, cst, mn)
+                        fn.calls[ikey] = (target, cst)
+                    except UnknownExit:
+                        if missing is None:
+                            raise
+                if exits is None:   # not compiled for this state, or returns who knows how
                     fn.interp_calls[ikey] = (target, cst)
                     exits = {(nxt.m, nxt.x)}
-                else:
-                    exits = resolve(addr, target, cst, mn)
-                    fn.calls[ikey] = (target, cst)
                 nxt = _continue(fn, ikey, i, nxt, exits, work)
                 if nxt is None:
                     break
@@ -711,15 +738,44 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
                 cst = State(nxt.m, nxt.x, nxt.e)
                 if cst.x is None:
                     raise DecodeError(f'${addr:06X}: {i.text()}: X width unknown')
+                if getattr(resolve, 'missing', None) is not None and \
+                        i.addr not in getattr(resolve, 'jumptables', {i.addr: 0}):
+                    fn.dyn_tables[ikey] = cst
+                    if mn == 'JMP':
+                        fn.exit_states.add(('?', None, None))   # whatever the target does
+                        break
+                    nxt = _continue(fn, ikey, i, nxt, {(nxt.m, nxt.x)}, work)
+                    addr, cur = i.next_addr, nxt
+                    continue
                 targets = resolve.table_targets(i)
                 fn.tables[ikey] = (targets, cst)
+                missing = getattr(resolve, 'missing', None)
+                interp = set()
+                if missing is not None:
+                    interp = {tg for tg in targets if missing(tg, cst, mn)}
                 if mn == 'JMP':
                     for tg in dict.fromkeys(targets):
-                        fn.exit_states |= resolve.tail_required(addr, tg, cst)
+                        if tg in interp:
+                            fn.exit_states.add(('?', None, None))
+                        else:
+                            fn.exit_states |= resolve.tail_required(addr, tg, cst)
+                    if interp:
+                        fn.table_interp[ikey] = interp
                     break
                 exits = set()
                 for tg in dict.fromkeys(targets):
-                    exits |= resolve(addr, tg, cst, 'JSR')
+                    if tg in interp:
+                        exits.add((nxt.m, nxt.x))
+                        continue
+                    try:
+                        exits |= resolve(addr, tg, cst, 'JSR')
+                    except UnknownExit:
+                        if missing is None:
+                            raise
+                        interp.add(tg)
+                        exits.add((nxt.m, nxt.x))
+                if interp:
+                    fn.table_interp[ikey] = interp
                 nxt = _continue(fn, ikey, i, nxt, exits, work)
                 if nxt is None:
                     break
@@ -754,7 +810,7 @@ def assumed_calls(fn: Function) -> set:
             work.append(key)
 
     for i in fn.insns:
-        if i.key in fn.interp_calls:
+        if i.key in fn.interp_calls or (i.key in fn.dyn_tables and i.mnemonic == 'JSR'):
             for k in fn.call_exits.get(i.key) or [fn.post[i.key]]:
                 reach((i.next_addr,) + tuple(k), True, True)
     while work:
@@ -767,7 +823,8 @@ def assumed_calls(fn: Function) -> set:
         post = fn.post[key]
         mn = i.mnemonic
         succ = []
-        if mn in RETURNS or key in fn.tails or (mn in ('JMP', 'JML') and key in fn.tables):
+        if mn in RETURNS or key in fn.tails or key in fn.interp_tails or (mn in ('JMP', 'JML') and
+                                                (key in fn.tables or key in fn.dyn_tables)):
             pass
         elif key in fn.call_exits:
             succ = [(i.next_addr,) + tuple(k) for k in fn.call_exits[key]]
@@ -781,8 +838,8 @@ def assumed_calls(fn: Function) -> set:
             succ = [(i.next_addr,) + post]
         for k in succ:
             reach(k, gm, gx)
-    return {k for k in list(fn.calls) + list(fn.interp_calls) + list(fn.tables)
-            if any(guess.get(k, (False, False)))}
+    return {k for k in list(fn.calls) + list(fn.interp_calls) + list(fn.tables) +
+            list(fn.dyn_tables) if any(guess.get(k, (False, False)))}
 
 
 def listing(fn: Function) -> str:
