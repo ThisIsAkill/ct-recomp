@@ -20,6 +20,10 @@
  *                  timers, its RAM and the DSP registers
  * --expect-pc ADDR exit 1 unless the instruction at ADDR (hex) ran
  *                  (repeatable)
+ * --expect-wram F:ADDR=V / F:ADDR!=V  exit 1 unless the WRAM byte at ADDR
+ *                  (hex offset, 0-1FFFF) is (is not) V (hex) at the edge of
+ *                  frame F (repeatable): a replay's outcome, e.g. an enemy's
+ *                  HP at 0
  * --ref-log FILE  write "frame wram_hash frame_hash" per frame to FILE, the
  *                  hashes tools/mesen_ref.py logs from a reference emulator:
  *                  FNV-1a 64 of WRAM, and of the frame as 15-bit pixels
@@ -113,6 +117,13 @@ static unsigned tail_n;
 #define MAX_EXPECT 8
 static uint32_t expect_pc[MAX_EXPECT];
 static int expect_hit[MAX_EXPECT], n_expect;
+static struct {
+    long frame;
+    uint32_t addr;
+    unsigned val;
+    int neq, seen, ok;
+} expect_wram[MAX_EXPECT];
+static int n_expect_wram;
 
 #define MAX_WATCH 8
 static struct {
@@ -337,6 +348,15 @@ static long dumped, audible;
    and hash. */
 static void on_frame(long f)
 {
+    for (int k = 0; k < n_expect_wram; k++)
+        if (f == expect_wram[k].frame) {
+            unsigned v = bus_wram()[expect_wram[k].addr];
+            expect_wram[k].seen = 1;
+            expect_wram[k].ok = expect_wram[k].neq ? v != expect_wram[k].val : v == expect_wram[k].val;
+            if (!expect_wram[k].ok)
+                printf("ct_boot: frame %ld: WRAM $%05X is $%02X, expected %s$%02X\n", f,
+                       expect_wram[k].addr, v, expect_wram[k].neq ? "not " : "", expect_wram[k].val);
+        }
     static int16_t audio[2048 * 2];   /* this frame's DSP output, 32 kHz */
     sched_set_joypad(0, replay_buttons(&input, f + 1));
     int n = sched_audio_take(audio, 2048);
@@ -466,13 +486,26 @@ int main(int argc, char **argv)
             }
         } else if (!strcmp(argv[k], "--interp-only")) {
             sched_set_native(0);
+        } else if (!strcmp(argv[k], "--expect-wram") && k + 1 < argc && n_expect_wram < MAX_EXPECT) {
+            long f;
+            unsigned a, v;
+            char op[3] = {0};
+            if (sscanf(argv[++k], "%ld:%x%2[!=]%x", &f, &a, op, &v) != 4 || a > 0x1FFFF || v > 0xFF ||
+                (strcmp(op, "=") && strcmp(op, "!="))) {
+                fprintf(stderr, "ct_boot: bad --expect-wram %s\n", argv[k]);
+                return 2;
+            }
+            expect_wram[n_expect_wram].frame = f;
+            expect_wram[n_expect_wram].addr = a;
+            expect_wram[n_expect_wram].val = v;
+            expect_wram[n_expect_wram++].neq = op[0] == '!';
         } else if (!strcmp(argv[k], "--expect-pc") && k + 1 < argc && n_expect < MAX_EXPECT)
             expect_pc[n_expect++] = (uint32_t)strtoul(argv[++k], NULL, 16);
         else {
             fprintf(stderr, "usage: ct_boot [--frames N] [--dump DIR] [--needed-hw FILE] "
                             "[--min-nmis K] [--require-render] [--wav FILE] "
                             "[--require-audio] [--input F1-F2:BUTTONS] [--script FILE] "
-                            "[--expect-pc ADDR] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--aram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--log-entry ADDR[:MEM]] [--snap-at ADDR DIR] [--wram-entries FILE] [--overlay-strict|--overlay-fallback] [--first-exec FILE] [--trace LO:HI[@N] FILE] [--ref-quirk NAME] [--interp-only]\n");
+                            "[--expect-pc ADDR] [--expect-wram F:ADDR=V] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--aram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--log-entry ADDR[:MEM]] [--snap-at ADDR DIR] [--wram-entries FILE] [--overlay-strict|--overlay-fallback] [--first-exec FILE] [--trace LO:HI[@N] FILE] [--ref-quirk NAME] [--interp-only]\n");
             return 2;
         }
     }
@@ -549,6 +582,12 @@ int main(int argc, char **argv)
             printf("ct_boot: $%06X never ran\n", expect_pc[k]);
             reached = 0;
         }
+    for (int k = 0; k < n_expect_wram; k++) {
+        if (!expect_wram[k].seen)
+            printf("ct_boot: frame %ld never reached for --expect-wram\n", expect_wram[k].frame);
+        if (!expect_wram[k].ok)
+            reached = 0;
+    }
     int rendered = nonblack(sched_frame(), (size_t)SCHED_WIDTH * SCHED_HEIGHT * 4);
     if (require_render && !rendered)
         printf("ct_boot: last frame is black\n");
