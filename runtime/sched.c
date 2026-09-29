@@ -135,7 +135,10 @@ static struct {
     uint64_t key;
     uint64_t count;
 } prof[PROF_SLOTS];
-static uint64_t shadow[PROF_DEPTH];
+static struct {
+    uint64_t key;
+    uint16_t s0;   /* S at its entry: it has returned once S is above this */
+} shadow[PROF_DEPTH];
 static int shadow_n;
 
 /* ---- registers ---- */
@@ -1023,9 +1026,12 @@ static void native_build(void)
 /* ---- native coverage profile ----
    Instructions run natively (one tick each) and interpreted. Interpreted
    ones are charged to the function they run in: the target of the last
-   interpreted JSR/JSL/JSR (a,X) or interrupt entry not yet returned from,
-   with the M, X and E it was entered with (a shadow stack; a native
-   function's own calls and returns never reach it). */
+   interpreted JSR/JSL/JSR (a,X), interrupt entry or hand-off not yet
+   returned from, with the M, X and E it was entered with (a shadow stack;
+   a native function's own calls and returns never reach it). An entry has
+   returned once S is above its S at entry, however it left (RTS/RTL/RTI,
+   interpreted or native, or a dropped return address): entries are popped
+   by S, not by which instruction ran. */
 
 static uint64_t entry_key(const CPU *c)
 {
@@ -1033,22 +1039,50 @@ static uint64_t entry_key(const CPU *c)
            (uint32_t)c->e << 26 | 1u << 31 | (uint64_t)c->DB << 32 | (uint64_t)c->DP << 40;
 }
 
-static void shadow_push(const CPU *c)
+/* Drop the entries that have returned. */
+static void shadow_settle(const CPU *c)
 {
-    if (shadow_n < PROF_DEPTH)
-        shadow[shadow_n] = entry_key(c);
-    shadow_n++;
-}
-
-static void shadow_pop(void)
-{
-    if (shadow_n > 0)
+    while (shadow_n > 0 && c->S > shadow[shadow_n - 1].s0)
         shadow_n--;
 }
 
+static void shadow_push_key(const CPU *c, uint64_t key, uint16_t s0)
+{
+    shadow_settle(c);
+    if (shadow_n == PROF_DEPTH) {   /* keep the newest (a stack switch left old ones) */
+        memmove(&shadow[0], &shadow[1], sizeof shadow[0] * (PROF_DEPTH - 1));
+        shadow_n--;
+    }
+    shadow[shadow_n].key = key;
+    shadow[shadow_n].s0 = s0;
+    shadow_n++;
+}
+
+static void shadow_push(const CPU *c)
+{
+    shadow_push_key(c, entry_key(c), c->S);
+}
+
+/* A hand-off (the rest of a function entered with S = s0): charged here
+   until that function returns. A hand-off in the same frame as the one on
+   top replaces it: tail jumps keep the frame, so a loop of them never
+   returns and must not pile up. */
+static void shadow_rest(const CPU *c, uint16_t s0)
+{
+    shadow_settle(c);
+    uint64_t key = entry_key(c) | PROF_REST;
+    if (shadow_n > 0 && (shadow[shadow_n - 1].key & PROF_REST) && shadow[shadow_n - 1].s0 == s0)
+        shadow[shadow_n - 1].key = key;
+    else
+        shadow_push_key(c, key, s0);
+}
+
+int sched_profile_depth(void) { return shadow_n; }
+
 static void prof_charge(void)
 {
-    uint64_t key = shadow_n > 0 && shadow_n <= PROF_DEPTH ? shadow[shadow_n - 1] : 1u << 31;
+    shadow_settle(cpu);
+    uint64_t key = shadow_n > 0 ? shadow[shadow_n - 1].key : 1u << 31;
     unsigned k = ((uint32_t)(key ^ key >> 29) * 2654435761u) & (PROF_SLOTS - 1);
     for (unsigned n = 0; n < PROF_SLOTS; n++, k = (k + 1) & (PROF_SLOTS - 1)) {
         if (prof[k].key == key || !prof[k].key) {
@@ -1327,7 +1361,6 @@ static void exec_one(void)
     const ct_func *f = native_lookup(cpu);
     const ct_overlay_func *o = f || !native_on ? NULL : overlay_lookup(cpu);
     if (f || o) {
-        uint64_t entry = entry_key(cpu);
         if (f) {
             f->fn(cpu);
         } else {
@@ -1342,15 +1375,11 @@ static void exec_one(void)
         charge(cyc_finish());   /* its last instruction (RTS/RTL, or the jump) */
         if (ct_tail_fn == ct_rest_runner) {
             /* it handed its rest over: this loop runs it from PB:PC, as any
-               code (no nested run); the profile charges it to the hand-off,
-               in the top entry's place (the rest's RTS/RTL pops that) */
+               code (no nested run); the profile charges it to the hand-off
+               until the function returns */
             ct_tail_fn = NULL;
-            if (shadow_n > 0 && shadow_n <= PROF_DEPTH)
-                shadow[shadow_n - 1] = entry_key(cpu) | PROF_REST;
-            return;
+            shadow_rest(cpu, ct_tail_s0);
         }
-        if (shadow_n > 0 && shadow_n <= PROF_DEPTH && shadow[shadow_n - 1] == entry)
-            shadow_pop();   /* the interpreted JSR/JSL that called it */
         return;
     }
     uint32_t at = (uint32_t)cpu->PB << 16 | cpu->PC;
@@ -1369,8 +1398,6 @@ static void exec_one(void)
         int_depth--;
     if (op == 0x20 || op == 0x22 || op == 0xFC)
         shadow_push(cpu);   /* JSR, JSL, JSR (a,X): now at the callee */
-    else if (op == 0x60 || op == 0x6B || op == 0x40)
-        shadow_pop();
     charge(clocks);
 }
 
@@ -1446,21 +1473,11 @@ static void exec_hook(CPU *c, const ct_exec_until *u)
             exec_one();
         return;
     }
-    /* the rest of a native function: charged to where it was handed off, in
-       place of the top entry (restored after), so a tail jump that never
-       returns (a table case jumping on) can't grow the stack; its closing
-       RTS/RTL pops an entry nobody pushed for it, so the depth goes back */
-    int depth = shadow_n, top = depth > 0 ? depth - 1 : 0;
-    uint64_t saved = depth > 0 && depth <= PROF_DEPTH ? shadow[top] : 0;
-    if (depth == 0)
-        shadow_n = 1;
-    if (top < PROF_DEPTH)
-        shadow[top] = entry_key(c) | PROF_REST;
+    /* the rest of a native function: charged to where it was handed off,
+       until the function returns */
+    shadow_rest(c, u->s);
     while (!ct_exec_done(c, u))
         exec_one();
-    shadow_n = depth;
-    if (depth > 0 && depth <= PROF_DEPTH)
-        shadow[top] = saved;
 }
 
 /* The CPU runs on its own stack, as a coroutine (ucontext), and yields to

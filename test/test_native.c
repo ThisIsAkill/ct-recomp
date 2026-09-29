@@ -272,6 +272,7 @@ typedef struct {
     long nmis;
     uint8_t w10, w11, w12, w13, w14, w15, w17, w19, w1b;
     size_t stack;
+    int prof_depth;
     CPU cpu;
 } Outcome;
 
@@ -357,6 +358,7 @@ static Outcome run_with(uint16_t target, int native, const uint8_t *nmi, size_t 
     o.w19 = w[0x19];
     o.w1b = w[0x1B];
     o.stack = sched_max_stack();
+    o.prof_depth = sched_profile_depth();
     o.cpu = c;
     return o;
 }
@@ -469,6 +471,11 @@ int main(void)
         CHECK(rref.w1b == 0x08 && same(&rref, &rn), "hand-offs == interpreter: $1B %02X, %d",
               rn.w1b, same(&rref, &rn));
         CHECK(rn.stack > 0 && rn.stack < 16384, "hand-offs: C stack %zu bytes", rn.stack);
+        /* the profile's call stack: every entry popped once it returned
+           (by S), the $800 hand-offs in one frame never piling up */
+        CHECK(tn.prof_depth == 0 && rn.prof_depth == 0 && rref.prof_depth == 0,
+              "profile call stack empty at idle: %d %d %d", tn.prof_depth, rn.prof_depth,
+              rref.prof_depth);
     }
 
     /* Overlays (#92): code in WRAM runs natively while its bytes match. */

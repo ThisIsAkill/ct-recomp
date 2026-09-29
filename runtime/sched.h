@@ -45,6 +45,8 @@ void sched_profile_report(FILE *out, int top);
 /* Clear the profile's counts (a report from here on covers only what runs
    after; the call context of functions already entered is kept). */
 void sched_profile_clear(void);
+/* Entries on the profile's call stack (tests: 0 once everything returned). */
+int sched_profile_depth(void);
 /* The deepest the CPU's C stack has been (bytes), measured at the
    dispatcher and at each line's events (#101). */
 size_t sched_max_stack(void);
