@@ -167,7 +167,14 @@ add_test(NAME lockstep_leene_square COMMAND ${Python3_EXECUTABLE}
 add_test(NAME lockstep_gato_battle COMMAND ${Python3_EXECUTABLE}
     ${CMAKE_SOURCE_DIR}/tools/lockstep.py $<TARGET_FILE:ct_boot> --frames 11000
     --script ${GAME_DIR}/test/replay/gato_battle.txt --expect-pc C10089)
-list(APPEND ct_game_tests lockstep_boot lockstep_leene_square lockstep_gato_battle)
+# The first battle won: by frame 13400 Gato's HP (battle record 6,
+# $7E6133) is 0 and Crono's (BatWork_CurHp, $7E5E30) is not.
+add_test(NAME lockstep_gato_win COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_SOURCE_DIR}/tools/lockstep.py $<TARGET_FILE:ct_boot> --frames 13950
+    --script ${GAME_DIR}/test/replay/gato_win.txt
+    --expect-wram 13400:6133=0 --expect-wram 13400:6134=0 --expect-wram 13400:5E30!=0)
+list(APPEND ct_game_tests lockstep_boot lockstep_leene_square lockstep_gato_battle
+    lockstep_gato_win)
 
 # Battle sprites must not drop out on alternate frames (Gato's fight from
 # its start; broken until OAMADD kept its own reload value, test_hw_map).

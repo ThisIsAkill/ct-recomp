@@ -137,15 +137,28 @@ local function wram_hash()
   return h
 end
 
--- Mesen's buffer is 239 lines: without overscan, visible row r is line r + 7.
+-- Mesen's buffer is 256x239: without overscan, visible row r is line r + 7.
+-- A frame during which the interlace (or hi-res) bit was set is 512x478:
+-- each line is two rows of doubled pixels, identical except on lines drawn
+-- while interlace was on, where only the current field's row (the odd one
+-- on odd frames; checked on a one-line SETINI $05 write) is that line.
 local function frame_hash()
   local h = BASIS
   local buf = emu.getScreenBuffer()
-  for i = 7 * 256 + 1, 231 * 256 do
-    local p = buf[i]
-    local c = ((p >> 19) & 0x1F) | (((p >> 11) & 0x1F) << 5) | (((p >> 3) & 0x1F) << 10)
-    h = (h ~ (c & 0xFF)) * PRIME
-    h = (h ~ (c >> 8)) * PRIME
+  local w, s, field = 256, 1, 0
+  if #buf == 512 * 478 then
+    w, s, field = 512, 2, emu.getState()["frameCount"] & 1
+  elseif #buf ~= 256 * 239 then
+    error("mesen_ref: unexpected screen buffer size " .. #buf)
+  end
+  for r = 7, 230 do
+    local base = (r * s + field) * w + 1
+    for x = 0, 255 do
+      local p = buf[base + x * s]
+      local c = ((p >> 19) & 0x1F) | (((p >> 11) & 0x1F) << 5) | (((p >> 3) & 0x1F) << 10)
+      h = (h ~ (c & 0xFF)) * PRIME
+      h = (h ~ (c >> 8)) * PRIME
+    end
   end
   return h
 end
