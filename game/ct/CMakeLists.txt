@@ -58,12 +58,18 @@ target_include_directories(ct_gen PUBLIC ${CT_OUT})
 target_link_libraries(ct_gen PUBLIC ct_runtime ct_sched)
 target_compile_options(ct_gen PRIVATE ${CT_WARN} -Wno-unused-label)
 target_compile_definitions(ct_gen PRIVATE CT_TEST_BUILD)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_options(ct_gen PRIVATE ${CT_GEN_OPT})   # see CT_GEN_OPT
+endif()
 
 # The tables (func_table.h), as objects so they precede ct_interp.
 add_library(ct_gen_tables OBJECT ${CT_OUT}/ct_funcs.c)
 target_include_directories(ct_gen_tables PUBLIC ${CT_OUT})
 target_link_libraries(ct_gen_tables PUBLIC ct_runtime)
 target_compile_options(ct_gen_tables PRIVATE ${CT_WARN})
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_options(ct_gen_tables PRIVATE ${CT_GEN_OPT})
+endif()
 
 function(ct_game_exe name)
     add_executable(${name} ${ARGN})

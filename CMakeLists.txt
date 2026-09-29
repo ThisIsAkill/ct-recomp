@@ -9,6 +9,25 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
 
+# ccache, when installed: rebuilding after a branch switch or a clean costs
+# only what changed.
+find_program(CT_CCACHE ccache)
+if(CT_CCACHE)
+    set(CMAKE_C_COMPILER_LAUNCHER ${CT_CCACHE})
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${CT_CCACHE})
+endif()
+
+# Investigation builds: -DCMAKE_BUILD_TYPE=Debug (e.g. build-dbg/) builds the
+# runtime at -Og -g and the generated code (game/*/out, the bulk of the
+# build) at CT_GEN_OPT, -O1 by default: quick to build, fast enough to run a
+# replay to where a problem is.
+set(CT_GEN_OPT "-O1" CACHE STRING "Optimization for generated code in Debug builds")
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT CMAKE_C_FLAGS_DEBUG MATCHES "-O")
+    # -Og: still debuggable, but replays run near Release speed
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Og")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Og")
+endif()
+
 find_package(Python3 3.11 REQUIRED COMPONENTS Interpreter)
 
 set(CT_WARN -Wall -Wextra -Wpedantic)

@@ -53,7 +53,10 @@ cmake -S . -B build && cmake --build build -j && ctest --test-dir build
 ```
 
 This builds `game/ct` (generated C goes to `build/game/ct/out/`) and two
-programs at the top of `build/`:
+programs at the top of `build/`. For investigations, a Debug tree builds in
+about 30 seconds (runtime at `-Og`, generated code at `-O1`, see `CT_GEN_OPT`):
+`cmake -S . -B build-dbg -DCMAKE_BUILD_TYPE=Debug`. The build uses ccache when
+it is installed.
 
 ```
 build/ct_sdl                           # play: window, audio, keyboard/controller

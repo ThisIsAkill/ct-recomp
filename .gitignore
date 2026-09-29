@@ -9,6 +9,7 @@ roms/
 out/
 build/
 build2/
+build-dbg/
 __pycache__/
 *.pyc
 
