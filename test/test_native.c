@@ -352,6 +352,12 @@ int main(void)
           ref4.w13, ref4.w14);
     CHECK(same(&ref4, &mx), "callee changed M: rest interpreted == interpreter: clock %llu vs %llu",
           (unsigned long long)mx.clock, (unsigned long long)ref4.clock);
+    /* The profile charges the interpreted rest to where native code handed
+       over ($7E2603, inside TestCallerMX, in m0), not to whatever entry is
+       on the profile's call stack. */
+    CHECK(strstr(mx.profile, "$7E2603 m0x0e0 TestCallerMX") &&
+              strstr(mx.profile, "handed over to the interpreter here"),
+          "hand-off charged to its own row:\n%s", mx.profile);
 
     /* Overlays (#92): code in WRAM runs natively while its bytes match. */
     ran_overlay = 0;

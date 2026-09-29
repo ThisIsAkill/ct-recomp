@@ -15,7 +15,7 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Opcodes used by recompiled routines | 190 / 256 |
 | Opcode x width combinations implemented | 446 |
 | Tests passing | 65 / 65 |
-| Test assertions checked | 616231155 |
+| Test assertions checked | 616231156 |
 
 ## Coverage by bank
 

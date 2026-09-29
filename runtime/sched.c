@@ -110,12 +110,17 @@ static long int_depth;
 /* Native coverage profile state (see sched_profile_report). */
 #define PROF_SLOTS 8192   /* power of two */
 #define PROF_DEPTH 256
+#define PROF_REST (1u << 27)
 static uint64_t prof_native, prof_interp;
 static struct {
-    uint32_t key;   /* PB:PC | M << 24 | X << 25 | E << 26 | 1 << 31 (used) */
+    /* PB:PC | M << 24 | X << 25 | E << 26 | 1 << 31 (used), and the DB and
+       DP it was entered with: DB << 32 | DP << 40. PROF_REST: not an entry
+       but the point where a native function handed the rest of its code to
+       the interpreter (ct_interp_rest). */
+    uint64_t key;
     uint64_t count;
 } prof[PROF_SLOTS];
-static uint32_t shadow[PROF_DEPTH];
+static uint64_t shadow[PROF_DEPTH];
 static int shadow_n;
 
 /* ---- registers ---- */
@@ -1004,10 +1009,10 @@ static void native_build(void)
    with the M, X and E it was entered with (a shadow stack; a native
    function's own calls and returns never reach it). */
 
-static uint32_t entry_key(const CPU *c)
+static uint64_t entry_key(const CPU *c)
 {
     return (uint32_t)c->PB << 16 | c->PC | (uint32_t)c->m << 24 | (uint32_t)c->x << 25 |
-           (uint32_t)c->e << 26 | 1u << 31;
+           (uint32_t)c->e << 26 | 1u << 31 | (uint64_t)c->DB << 32 | (uint64_t)c->DP << 40;
 }
 
 static void shadow_push(const CPU *c)
@@ -1025,8 +1030,8 @@ static void shadow_pop(void)
 
 static void prof_charge(void)
 {
-    uint32_t key = shadow_n > 0 && shadow_n <= PROF_DEPTH ? shadow[shadow_n - 1] : 1u << 31;
-    unsigned k = (key * 2654435761u) & (PROF_SLOTS - 1);
+    uint64_t key = shadow_n > 0 && shadow_n <= PROF_DEPTH ? shadow[shadow_n - 1] : 1u << 31;
+    unsigned k = ((uint32_t)(key ^ key >> 29) * 2654435761u) & (PROF_SLOTS - 1);
     for (unsigned n = 0; n < PROF_SLOTS; n++, k = (k + 1) & (PROF_SLOTS - 1)) {
         if (prof[k].key == key || !prof[k].key) {
             prof[k].key = key;
@@ -1039,19 +1044,31 @@ static void prof_charge(void)
 uint64_t sched_native_insns(void) { return prof_native; }
 uint64_t sched_interp_insns(void) { return prof_interp; }
 
+#define NOT_NATIVE_DBDP "recompiled, but DB/DP differ from the recompiled entry"
+#define NOT_NATIVE_REST "native code handed over to the interpreter here (a jump to code " \
+                        "not compiled, or the rest of its function)"
+
 /* Why the function at this key didn't run natively. */
-static const char *not_native_reason(uint32_t key)
+static const char *not_native_reason(uint64_t key)
 {
     uint32_t addr = key & 0xFFFFFF;
     int m = key >> 24 & 1, x = key >> 25 & 1, e = key >> 26 & 1;
+    int db = (int)(key >> 32 & 0xFF), dp = (int)(key >> 40 & 0xFFFF);
     if ((key & 0xFFFFFF) == 0 && !(key & 0x7F000000))
         return "outside any call (reset code, main loop)";
+    if (key & PROF_REST) {
+        for (unsigned k = 0; k < ct_func_count; k++)
+            if (ct_funcs[k].addr == addr && ct_funcs[k].fn)
+                return "recompiled, but native code handed over to the interpreter here "
+                       "(a tail or table-case jump under the scheduler)";
+        return NOT_NATIVE_REST;
+    }
     if (e)
         return "emulation mode";
     int stale;
     if (overlay_state(addr, m, x, &stale))
         return stale ? "overlay, but its WRAM bytes differ from the image" : "overlay";
-    int any = 0, ext = 0, state = 0;
+    int any = 0, ext = 0, state = 0, exact = 0;
     for (unsigned k = 0; k < ct_func_count; k++) {
         const ct_func *f = &ct_funcs[k];
         if (f->addr != addr || !f->fn)
@@ -1059,16 +1076,27 @@ static const char *not_native_reason(uint32_t key)
         any = 1;
         if (f->calls_extern)
             ext = 1;
-        else if (f->m == m && f->x == x)
+        else if (f->m == m && f->x == x) {
             state = 1;
+            if ((f->db < 0 || f->db == db) && (f->dp < 0 || f->dp == dp))
+                exact = 1;
+        }
     }
     if (!any)
         return "not recompiled";
+    if (exact)
+        return "recompiled and dispatched, yet charged interpreted here (unexplained)";
     if (state)
-        return "recompiled, but DB/DP differ from the recompiled entry";
+        return NOT_NATIVE_DBDP;
     if (ext)
         return "recompiled, but takes an extern hook (noreturn, or in a jump table)";
     return "recompiled only for another M/X";
+}
+
+void sched_profile_clear(void)
+{
+    prof_native = prof_interp = 0;
+    memset(prof, 0, sizeof prof);
 }
 
 void sched_profile_report(FILE *out, int top)
@@ -1077,24 +1105,65 @@ void sched_profile_report(FILE *out, int top)
     fprintf(out, "profile: %llu instructions, %.2f%% native (%llu native, %llu interpreted)\n",
             (unsigned long long)total, total ? 100.0 * (double)prof_native / (double)total : 0.0,
             (unsigned long long)prof_native, (unsigned long long)prof_interp);
+    double scale = 100.0 / (double)(total ? total : 1);
+    /* Rows are an entry (PB:PC, M, X, E) with all its DB/DP summed. */
+    static uint64_t sum[PROF_SLOTS];
+    for (int k = 0; k < PROF_SLOTS; k++) {
+        sum[k] = 0;
+        if (!prof[k].key)
+            continue;
+        for (int j = 0; j < PROF_SLOTS; j++)
+            if (prof[j].key && (uint32_t)prof[j].key == (uint32_t)prof[k].key) {
+                if (j < k)
+                    break;   /* counted at its first slot */
+                sum[k] += prof[j].count;
+            }
+    }
     for (int n = 0; n < top; n++) {
         int best = -1;
         for (int k = 0; k < PROF_SLOTS; k++)
-            if (prof[k].key && prof[k].count && (best < 0 || prof[k].count > prof[best].count))
+            if (sum[k] && (best < 0 || sum[k] > sum[best]))
                 best = k;
         if (best < 0)
             break;
-        uint32_t key = prof[best].key;
+        uint32_t key = (uint32_t)prof[best].key;
+        int big = best;   /* the group's most frequent DB/DP decides the reason */
+        for (int j = 0; j < PROF_SLOTS; j++)
+            if (prof[j].key && (uint32_t)prof[j].key == key && prof[j].count > prof[big].count)
+                big = j;
         const char *name = "";
-        for (unsigned k = 0; k < ct_func_count; k++)
-            if (ct_funcs[k].addr == (key & 0xFFFFFF)) {
-                name = ct_funcs[k].name;
+        uint32_t at = key & 0xFFFFFF;
+        for (unsigned k = 0; k < ct_func_count; k++) {
+            const ct_func *f = &ct_funcs[k];
+            if (key & PROF_REST ? (f->addr >> 16 == at >> 16 && f->addr <= at &&
+                                   at < f->addr + f->size)
+                                : f->addr == at) {
+                name = f->name;   /* for a hand-off, the function it happened in */
                 break;
             }
-        fprintf(out, "profile: %6.2f%%  $%06X m%dx%de%d %-28s %s\n",
-                100.0 * (double)prof[best].count / (double)(total ? total : 1), key & 0xFFFFFF,
-                key >> 24 & 1, key >> 25 & 1, key >> 26 & 1, name, not_native_reason(key));
-        prof[best].count = 0;   /* report consumes the table */
+        }
+        const char *why = not_native_reason(prof[big].key);
+        fprintf(out, "profile: %6.2f%%  $%06X m%dx%de%d %-28s %s", scale * (double)sum[best],
+                key & 0xFFFFFF, key >> 24 & 1, key >> 25 & 1, key >> 26 & 1, name, why);
+        if (!strcmp(why, NOT_NATIVE_DBDP)) {
+            /* the DB/DP it was entered with, most often first */
+            fprintf(out, "; seen DB/DP");
+            for (int sep = 0;; sep = 1) {
+                int b = -1;
+                for (int j = 0; j < PROF_SLOTS; j++)
+                    if (prof[j].key && prof[j].count && (uint32_t)prof[j].key == key &&
+                        (b < 0 || prof[j].count > prof[b].count))
+                        b = j;
+                if (b < 0)
+                    break;
+                fprintf(out, "%s %02X/%04X (%.2f%%)", sep ? "," : "",
+                        (unsigned)(prof[b].key >> 32 & 0xFF), (unsigned)(prof[b].key >> 40 & 0xFFFF),
+                        scale * (double)prof[b].count);
+                prof[b].count = 0;
+            }
+        }
+        fprintf(out, "\n");
+        sum[best] = 0;   /* report consumes the table */
     }
 }
 
@@ -1238,7 +1307,7 @@ static void exec_one(void)
     const ct_func *f = native_lookup(cpu);
     const ct_overlay_func *o = f || !native_on ? NULL : overlay_lookup(cpu);
     if (f || o) {
-        uint32_t entry = entry_key(cpu);
+        uint64_t entry = entry_key(cpu);
         if (f) {
             f->fn(cpu);
         } else {
@@ -1335,10 +1404,27 @@ static void soft_reset(void)
 static void exec_hook(CPU *c, const ct_exec_until *u)
 {
     charge(cyc_finish());
-    if (u->back != ~0u)
+    if (u->back != ~0u) {
         shadow_push(c);   /* the profile's callee: now at its entry */
+        while (!ct_exec_done(c, u))
+            exec_one();
+        return;
+    }
+    /* the rest of a native function: charged to where it was handed off, in
+       place of the top entry (restored after), so a tail jump that never
+       returns (a table case jumping on) can't grow the stack; its closing
+       RTS/RTL pops an entry nobody pushed for it, so the depth goes back */
+    int depth = shadow_n, top = depth > 0 ? depth - 1 : 0;
+    uint64_t saved = depth > 0 && depth <= PROF_DEPTH ? shadow[top] : 0;
+    if (depth == 0)
+        shadow_n = 1;
+    if (top < PROF_DEPTH)
+        shadow[top] = entry_key(c) | PROF_REST;
     while (!ct_exec_done(c, u))
         exec_one();
+    shadow_n = depth;
+    if (depth > 0 && depth <= PROF_DEPTH)
+        shadow[top] = saved;
 }
 
 /* The CPU runs on its own stack, as a coroutine (ucontext), and yields to

@@ -42,6 +42,9 @@ void sched_set_native(int on);
 uint64_t sched_native_insns(void);
 uint64_t sched_interp_insns(void);
 void sched_profile_report(FILE *out, int top);
+/* Clear the profile's counts (a report from here on covers only what runs
+   after; the call context of functions already entered is kept). */
+void sched_profile_clear(void);
 
 /* Run until at least one frame has completed; returns how many did. It
    is one unless a native function was still running at the frame edge:

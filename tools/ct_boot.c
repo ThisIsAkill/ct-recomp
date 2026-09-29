@@ -40,9 +40,11 @@
  * --vram FILE      likewise the 64 KB of VRAM, then CGRAM (512 bytes) and
  *                  OAM (544 bytes)
  * --aram FILE      likewise the SPC700's 64 KB of RAM
- * --profile N      at the end, print the native share of instructions and
+ * --profile N[@F]  at the end, print the native share of instructions and
  *                  the N functions most interpreted instructions ran in,
- *                  with why each didn't run natively
+ *                  with why each didn't run natively (and, for entries run
+ *                  with another DB/DP, the DB/DP pairs seen); @F counts only
+ *                  from frame F on
  * --min-native P   exit 1 unless at least P percent of instructions ran
  *                  natively
  * --watch A[:N]    print every change to WRAM bytes A..A+N-1 (A a WRAM
@@ -141,6 +143,7 @@ static void log_ppu_write(uint16_t reg, uint8_t v)
         fprintf(ppu_log, "%ld %d %d %04X %02X\n", sched_frame_count(), sched_line(),
                 snes_ppu_dot ? snes_ppu_dot() : -1, reg, v);
 }
+static long profile_from;
 static long poke_frame = -1;
 static uint32_t poke_addr;
 static uint8_t poke_val;
@@ -369,6 +372,8 @@ static long dumped, audible;
    and hash. */
 static void on_frame(long f)
 {
+    if (profile_from && f + 1 == profile_from)
+        sched_profile_clear();   /* the edge where frame F starts */
     if (f == poke_frame)
         bus_wram()[poke_addr] ^= poke_val;
     for (int k = 0; k < n_expect_wram; k++)
@@ -457,7 +462,9 @@ int main(int argc, char **argv)
         } else if (!strcmp(argv[k], "--min-native") && k + 1 < argc) {
             min_native = atof(argv[++k]);
         } else if (!strcmp(argv[k], "--profile") && k + 1 < argc) {
-            profile_top = atoi(argv[++k]);
+            char *end;
+            profile_top = (int)strtol(argv[++k], &end, 10);
+            profile_from = *end == '@' ? strtol(end + 1, NULL, 10) : 0;
         } else if (!strcmp(argv[k], "--watch") && k + 1 < argc && n_watch < MAX_WATCH) {
             unsigned a = 0, n = 2;
             if (sscanf(argv[++k], "%x:%u", &a, &n) < 1 || a > 0x1FFFF || !n || n > 16 ||
@@ -551,7 +558,7 @@ int main(int argc, char **argv)
             fprintf(stderr, "usage: ct_boot [--frames N] [--dump DIR] [--needed-hw FILE] "
                             "[--min-nmis K] [--require-render] [--wav FILE] "
                             "[--require-audio] [--input F1-F2:BUTTONS] [--script FILE] "
-                            "[--expect-pc ADDR] [--expect-wram F:ADDR=V] [--poke-wram F:ADDR^M] [--log-ppu LO:HI[@F] FILE] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--aram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--log-entry ADDR[:MEM]] [--snap-at ADDR[@F] DIR] [--wram-entries FILE] [--overlay-strict|--overlay-fallback] [--first-exec FILE] [--trace LO:HI[@N] FILE] [--ref-quirk NAME] [--interp-only]\n");
+                            "[--expect-pc ADDR] [--expect-wram F:ADDR=V] [--poke-wram F:ADDR^M] [--log-ppu LO:HI[@F] FILE] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--aram FILE] [--profile N[@F]] [--min-native P] [--watch A[:N]] [--at ADDR] [--log-entry ADDR[:MEM]] [--snap-at ADDR[@F] DIR] [--wram-entries FILE] [--overlay-strict|--overlay-fallback] [--first-exec FILE] [--trace LO:HI[@N] FILE] [--ref-quirk NAME] [--interp-only]\n");
             return 2;
         }
     }
