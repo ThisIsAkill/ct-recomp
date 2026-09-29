@@ -133,6 +133,7 @@ list(APPEND ct_game_tests diff_open_bus)
 add_test(NAME sync_determinism COMMAND ${Python3_EXECUTABLE} ${GAME_DIR}/test/test_sync.py)
 set_tests_properties(sync_determinism PROPERTIES SKIP_RETURN_CODE 77)
 add_test(NAME manual_root COMMAND ${Python3_EXECUTABLE} ${GAME_DIR}/test/test_manual_root.py)
+add_test(NAME discover_loop COMMAND ${Python3_EXECUTABLE} ${GAME_DIR}/test/test_discover_loop.py)
 list(APPEND ct_game_tests sync_determinism manual_root)
 
 # tools/ct_decompress.py against the game's own decompressor, call by call.

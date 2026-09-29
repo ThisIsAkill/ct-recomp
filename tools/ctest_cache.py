@@ -94,12 +94,14 @@ def run(build: str, args: list[str], log: str | None = None) -> tuple[int, dict[
         with open(log, 'w') as f:
             f.write(p.stdout + p.stderr)
     res = parse(p.stdout)
-    if key is not None and key == tree_key():   # nothing changed while it ran
+    recorded = key is not None and key == tree_key()   # nothing changed while it ran
+    if recorded:
         cache = load(build)
         entry = cache.pop(key, {})
         entry.update(res)
         cache[key] = entry
         save(build, cache)
+    run.recorded = recorded
     return p.returncode, res
 
 
@@ -132,7 +134,8 @@ def main() -> int:
     build_tree(build)
     code, res = run(build, sys.argv[2:])
     failed = [n for n, r in res.items() if r['status'] != 'Passed']
-    print(f'ctest_cache: {len(res) - len(failed)}/{len(res)} passed, recorded'
+    print(f'ctest_cache: {len(res) - len(failed)}/{len(res)} passed, '
+          + ('recorded' if run.recorded else 'NOT recorded (the tree changed while it ran)')
           + (f'; failed: {", ".join(failed)}' if failed else ''))
     return code
 
