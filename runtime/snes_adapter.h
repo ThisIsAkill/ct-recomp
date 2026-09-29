@@ -34,6 +34,9 @@ extern uint64_t (*snes_access_clock)(unsigned early);
 /* PPU dot (0-339) of the access being made, for writes partway through a
    line; set by the scheduler. */
 extern int (*snes_ppu_dot)(void);
+/* Every write to $2100-$213F (CPU or DMA/HDMA), before it takes effect;
+   NULL unless a debugging tool sets it. */
+extern void (*snes_ppu_write_hook)(uint16_t reg, uint8_t v);
 
 /* A general DMA ($420B) just ran its transfer (bytes per channel, 0 for
    channels not enabled); the frame scheduler times the CPU's pause. */

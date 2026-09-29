@@ -169,9 +169,12 @@ void snes_oam_vblank_reload(void)
  * to that point first (Mesen 2 SnesPpu::RenderScanline: through pixel
  * dot - 22 when dot > 22, with dot = the access's H clock / 4). */
 int (*snes_ppu_dot)(void);
+void (*snes_ppu_write_hook)(uint16_t reg, uint8_t v);
 
 static void ppu_reg_write(uint16_t reg, uint8_t v)
 {
+    if (snes_ppu_write_hook)
+        snes_ppu_write_hook(reg, v);
     if (reg >= 0x2134) {
         bus_readonly_write(reg, v);
         return;

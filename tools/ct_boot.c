@@ -24,6 +24,13 @@
  *                  (hex offset, 0-1FFFF) is (is not) V (hex) at the edge of
  *                  frame F (repeatable): a replay's outcome, e.g. an enemy's
  *                  HP at 0
+ * --poke-wram F:ADDR^M  XOR the WRAM byte at ADDR (hex offset, 0-1FFFF)
+ *                  with M (hex, nonzero) at the edge of frame F, before that
+ *                  frame's hashes: a known difference for
+ *                  tools/ref_compare.py --inject-wram to find
+ * --log-ppu LO:HI[@F] FILE  log every write to PPU registers LO-HI (hex,
+ *                  $2100-$213F; CPU, DMA or HDMA) from frame F on (default
+ *                  1) as "frame line dot reg value"
  * --ref-log FILE  write "frame wram_hash frame_hash" per frame to FILE, the
  *                  hashes tools/mesen_ref.py logs from a reference emulator:
  *                  FNV-1a 64 of WRAM, and of the frame as 15-bit pixels
@@ -49,9 +56,10 @@
  *                  DB PB m x" and the 16 bytes at MEM (hex, bank 0 WRAM;
  *                  default DP), for tools that read a routine's arguments
  *                  (repeatable)
- * --snap-at ADDR DIR  write the 128 KB of WRAM to DIR/snap_NNNN.bin each time
- *                  the instruction at ADDR (hex) runs (first 256 times), for
- *                  checking what a routine left in memory
+ * --snap-at ADDR[@F] DIR  write the 128 KB of WRAM to DIR/snap_NNNN.bin each
+ *                  time the instruction at ADDR (hex) runs, from frame F on
+ *                  (first 256 times), for checking what a routine left in
+ *                  memory
  * --wram-entries F  write "ADDR mMxX" to F for every WRAM address ($7E/$7F)
  *                  execution arrives at from ROM other than by a return
  *                  (jumps, calls, interrupts into WRAM code), once per
@@ -124,6 +132,18 @@ static struct {
     int neq, seen, ok;
 } expect_wram[MAX_EXPECT];
 static int n_expect_wram;
+static FILE *ppu_log;
+static unsigned ppu_log_lo, ppu_log_hi;
+static long ppu_log_from = 1;
+static void log_ppu_write(uint16_t reg, uint8_t v)
+{
+    if (reg >= ppu_log_lo && reg <= ppu_log_hi && sched_frame_count() >= ppu_log_from)
+        fprintf(ppu_log, "%ld %d %d %04X %02X\n", sched_frame_count(), sched_line(),
+                snes_ppu_dot ? snes_ppu_dot() : -1, reg, v);
+}
+static long poke_frame = -1;
+static uint32_t poke_addr;
+static uint8_t poke_val;
 
 #define MAX_WATCH 8
 static struct {
@@ -162,6 +182,7 @@ static int log_mem[MAX_LOG];   /* bank 0 address to dump, -1: DP */
 static int n_log;
 
 static uint32_t snap_pc = ~0u;
+static long snap_from;
 static const char *snap_dir;
 static unsigned n_snaps;
 
@@ -196,7 +217,7 @@ static void trace(const CPU *c, uint32_t at)
         }
     }
     last_at = at;
-    if (at == snap_pc && n_snaps < 256) {
+    if (at == snap_pc && n_snaps < 256 && sched_frame_count() >= snap_from) {
         char path[4096];
         snprintf(path, sizeof path, "%s/snap_%04u.bin", snap_dir, n_snaps++);
         FILE *f = fopen(path, "wb");
@@ -348,6 +369,8 @@ static long dumped, audible;
    and hash. */
 static void on_frame(long f)
 {
+    if (f == poke_frame)
+        bus_wram()[poke_addr] ^= poke_val;
     for (int k = 0; k < n_expect_wram; k++)
         if (f == expect_wram[k].frame) {
             unsigned v = bus_wram()[expect_wram[k].addr];
@@ -456,7 +479,9 @@ int main(int argc, char **argv)
         } else if (!strcmp(argv[k], "--overlay-fallback")) {
             ct_overlay_strict = 0;
         } else if (!strcmp(argv[k], "--snap-at") && k + 2 < argc) {
-            snap_pc = (uint32_t)strtoul(argv[++k], NULL, 16);
+            char *end;
+            snap_pc = (uint32_t)strtoul(argv[++k], &end, 16);
+            snap_from = *end == '@' ? strtol(end + 1, NULL, 10) : 0;
             snap_dir = argv[++k];
         } else if (!strcmp(argv[k], "--log-entry") && k + 1 < argc && n_log < MAX_LOG) {
             char *end;
@@ -499,13 +524,34 @@ int main(int argc, char **argv)
             expect_wram[n_expect_wram].addr = a;
             expect_wram[n_expect_wram].val = v;
             expect_wram[n_expect_wram++].neq = op[0] == '!';
+        } else if (!strcmp(argv[k], "--log-ppu") && k + 2 < argc) {
+            char *end;
+            ppu_log_lo = (unsigned)strtoul(argv[++k], &end, 16);
+            ppu_log_hi = *end == ':' ? (unsigned)strtoul(end + 1, &end, 16) : ppu_log_lo;
+            if (*end == '@')
+                ppu_log_from = strtol(end + 1, &end, 10);
+            if (*end || ppu_log_lo < 0x2100 || ppu_log_hi > 0x213F || ppu_log_lo > ppu_log_hi ||
+                !(ppu_log = fopen(argv[++k], "w"))) {
+                fprintf(stderr, "ct_boot: bad --log-ppu %s\n", argv[k]);
+                return 2;
+            }
+            snes_ppu_write_hook = log_ppu_write;
+        } else if (!strcmp(argv[k], "--poke-wram") && k + 1 < argc) {
+            unsigned a, v;
+            if (sscanf(argv[++k], "%ld:%x^%x", &poke_frame, &a, &v) != 3 || poke_frame < 1 ||
+                a > 0x1FFFF || !v || v > 0xFF) {
+                fprintf(stderr, "ct_boot: bad --poke-wram %s\n", argv[k]);
+                return 2;
+            }
+            poke_addr = a;
+            poke_val = (uint8_t)v;
         } else if (!strcmp(argv[k], "--expect-pc") && k + 1 < argc && n_expect < MAX_EXPECT)
             expect_pc[n_expect++] = (uint32_t)strtoul(argv[++k], NULL, 16);
         else {
             fprintf(stderr, "usage: ct_boot [--frames N] [--dump DIR] [--needed-hw FILE] "
                             "[--min-nmis K] [--require-render] [--wav FILE] "
                             "[--require-audio] [--input F1-F2:BUTTONS] [--script FILE] "
-                            "[--expect-pc ADDR] [--expect-wram F:ADDR=V] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--aram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--log-entry ADDR[:MEM]] [--snap-at ADDR DIR] [--wram-entries FILE] [--overlay-strict|--overlay-fallback] [--first-exec FILE] [--trace LO:HI[@N] FILE] [--ref-quirk NAME] [--interp-only]\n");
+                            "[--expect-pc ADDR] [--expect-wram F:ADDR=V] [--poke-wram F:ADDR^M] [--log-ppu LO:HI[@F] FILE] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--aram FILE] [--profile N] [--min-native P] [--watch A[:N]] [--at ADDR] [--log-entry ADDR[:MEM]] [--snap-at ADDR[@F] DIR] [--wram-entries FILE] [--overlay-strict|--overlay-fallback] [--first-exec FILE] [--trace LO:HI[@N] FILE] [--ref-quirk NAME] [--interp-only]\n");
             return 2;
         }
     }
@@ -560,6 +606,8 @@ int main(int argc, char **argv)
         fclose(wram_entries);
     if (ref_log)
         fclose(ref_log);
+    if (ppu_log)
+        fclose(ppu_log);
     if ((wram_path || vram_path) && !dumped_state)
         dump_state();   /* stopped before the last frame edge (fatal) */
     printf("ct_boot: %ld frames, %ld NMIs, %ld frames dumped, %ld with audio, PC $%02X%04X\n",

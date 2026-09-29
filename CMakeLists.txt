@@ -130,6 +130,7 @@ add_test(NAME native COMMAND test_native)
 
 # tools/lockstep.py's divergence report, against a fake probe.
 add_test(NAME lockstep_report COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_lockstep.py)
+add_test(NAME ref_compare_report COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_ref_compare.py)
 
 # TAS movie converter on synthetic .bk2/.lsmv movies.
 add_test(NAME tas_convert COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test_tas_convert.py)
