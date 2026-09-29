@@ -53,6 +53,10 @@ reads them to populate `funcs.toml` / `unresolved.toml`.
   - `BGMODE` ($2105) bit 3 (BG3 priority): upstream hardcoded "always on
     for mode 1" instead of reading the bit. Added `Ppu.bg3Priority` and
     read it for real.
+  - `BGMODE` ($2105) bits 4-7 (BG character size): upstream never decoded
+    them (A Link to the Past uses 8x8 BG tiles only). Added
+    `BgLayer.bigTiles`; the per-pixel BG fetch handles 16x16 characters
+    per fullsnes.
   - Asserts on `BGMODE`, `M7SEL`, `VMAIN`, `WBGLOG`/`WOBJLOG`, `CGWSEL`,
     `SETINI`, `OAMADDH` restricted every value to what A Link to the Past
     happens to use. Relaxed so Chrono Trigger's actual register writes

@@ -21,6 +21,7 @@ typedef struct BgLayer {
   uint16_t tilemapAdr;
   // -- snapshot ends here
   uint16_t tileAdr;
+  bool bigTiles;   // ct-recomp: BGMODE bits 4-7, 16x16 characters
 } BgLayer;
 
 enum {

@@ -253,6 +253,47 @@ static void test_offset_per_tile(void)
     CHECK(buf[16 * 4 + 2] == 0, "column 2 has no entry: no offset");
 }
 
+/* 16x16 characters (BGMODE bit 4 for BG1): a tilemap cell covers 16x16
+   pixels; its right half is character N+1 and its lower half N+16, swapped
+   by the flip bits. Cell 0 is tile 2 (quarters red / green / blue / red),
+   cell 1 the same tile flipped horizontally. */
+static void test_bg_16x16(void)
+{
+    bus_reset();
+    Ppu *p = snes_hw_ppu();
+    write8(0x2100, 0x0F);   /* INIDISP: brightness 15 */
+    write8(0x2105, 0x11);   /* BGMODE 1, BG1 16x16 */
+    write8(0x2107, 0x00);   /* BG1 tilemap at $0000 */
+    write8(0x210B, 0x01);   /* BG1 tiles at $1000 */
+    write8(0x212C, 0x01);   /* TM: BG1 */
+    write8(0x2121, 0x01);
+    static const uint16_t colors[] = {0x001F, 0x03E0, 0x7C00};   /* 1 red, 2 green, 3 blue */
+    for (int k = 0; k < 3; k++) {
+        write8(0x2122, colors[k] & 0xFF);
+        write8(0x2122, colors[k] >> 8);
+    }
+    memset(p->vram, 0, sizeof p->vram);
+    p->vram[0] = 2;
+    p->vram[1] = 0x4000 | 2;
+    static const uint16_t planes[] = {0x00FF, 0xFF00, 0xFFFF};   /* 4bpp rows: color 1, 2, 3 */
+    static const int tiles[4][2] = {{2, 0}, {3, 1}, {18, 2}, {19, 0}};
+    for (int t = 0; t < 4; t++)
+        for (int r = 0; r < 8; r++)
+            p->vram[0x1000 + tiles[t][0] * 16 + r] = planes[tiles[t][1]];
+    static uint8_t buf[256 * 4 * 16];
+    PpuBeginDrawing(p, buf, 256 * 4, 0);
+    for (int line = 0; line <= 10; line++)
+        ppu_runLine(p, line);
+    /* B, G, R of screen pixel (x, y) */
+#define PIX(x, y) (buf[(y) * 1024 + (x) * 4 + 2] > 0 ? 'r' : buf[(y) * 1024 + (x) * 4 + 1] > 0 ? 'g' \
+                   : buf[(y) * 1024 + (x) * 4] > 0 ? 'b' : '.')
+    char row0[5] = {PIX(0, 0), PIX(8, 0), PIX(16, 0), PIX(24, 0), 0};
+    char row8[5] = {PIX(0, 8), PIX(8, 8), PIX(16, 8), PIX(24, 8), 0};
+#undef PIX
+    CHECK(!strcmp(row0, "rggr"), "row 0 by 8-pixel quarter: %s, want rggr", row0);
+    CHECK(!strcmp(row8, "brrb"), "row 8 by 8-pixel quarter: %s, want brrb", row8);
+}
+
 int main(void)
 {
     th_bus_init();
@@ -265,6 +306,7 @@ int main(void)
     test_spc_timer_phase();
     test_cgram_15bit();
     test_offset_per_tile();
+    test_bg_16x16();
     test_midline_write();
     return th_report("snes_bus");
 }

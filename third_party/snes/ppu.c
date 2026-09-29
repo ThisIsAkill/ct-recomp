@@ -75,6 +75,7 @@ void ppu_reset(Ppu* ppu) {
     ppu->bgLayer[i].tilemapHigher = false;
     ppu->bgLayer[i].tilemapAdr = 0;
     ppu->bgLayer[i].tileAdr = 0;
+    ppu->bgLayer[i].bigTiles = false;
   }
   ppu->scrollPrev = 0;
   ppu->scrollPrev2 = 0;
@@ -1218,11 +1219,15 @@ static void ppu_offsetPerTile(Ppu *ppu, int layer, int x, int y, int *hoff, int 
 static int ppu_getPixelForBgLayer(Ppu *ppu, int x, int y, int layer, bool priority) {
   BgLayer *layerp = &ppu->bgLayer[layer];
   // figure out address of tilemap word and read it
-  bool wideTiles = ppu->mode == 5 || ppu->mode == 6;
+  // ct-recomp: 16x16 characters (BGMODE bits 4-7; modes 5/6 are always
+  // 16 wide): the tilemap indexes 16-pixel cells, and each cell's right /
+  // lower 8x8 half is the next / 16th-next character (flip-aware, fullsnes)
+  bool wideTiles = ppu->mode == 5 || ppu->mode == 6 || layerp->bigTiles;
+  bool highTiles = layerp->bigTiles;
   int tileBitsX = wideTiles ? 4 : 3;
   int tileHighBitX = wideTiles ? 0x200 : 0x100;
-  int tileBitsY = 3;
-  int tileHighBitY = 0x100;
+  int tileBitsY = highTiles ? 4 : 3;
+  int tileHighBitY = highTiles ? 0x200 : 0x100;
   uint16_t tilemapAdr = layerp->tilemapAdr + (((y >> tileBitsY) & 0x1f) << 5 | ((x >> tileBitsX) & 0x1f));
   if ((x & tileHighBitX) && layerp->tilemapWider) tilemapAdr += 0x400;
   if ((y & tileHighBitY) && layerp->tilemapHigher) tilemapAdr += layerp->tilemapWider ? 0x800 : 0x400;
@@ -1237,6 +1242,9 @@ static int ppu_getPixelForBgLayer(Ppu *ppu, int x, int y, int layer, bool priori
   if (wideTiles) {
     // if unflipped right half of tile, or flipped left half of tile
     if (((bool)(x & 8)) ^ ((bool)(tile & 0x4000))) tileNum += 1;
+  }
+  if (highTiles) {   // ct-recomp: lower half, or upper half when flipped
+    if (((bool)(y & 8)) ^ ((bool)(tile & 0x8000))) tileNum += 16;
   }
   // read tiledata, ajust palette for mode 0
   int bitDepth = bitDepthsPerMode[ppu->mode][layer];
@@ -1466,6 +1474,8 @@ void ppu_write(Ppu* ppu, uint8_t adr, uint8_t val) {
       // look at (see the gap report, issue #9).
       ppu->mode = val & 0x7;
       ppu->bg3Priority = val & 0x8;
+      for (int i = 0; i < 4; i++)   // ct-recomp: character size (fullsnes)
+        ppu->bgLayer[i].bigTiles = val & (0x10 << i);
       break;
     }
     case 0x06: {  // MOSAIC
