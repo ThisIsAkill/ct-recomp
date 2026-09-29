@@ -599,7 +599,8 @@ module = "bankc1"
 [[func]]
 name = "Text_RenderStringVec"
 addr = 0xC20003
-states = ["m1x0"]
+states = ["m1x0", "m0x0"]
+profile_states = ["m0x0"]
 e = 0
 module = "bankc2"
 
@@ -2396,7 +2397,7 @@ module = "bankc0"
 [[func]]
 name = "Field_UploadWindowFrameGfx"
 addr = 0xC06E5C
-states = ["m1x0"]
+states = ["m1x0", "m0x0"]
 e = 0
 module = "bankc0"
 
@@ -3138,7 +3139,7 @@ module = "bankc0"
 [[func]]
 name = "Obj_YSortListInsert"
 addr = 0xC0A9CD
-states = ["m1x1"]
+states = ["m1x1", "m0x1"]
 e = 0
 module = "bankc0"
 
@@ -3159,7 +3160,7 @@ module = "bankc0"
 [[func]]
 name = "Obj_ComputeScreenPos"
 addr = 0xC0AB45
-states = ["m1x1"]
+states = ["m1x1", "m0x1"]
 e = 0
 module = "bankc0"
 
@@ -3271,7 +3272,7 @@ module = "bankc0"
 [[func]]
 name = "Field_ProcessAnimQueue"
 addr = 0xC0CA76
-states = ["m1x1"]
+states = ["m1x1", "m0x1"]
 e = 0
 module = "bankc0"
 
@@ -5683,7 +5684,8 @@ module = "bankc2"
 [[func]]
 name = "Menu_FindFreeSlot"
 addr = 0xC2048A
-states = ["m1x0"]
+states = ["m1x0", "m0x0"]
+profile_states = ["m0x0"]
 e = 0
 module = "bankc2"
 
@@ -6138,7 +6140,8 @@ module = "bankc2"
 [[func]]
 name = "Menu_LoadPartyD1Recs"
 addr = 0xC2834D
-states = ["m0x0", "m1x1"]
+states = ["m0x0", "m1x1", "m1x0"]
+profile_states = ["m1x0"]
 e = 0
 module = "bankc2"
 
@@ -6166,7 +6169,8 @@ module = "bankc2"
 [[func]]
 name = "Item_ClassifyId"
 addr = 0xC28881
-states = ["m0x0"]
+states = ["m0x0", "m1x0"]
+profile_states = ["m1x0"]
 e = 0
 module = "bankc2"
 
@@ -6639,7 +6643,7 @@ source = "profile"
 [[func]]
 name = "Player_ProcessControl"
 addr = 0xC0881E
-states = ["m1x0"]
+states = ["m1x0", "m0x0"]
 e = 0
 module = "bankc0"
 source = "profile"
@@ -6778,7 +6782,7 @@ module = "bankc0"
 [[func]]
 name = "Menu_MarkEquippedRocks"
 addr = 0xC282E1
-states = ["m1x0"]
+states = ["m1x0", "m0x0"]
 e = 0
 module = "bankc2"
 source = "profile"
@@ -6802,7 +6806,8 @@ source = "profile"
 [[func]]
 name = "Menu_TickPlayTimeClock"
 addr = 0xC285AE
-states = ["m1x1"]
+states = ["m1x1", "m0x1"]
+profile_states = ["m0x1"]
 e = 0
 module = "bankc2"
 source = "profile"
@@ -6810,7 +6815,8 @@ source = "profile"
 [[func]]
 name = "NewGame_SeedCharStatsAndTechs"
 addr = 0xC2956E
-states = ["m1x1"]
+states = ["m1x1", "m1x0"]
+profile_states = ["m1x0"]
 e = 0
 module = "bankc2"
 source = "profile"
@@ -7054,7 +7060,8 @@ source = "profile"
 [[func]]
 name = "Menu_CheckRockTriples"
 addr = 0xFFF958
-states = ["m1x0"]
+states = ["m1x0", "m0x0", "m1x1"]
+profile_states = ["m1x1"]
 e = 0
 module = "bankff"
 source = "profile"
@@ -7062,7 +7069,8 @@ source = "profile"
 [[func]]
 name = "SaveSlot_Validate"
 addr = 0xFFF9C4
-states = ["m1x1"]
+states = ["m1x1", "m1x0"]
+profile_states = ["m1x0"]
 e = 0
 module = "bankff"
 source = "profile"
@@ -7081,3 +7089,3246 @@ addr = 0xFFFBE7
 states = ["m0x0"]
 e = 0
 module = "bankff"
+
+# ---- discovered by tools/discover.py (entry state from call sites) ----
+
+[[func]]
+name = "Sub_00FF10"
+addr = 0x00FF10
+states = ["m0x0", "m1x0", "m1x1"]
+e = 0
+module = "bank00"
+source = "profile"
+
+[[func]]
+name = "Sub_00FF14"
+addr = 0x00FF14
+states = ["m1x0", "m0x0"]
+e = 0
+module = "bank00"
+source = "profile"
+
+[[func]]
+name = "Field_EntryVec02_UpdateBgAutoScroll"
+addr = 0xC00002
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Field_EntryVec08_StartLocationSong"
+addr = 0xC00008
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Sub_01A5"
+addr = 0xC001A5
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Field_PrepareBattleEntry"
+addr = 0xC0024C
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Loc_C0034B"
+addr = 0xC0034B
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Sub_0C76"
+addr = 0xC00C76
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Player_TryInteract"
+addr = 0xC01AAC
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Player_FindFacingObject"
+addr = 0xC01CFC
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Sub_C01D84"
+addr = 0xC01D84
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Sub_C01DAB"
+addr = 0xC01DAB
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Sub_C01EC7"
+addr = 0xC01EC7
+states = ["m0x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Sub_C01EE0"
+addr = 0xC01EE0
+states = ["m0x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Field_TickScreenEffect"
+addr = 0xC021E1
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Dialog_UploadTextTileRow"
+addr = 0xC06ECB
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Obj_AssignSpriteTileSlot"
+addr = 0xC06F9A
+states = ["m1x1", "m0x1"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Sub_C06FB9"
+addr = 0xC06FB9
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Sub_C06FBA"
+addr = 0xC06FBA
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Obj_AssignSpritePalette"
+addr = 0xC07170
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Sub_C07199"
+addr = 0xC07199
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Sub_C0721C"
+addr = 0xC0721C
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Vblank_UploadBottomRowL1"
+addr = 0xC08445
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Dma7_TriggerVramWrite_Inc1"
+addr = 0xC084A7
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Vblank_UploadBottomRowL2"
+addr = 0xC084C1
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Vblank_UploadBottomRowL3"
+addr = 0xC08523
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Vblank_UploadTopRowL1"
+addr = 0xC08585
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Vblank_UploadTopRowL2"
+addr = 0xC085E7
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Vblank_UploadTopRowL3"
+addr = 0xC08649
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Vblank_UploadLeftColL1"
+addr = 0xC0875B
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Vblank_UploadLeftColL2"
+addr = 0xC0878D
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Vblank_UploadLeftColL3"
+addr = 0xC087BF
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Obj_UpdateVisibility"
+addr = 0xC0A88D
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Obj_ActivateIfOnScreen"
+addr = 0xC0B127
+states = ["m1x1"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Battle_Main"
+addr = 0xC10000
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BattleSys_ServiceEntry"
+addr = 0xC10003
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BattleSys_EntryVec09"
+addr = 0xC10009
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BattleSys_FrameTickEntry"
+addr = 0xC1000C
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BattleSys_EntryVec0F"
+addr = 0xC1000F
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BattleSys_EntryVec18"
+addr = 0xC10018
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Sub_C10023"
+addr = 0xC10023
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BattleSys_ServiceDispatch"
+addr = 0xC10045
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BattleSys_PumpFrames"
+addr = 0xC1007E
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Sub_C1106E"
+addr = 0xC1106E
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Sub_C11B19"
+addr = 0xC11B19
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BattleUI_RenderGaugeUnlessMode3"
+addr = 0xC11C4A
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BattleUI_RenderPanelStrip"
+addr = 0xC11C55
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_CacheBattlerCoordsAll"
+addr = 0xC1283D
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_GaugeRemaining"
+addr = 0xC1285A
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "EnemyAI_SpatialService"
+addr = 0xC12986
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "AISpatial02_NearestEnemy"
+addr = 0xC12A43
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "AISpatial_DistSqCheck0400"
+addr = 0xC12B37
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_TickPcSlots"
+addr = 0xC12D9F
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_UpdatePcFacingToNearest"
+addr = 0xC12F22
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_EvalPcSlotIncapacity"
+addr = 0xC12F97
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_ApplyBattlerActionState"
+addr = 0xC1308C
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BattleUI_InitPanelStrips"
+addr = 0xC134A7
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_FacePcsToNearest"
+addr = 0xC1350F
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BattleSys_HalfRateSlotTick"
+addr = 0xC1369A
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_TickStatusEffectVisuals"
+addr = 0xC13714
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_DispatchStatusVisual"
+addr = 0xC1373B
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Loc_C18461"
+addr = 0xC18461
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_ProcessAF0AQueue"
+addr = 0xC1883D
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_ClearB192Window"
+addr = 0xC18862
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Sub_C18A05"
+addr = 0xC18A05
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_ScanSlotsForNextActions"
+addr = 0xC18C09
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "EnemyAI_CondMet"
+addr = 0xC18C3E
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_BeginPcActionExec"
+addr = 0xC18CF9
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "PointersToEn_C18EA7"
+addr = 0xC18EA7
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "AIPrep01_Attack2"
+addr = 0xC1983A
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "AITgt05_RandomPC"
+addr = 0xC1A452
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "EnemyAI_BuildTargetList"
+addr = 0xC1AC14
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "EnemyAI_ClearTargetList"
+addr = 0xC1AC46
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_SysCmd4CommitResults"
+addr = 0xC1AC57
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_MarkPendingEnemyReactions"
+addr = 0xC1AC5E
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_ApplyResultsWrapper"
+addr = 0xC1AC85
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "EnemyAI_TargetMaskPrimary"
+addr = 0xC1AD09
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "EnemyAI_TargetMaskSecondary"
+addr = 0xC1AD35
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_RandRange"
+addr = 0xC1AF22
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "EnemyAI_RunActiveSection"
+addr = 0xC1AFD2
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_UpdateNearFatalFlag"
+addr = 0xC1B093
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_SyncStatusTickFlags"
+addr = 0xC1B0B6
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_ProcessDeathsAllSlots"
+addr = 0xC1B223
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_ProcessSlotDeath"
+addr = 0xC1B279
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_CancelPcCommandIfDisabled"
+addr = 0xC1B3F9
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_SetAiPtrStatusOverride"
+addr = 0xC1B4AA
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_BuildComboPartnerLists"
+addr = 0xC1B575
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_RefundPendingItem"
+addr = 0xC1B6D1
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_InitPcActionFlags"
+addr = 0xC1B70E
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_InitPcMenuBlocks"
+addr = 0xC1B725
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_PumpEnemyDeathReactions"
+addr = 0xC1B762
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_SysCmd2Long"
+addr = 0xC1B961
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_RunNextReadyPcAction"
+addr = 0xC1B967
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_PendingEquipStub"
+addr = 0xC1BC60
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_ResetPcAtbAfterAction"
+addr = 0xC1BCE1
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_AdjustAtbRateForStatus"
+addr = 0xC1BD6F
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_CancelPcActionRefundAtb"
+addr = 0xC1BDB3
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_DispatchItemEffectClass"
+addr = 0xC1BF46
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_PrepTechAction"
+addr = 0xC1BF79
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_SysCmd4"
+addr = 0xC1BFA4
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_QueueBasicAttack"
+addr = 0xC1BFAA
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_BuildActionTargetList"
+addr = 0xC1C1DD
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Tech_LoadActorParams"
+addr = 0xC1C74C
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_ReacquireSingleTarget"
+addr = 0xC1C82D
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_ExpandTargetMask"
+addr = 0xC1C8F7
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_Mul16"
+addr = 0xC1C90B
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_Div16"
+addr = 0xC1C92A
+states = ["m1x1", "m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Tech_BuildSingleTechEntries"
+addr = 0xC1C96A
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Tech_BuildDualTechEntries"
+addr = 0xC1CA1A
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Tech_GetMpCostSlot0"
+addr = 0xC1CB48
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Tech_GetMpCostSlot1"
+addr = 0xC1CB61
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Tech_GetMpCostSlot2"
+addr = 0xC1CB7A
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Tech_GetTargetData"
+addr = 0xC1CB93
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Tech_ApplyMpDiscount"
+addr = 0xC1CBF6
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Loc_C1CC3E"
+addr = 0xC1CC3E
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Tech_DeductMpFromParticipant"
+addr = 0xC1CC71
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Tech_BuildTripleTechEntries"
+addr = 0xC1CCCB
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_BuildItemMenuList"
+addr = 0xC1CDFF
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_RecalcEquipStats"
+addr = 0xC1CE3A
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_ReloadPartyCharInitData"
+addr = 0xC1CF15
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_ApplyGearStatBonus"
+addr = 0xC1CF69
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_ItemEffect_Heal"
+addr = 0xC1D490
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_ItemEffect_CureStatus"
+addr = 0xC1D4AD
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Loc_C1D4D6"
+addr = 0xC1D4D6
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_ExecPlayerTechAction"
+addr = 0xC1D523
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Tech_ValidateParticipantsMp"
+addr = 0xC1D74F
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_IndexTargetEntry0E"
+addr = 0xC1E89F
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_SetAttackerBase"
+addr = 0xC1E9A3
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_NegateDamageIfHeal"
+addr = 0xC1EBF8
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_ClearConsumedResults"
+addr = 0xC1EC39
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_ApplyPendingResults"
+addr = 0xC1EC7F
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_InitCombatantRecords"
+addr = 0xC1FA8B
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_AylaFistWeaponId"
+addr = 0xC1FDAE
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Math_Multiply_Trampoline"
+addr = 0xC1FDBF
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_RefundPendingItem_Trampoline"
+addr = 0xC1FDCF
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Menu_WaitVblank"
+addr = 0xC20346
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_HideAllSprites"
+addr = 0xC2034D
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_NmiFlushVramQueue"
+addr = 0xC20405
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_FindFreeSlotPri"
+addr = 0xC204CD
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "MenuTask_SpawnScriptPri"
+addr = 0xC204FB
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_ScrollLayerH"
+addr = 0xC20568
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_ScrollLayerHDec"
+addr = 0xC2059D
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_ScrollLayerHInc"
+addr = 0xC20607
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_ScrollLayerV"
+addr = 0xC2066C
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_ScrollLayerVDec"
+addr = 0xC206A1
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_ScrollLayerVInc"
+addr = 0xC2070B
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_BuildColStripLeft"
+addr = 0xC20773
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_BuildColStripRight"
+addr = 0xC207C2
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_SetupColStrip"
+addr = 0xC20811
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_BuildRowStripTop"
+addr = 0xC20843
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_BuildRowStripBottom"
+addr = 0xC2088F
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_SetupRowStrip"
+addr = 0xC208DB
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_QueueColStripDma"
+addr = 0xC2090D
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_QueueRowStripDma"
+addr = 0xC20961
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_BuildColumnPair"
+addr = 0xC20A6C
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_EmitMetatileTiles"
+addr = 0xC20AAE
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_UploadColumnPair"
+addr = 0xC20ADC
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_InsertSpriteNode"
+addr = 0xC20B53
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_InitSpriteFreeList"
+addr = 0xC20C4D
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_BuildAllSpriteOam"
+addr = 0xC20CEA
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_BuildSpriteOam"
+addr = 0xC20D08
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Interp_BankC2_Bytecode"
+addr = 0xC20E1D
+states = ["m0x0", "m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C20E5A"
+addr = 0xC20E5A
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C20E6B"
+addr = 0xC20E6B
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C20E91"
+addr = 0xC20E91
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C20EA3"
+addr = 0xC20EA3
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_ApplyWinVelocity"
+addr = 0xC20F38
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C21037"
+addr = 0xC21037
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C21091"
+addr = 0xC21091
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C210A8"
+addr = 0xC210A8
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C210CD"
+addr = 0xC210CD
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C21100"
+addr = 0xC21100
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C211F6"
+addr = 0xC211F6
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C2120C"
+addr = 0xC2120C
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C2121D"
+addr = 0xC2121D
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C21243"
+addr = 0xC21243
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C2126D"
+addr = 0xC2126D
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C21285"
+addr = 0xC21285
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C21296"
+addr = 0xC21296
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C212B8"
+addr = 0xC212B8
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C2136A"
+addr = 0xC2136A
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C21375"
+addr = 0xC21375
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C2148B"
+addr = 0xC2148B
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C214F7"
+addr = 0xC214F7
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C2151C"
+addr = 0xC2151C
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C21541"
+addr = 0xC21541
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C21566"
+addr = 0xC21566
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C2158B"
+addr = 0xC2158B
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C21599"
+addr = 0xC21599
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C215C3"
+addr = 0xC215C3
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C215E3"
+addr = 0xC215E3
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C215F9"
+addr = 0xC215F9
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C2160F"
+addr = 0xC2160F
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C2161D"
+addr = 0xC2161D
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C2164B"
+addr = 0xC2164B
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_ResetWinPixelAccum"
+addr = 0xC21759
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_GetWinPixelDeltaX"
+addr = 0xC21784
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_GetWinPixelDeltaY"
+addr = 0xC217AB
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C21839"
+addr = 0xC21839
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C21848"
+addr = 0xC21848
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C2185F"
+addr = 0xC2185F
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C2186B"
+addr = 0xC2186B
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C2188E"
+addr = 0xC2188E
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C218C7"
+addr = 0xC218C7
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C218F1"
+addr = 0xC218F1
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C21947"
+addr = 0xC21947
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C21A2D"
+addr = 0xC21A2D
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C21C81"
+addr = 0xC21C81
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_WrapPosToMap"
+addr = 0xC21CB8
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_SetWinAnimScript"
+addr = 0xC21CDA
+states = ["m0x0", "m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_GetRandom"
+addr = 0xC22336
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_TrySendAudioCmd"
+addr = 0xC22ED9
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_FindTriggersAtPos"
+addr = 0xC232CD
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_DispatchTriggers"
+addr = 0xC23349
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_InitPosHistory"
+addr = 0xC2391C
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_PushPosHistory"
+addr = 0xC23934
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_SetMemberWalkAnim"
+addr = 0xC23953
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_SetMemberIdleAnim"
+addr = 0xC23987
+states = ["m1x0", "m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_CheckCoverTiles"
+addr = 0xC239AE
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_CheckMoveBlocked"
+addr = 0xC239C3
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_FetchTileProps"
+addr = 0xC239D5
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_SetStepTarget"
+addr = 0xC23A56
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_WrapStepTarget"
+addr = 0xC23A8F
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_StorePartyTilePos"
+addr = 0xC23ACB
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_FetchExitParam"
+addr = 0xC26263
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "HwMath_MulBy60"
+addr = 0xC262AE
+states = ["m0x0", "m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Overworld_GetRegionId"
+addr = 0xC262ED
+states = ["m0x0", "m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Pad_ServiceLongEntry"
+addr = 0xC28002
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "MenuOverlay_InitShell"
+addr = 0xC28096
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "PartyRoster_Rebuild"
+addr = 0xC2816A
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "MenuTask_SetSleepFrames"
+addr = 0xC28249
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "MenuTask_KillByMask"
+addr = 0xC28255
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "DmaQueue_AppendFromRom"
+addr = 0xC28385
+states = ["m1x0", "m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "DmaQueue_AppendFromWram"
+addr = 0xC2838E
+states = ["m0x0", "m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "DmaQueue_SetupYLen"
+addr = 0xC283A2
+states = ["m1x0", "m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_VblankInputService"
+addr = 0xC28473
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Pad_ServiceFrame"
+addr = 0xC284D2
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Pad_ReadAndDecode"
+addr = 0xC284EC
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_VblankPpuFlush"
+addr = 0xC285D6
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "DmaQueue_Flush"
+addr = 0xC28663
+states = ["m0x0", "m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_FlushCgramBuffer"
+addr = 0xC286A9
+states = ["m1x0", "m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_SetupColorMathHdma"
+addr = 0xC286DD
+states = ["m0x0", "m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_LoadCharRecordToBufKeepX"
+addr = 0xC28816
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_LoadCharRecordToBuf"
+addr = 0xC28839
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Item_GetStatsPtr"
+addr = 0xC288AD
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Item_GetStatsPtr2"
+addr = 0xC288D8
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_CommitComputedStats"
+addr = 0xC29137
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_ComputeEquippedStats"
+addr = 0xC2916E
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C291EB"
+addr = 0xC291EB
+states = ["m1x1"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C29223"
+addr = 0xC29223
+states = ["m1x1"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C2923C"
+addr = 0xC2923C
+states = ["m1x1"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_AccumEquipSlotStats"
+addr = 0xC29261
+states = ["m1x1"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C29276"
+addr = 0xC29276
+states = ["m1x1"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C29281"
+addr = 0xC29281
+states = ["m1x1"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C29286"
+addr = 0xC29286
+states = ["m1x1"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C29295"
+addr = 0xC29295
+states = ["m1x1"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_UnpackSettingsBits"
+addr = 0xC292F4
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_InitPpu"
+addr = 0xC2940D
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_ClearVramRegion"
+addr = 0xC29512
+states = ["m1x0", "m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_DmaToVramFromWram"
+addr = 0xC29542
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Gfx_Copy2bppTo4bppTiles"
+addr = 0xC2960B
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Gfx_OrPlanes012ToPlane3"
+addr = 0xC2962E
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Gfx_CopyPlanes01To23"
+addr = 0xC29653
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Gfx_TileOrPlanes01ToPlane2"
+addr = 0xC29678
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "PartyMenu_LoadStatsPanelGfx"
+addr = 0xC2968D
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_ClearTilemapBuffer"
+addr = 0xC2984A
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_BuildItemInfoTables"
+addr = 0xC29875
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_SanitizeInventory"
+addr = 0xC29988
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_RecalcAllCharStats"
+addr = 0xC299B2
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_BuildSaveSlotPreviews"
+addr = 0xC2D156
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_RenderSaveSlotLabel"
+addr = 0xC2D296
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_RenderSlotLabelShifted"
+addr = 0xC2D2C4
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_ShiftGlyphsRight2px"
+addr = 0xC2D306
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "NameEntry_CursorTick"
+addr = 0xC2E267
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "NameEntry_TypeOrBackspace"
+addr = 0xC2E2F4
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "NameMenu_E316"
+addr = 0xC2E316
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_PositionNameEntryMarker"
+addr = 0xC2E34A
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "NameEntry_CommitIfValid"
+addr = 0xC2E363
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "NameEntry_NormalizeWorkName"
+addr = 0xC2E390
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "NameEntry_CheckDuplicateName"
+addr = 0xC2E3E0
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "NameEntry_BuildGlyphGrid"
+addr = 0xC2E545
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "NameEntry_LoadKeyboardGfx"
+addr = 0xC2E576
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_DrawSlotDescFFCF3B"
+addr = 0xC2E5D3
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_ResetOamPlaceCursor"
+addr = 0xC2E92D
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_UpdateSelectionInput"
+addr = 0xC2E984
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_CursorMoveFromPad"
+addr = 0xC2E9E2
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_CursorNodeIndex"
+addr = 0xC2EA27
+states = ["m1x0", "m1x1"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_PlayCursorSfx"
+addr = 0xC2EAC2
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_PlayConfirmSfx"
+addr = 0xC2EACC
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+
+[[func]]
+name = "Menu_PlaySfx"
+addr = 0xC2EB03
+states = ["m1x1"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_Draw6x6GlyphTileBlock"
+addr = 0xC2EC38
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "MenuOverlay_LoadWindowStylePalette"
+addr = 0xC2ED08
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_RunFFUiCommandList"
+addr = 0xC2ED31
+states = ["m1x0", "m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C2ED77"
+addr = 0xC2ED77
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_TilemapAddrFromRowCol"
+addr = 0xC2ED90
+states = ["m0x0", "m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C2EDAA"
+addr = 0xC2EDAA
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "MenuOverlay_DrawWindowFrameCmd"
+addr = 0xC2EDB0
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "MenuOverlay_SetWindowStyleParams"
+addr = 0xC2EDD3
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "MenuOverlay_DrawBorderRow"
+addr = 0xC2EE23
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "MenuOverlay_DrawBorderSides"
+addr = 0xC2EE58
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_CopyTilemapRows"
+addr = 0xC2EF2B
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_WriteGlyphTile"
+addr = 0xC2EF97
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C2F332"
+addr = 0xC2F332
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C2F337"
+addr = 0xC2F337
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C2F364"
+addr = 0xC2F364
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "MenuSprite_InitPartySlots"
+addr = 0xC2F3CA
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "MenuSprite_LoadCharGfx"
+addr = 0xC2F422
+states = ["m1x1"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "MenuSprite_GetCharD1RecAddr"
+addr = 0xC2F5ED
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "MenuSprite_TickAnim"
+addr = 0xC2F69D
+states = ["m1x1"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C2F6D1"
+addr = 0xC2F6D1
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "MenuSprite_QueueFrameVramDma"
+addr = 0xC2F75C
+states = ["m0x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_RenderTextBlocking"
+addr = 0xC2F90C
+states = ["m0x0", "m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_StartDescTextRender"
+addr = 0xC2FA49
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_UploadRenderedText"
+addr = 0xC2FAE9
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Menu_WriteTile16RowAttr31"
+addr = 0xC2FB97
+states = ["m1x0"]
+e = 0
+module = "bankc2"
+source = "profile"
+
+[[func]]
+name = "Sub_C30AFF"
+addr = 0xC30AFF
+states = ["m0x0"]
+e = 0
+module = "bankc3"
+source = "profile"
+
+[[func]]
+name = "Mode7Script_Dispatch"
+addr = 0xC30B03
+states = ["m0x0"]
+e = 0
+module = "bankc3"
+source = "profile"
+
+[[func]]
+name = "Audio_Process_Entry"
+addr = 0xC70004
+states = ["m1x0", "m1x1"]
+e = 0
+module = "bankc7"
+source = "profile"
+
+[[func]]
+name = "Audio_UploadBlock2F00"
+addr = 0xC70922
+states = ["m1x0"]
+e = 0
+module = "bankc7"
+source = "profile"
+
+[[func]]
+name = "Battle_VramUploadFontTiles"
+addr = 0xCCE22E
+states = ["m1x0"]
+e = 0
+module = "bankcc"
+source = "profile"
+
+[[func]]
+name = "Battle_InitDisplayState"
+addr = 0xCCE2E4
+states = ["m1x0"]
+e = 0
+module = "bankcc"
+source = "profile"
+
+[[func]]
+name = "Battle_BuildEnemyOamTemplate"
+addr = 0xCCED87
+states = ["m1x0"]
+e = 0
+module = "bankcc"
+source = "profile"
+
+[[func]]
+name = "Battle_CallReencodeTextBuffer"
+addr = 0xCCF063
+states = ["m1x0"]
+e = 0
+module = "bankcc"
+source = "profile"
+
+[[func]]
+name = "BattleSys_BootVec"
+addr = 0xCD0000
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleSys_EnablePauseInputVec"
+addr = 0xCD0003
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleSys_PlaySong08StartFade"
+addr = 0xCD000C
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleSys_PollTransitionVec"
+addr = 0xCD0012
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleMsg_ShowAndWaitVec"
+addr = 0xCD0021
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+
+[[func]]
+name = "BattleSys_TickVector"
+addr = 0xCD0036
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleSys_Wait16Frames"
+addr = 0xCD020A
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+
+[[func]]
+name = "BattleMsg_ClearTextBufferL"
+addr = 0xCD0235
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleMsg_TickAndShow"
+addr = 0xCD027F
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+
+[[func]]
+name = "BattleSys_UpdatePadRepeat"
+addr = 0xCD0340
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleSys_HdmaSplitStepClose"
+addr = 0xCD053C
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleSys_HdmaSplitStepOpen"
+addr = 0xCD0577
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+
+[[func]]
+name = "BattleSys_TickScreenTransition"
+addr = 0xCD05B2
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleBg_NmiTilemapMsgUpload"
+addr = 0xCD0607
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleBg_BuildScrollHdmaTables"
+addr = 0xCD06B4
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleBg_ScrollHdma_Static"
+addr = 0xCD06C4
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "Sub_CD088D"
+addr = 0xCD088D
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleSys_UploadCgram"
+addr = 0xCD09CE
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "Sub_CD09F1"
+addr = 0xCD09F1
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleBg_TickPaletteCycle"
+addr = 0xCD0ADE
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleSys_SetupWindowHdma"
+addr = 0xCD0AEE
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleSys_Random"
+addr = 0xCD0B16
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+
+[[func]]
+name = "BattleSys_ClampRasterRecords"
+addr = 0xCD0B1E
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleFx_UpdateScreenShake"
+addr = 0xCD0B51
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleSys_CallFieldService02"
+addr = 0xCD0C89
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleSys_NmiDispatchByMode"
+addr = 0xCD0C95
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleSys_InitScreenFromFieldL"
+addr = 0xCD0C9D
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleSys_InitScreenFromField"
+addr = 0xCD0CA1
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleScene_TickScripts"
+addr = 0xCD1609
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "Audio_PlaySong"
+addr = 0xCD3B71
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleSys_DmaToVram"
+addr = 0xCD3E8E
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+
+[[func]]
+name = "BattleSys_RunQueuedVramDma"
+addr = 0xCD3EB4
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleSys_LoadHdmaTableSet"
+addr = 0xCEEE6E
+states = ["m1x0"]
+e = 0
+module = "bankce"
+source = "profile"
+
+[[func]]
+name = "BattleSys_HideShadowOam"
+addr = 0xCEF066
+states = ["m1x0"]
+e = 0
+module = "bankce"
+source = "profile"
+
+[[func]]
+name = "BattleSys_TickUiSpriteAnims"
+addr = 0xCFE7D7
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+source = "profile"
+
+[[func]]
+name = "BattleSys_BuildBattlerOam"
+addr = 0xCFE83A
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+source = "profile"
+
+[[func]]
+name = "BattleSys_WriteUnitMarkerSprite"
+addr = 0xCFEA8A
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+source = "profile"
+
+[[func]]
+name = "BattleSys_WriteBattlerOamEntries"
+addr = 0xCFEAC5
+states = ["m0x0"]
+e = 0
+module = "bankcf"
+source = "profile"
+
+[[func]]
+name = "BattleSys_CopyOamTileAttrs"
+addr = 0xCFEB94
+states = ["m0x0"]
+e = 0
+module = "bankcf"
+source = "profile"
+
+[[func]]
+name = "BattleSys_DrawUnitBackAnimObjects"
+addr = 0xCFEDB8
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+source = "profile"
+
+[[func]]
+name = "BattleSys_DrawUnitFrontAnimObjects"
+addr = 0xCFEDF7
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+source = "profile"
+
+[[func]]
+name = "BattleSys_TickMoverSlots"
+addr = 0xCFEFAF
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+source = "profile"
+
+[[func]]
+name = "BattleBg_DmaTilemapQuadrant"
+addr = 0xD1E8D9
+states = ["m1x0"]
+e = 0
+module = "bankd1"
+
+[[func]]
+name = "BattleBg_FindPaletteCycleIndex"
+addr = 0xD1EA01
+states = ["m1x0"]
+e = 0
+module = "bankd1"
+source = "profile"
+
+[[func]]
+name = "BattleSys_Boot"
+addr = 0xD1F1B0
+states = ["m1x0"]
+e = 0
+module = "bankd1"
+source = "profile"
+
+[[func]]
+name = "BattleFx_SaveRasterRecordEnables"
+addr = 0xD1F411
+states = ["m1x0"]
+e = 0
+module = "bankd1"
+source = "profile"
+
+[[func]]
+name = "BattleFx_SuspendRasterRecordsSvc"
+addr = 0xD1F426
+states = ["m1x0"]
+e = 0
+module = "bankd1"
+source = "profile"
+
+[[func]]
+name = "BattleFx_InitWindowHdmaTables"
+addr = 0xD1F83D
+states = ["m1x0"]
+e = 0
+module = "bankd1"
+source = "profile"
+
+[[func]]
+name = "BattleSys_ApplyDisplayConfigOnChange"
+addr = 0xD1FE4C
+states = ["m1x0"]
+e = 0
+module = "bankd1"
+source = "profile"
+
+[[func]]
+name = "BattleSys_NmiPrimeHwMath"
+addr = 0xD1FE71
+states = ["m1x0"]
+e = 0
+module = "bankd1"
+source = "profile"
+
+[[func]]
+name = "Battle_CheckUnitActBlocked"
+addr = 0xFDA8A5
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Loc_FDA8CE"
+addr = 0xFDA8CE
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+
+[[func]]
+name = "Battle_ResetPcPendingAction"
+addr = 0xFDA8FE
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+
+[[func]]
+name = "Loc_FDA93C"
+addr = 0xFDA93C
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+
+[[func]]
+name = "Battle_ResetFlaggedPcActions"
+addr = 0xFDA95F
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_ClearAiWorkRam"
+addr = 0xFDA982
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_ConfusedAutoAttack"
+addr = 0xFDAB30
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_ProcessCounterQueue"
+addr = 0xFDAC6E
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_ClearTargetResultTable"
+addr = 0xFDACEE
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_ClearWorkB328"
+addr = 0xFDACFD
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_FillTable1A80FF"
+addr = 0xFDAD09
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_LoadPcRecordToWork"
+addr = 0xFDAE52
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_BuildParticipantList"
+addr = 0xFDAE99
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_FlagPcsWithAccessoryAB"
+addr = 0xFDAEC4
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_BuildPcTechEntries1C48"
+addr = 0xFDAEF2
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_AdvanceEntryCursor"
+addr = 0xFDB01C
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_GetActionRecOffset"
+addr = 0xFDB033
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_InitUnitTimerWork"
+addr = 0xFDB0D5
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_CopyEnemyTypeBitsToA020"
+addr = 0xFDB121
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "StatBoost_CheckAndApply"
+addr = 0xFDB141
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "StatBoost_ApplyIndexed"
+addr = 0xFDB14D
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_InitSlotIndexTable"
+addr = 0xFDB223
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_InitCombatantTables"
+addr = 0xFDB22E
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "NewGame_InitCharacterData"
+addr = 0xFDB2DE
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "CopyCharInitData"
+addr = 0xFDB33F
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+
+[[func]]
+name = "Battle_ApplyInnateStatusAndHpAccessory"
+addr = 0xFDB363
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Loc_FDB3EB"
+addr = 0xFDB3EB
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+
+[[func]]
+name = "Battle_InitElemModifiers"
+addr = 0xFDB3FE
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_LoadEnemyStats"
+addr = 0xFDB438
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_ClearEnemyWorkRecord"
+addr = 0xFDB4D6
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_InitStatusTickTimers"
+addr = 0xFDB4E7
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_ApplyEquipEffects"
+addr = 0xFDB555
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_InitActionWorkVars"
+addr = 0xFDB732
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Battle_InitAtbCounters"
+addr = 0xFDB7EB
+states = ["m1x0"]
+e = 0
+module = "bankfd"
+source = "profile"
+
+[[func]]
+name = "Menu_RebuildTechAvail"
+addr = 0xFFF813
+states = ["m1x0"]
+e = 0
+module = "bankff"
+source = "profile"
+
+[[func]]
+name = "Menu_BuildColorMathHdmaTable"
+addr = 0xFFFC04
+states = ["m1x0"]
+e = 0
+module = "bankff"
+source = "profile"
+
+# ---- field NMI/IRQ handlers (#14): reached by jumps, not calls ----
+# NMI/IRQ vector -> $FF10 / $FF14 (JML $000500 / $000504) -> the JML that
+# Field_InstallNmiVector / Field_InstallIrqVector put there. Neither JML
+# changes M/X, so the states are those observed at $00FF10 / $00FF14
+# (ct_boot --profile, boot and the two replays); the title's own handlers
+# share those vectors, so some states may be unused here (dispatch still
+# matches M/X exactly).
+
+[[func]]
+name = "Field_NmiHandler"
+addr = 0xC0EA63
+states = ["m0x0", "m1x0", "m1x1"]
+e = 0
+module = "bankc0"
+source = "profile"
+
+[[func]]
+name = "Field_IrqHandler"
+addr = 0xC0ECCC
+states = ["m0x0", "m1x0"]
+e = 0
+module = "bankc0"
+source = "profile"
