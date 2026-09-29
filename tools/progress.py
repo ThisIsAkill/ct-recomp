@@ -3,7 +3,9 @@
 and the progress summary in README.md (between the progress markers):
 functions recompiled out of those known, the share of instructions a
 1500-frame boot runs native (BUILD_DIR/ct_boot --profile), and milestones
-closed (GitHub, through gh; left out if gh can't answer).
+closed (GitHub, through gh; left out if gh can't answer). Builds BUILD_DIR
+first; test results already recorded for this source tree (by an earlier
+run, or tools/ctest_cache.py) are reused, not rerun.
 
 usage: progress.py GAME_DIR BUILD_DIR
 """
@@ -19,6 +21,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GAME = ''   # set by main
 sys.path.insert(0, os.path.join(ROOT, 'recomp'))
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import ctest_cache  # noqa: E402
 import decode  # noqa: E402
 import emit  # noqa: E402
 import funcs  # noqa: E402
@@ -33,22 +38,16 @@ def load_unresolved() -> list[dict]:
 
 
 def run_tests(build: str) -> tuple[list[tuple[str, str]], int, int, int]:
-    """Return ([(test, status)], passed, total, checks)."""
-    jobs = str(os.cpu_count() or 1)
-    p = subprocess.run(['ctest', '--test-dir', build, '-V', '-j', jobs], capture_output=True,
-                       text=True)
-    out = p.stdout
-    with open(os.path.join(build, 'progress_ctest.log'), 'w') as f:
-        f.write(out + p.stderr)
-    results = re.findall(r'^\s*\d+/\d+ Test\s+#\d+: (\S+) \.+\s*(\*{0,3}\w+)', out, re.M)
-    checks = sum(int(n) for n in re.findall(r'^\d+: \S+: (\d+) checks, 0 failed$', out, re.M))
-    # ctest >= 4.x drops ", N tests failed" from the summary line when N is 0.
-    m = re.search(r'(\d+)% tests passed(?:, (\d+) tests failed)? out of (\d+)', out)
-    if not m:
-        raise SystemExit(f'progress: no ctest summary from {build}\n{out[-2000:]}{p.stderr}')
-    total = int(m.group(3))
-    failed = int(m.group(2)) if m.group(2) else 0
-    return results, total - failed, total, checks
+    """Return ([(test, status)], passed, total, checks). Tests already
+    passed on this exact source tree are not rerun (tools/ctest_cache.py)."""
+    res, ran = ctest_cache.cached_run(build, os.path.join(build, 'progress_ctest.log'))
+    if not res:
+        raise SystemExit(f'progress: no tests listed in {build}')
+    print(f'progress: {len(res) - len(ran)} test results reused for this tree, '
+          f'{len(ran)} run', file=sys.stderr)
+    passed = sum(1 for r in res.values() if r['status'] == 'Passed')
+    checks = sum(r['checks'] for r in res.values() if r['status'] == 'Passed')
+    return [(n, r['status']) for n, r in res.items()], passed, len(res), checks
 
 
 README_START, README_END = '<!-- progress:start -->', '<!-- progress:end -->'
