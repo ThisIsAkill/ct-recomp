@@ -162,9 +162,23 @@ static void fill(uint8_t *p, unsigned n)
     }
 }
 
+/* A DB/DP variant (funcs.toml profile_dbdp): a row of ct_funcs after the
+   first with its address and M/X. */
+static int dbdp_variant(const ct_func *f)
+{
+    if (f < ct_funcs || f >= ct_funcs + ct_func_count)
+        return 0;
+    for (const ct_func *g = ct_funcs; g < f; g++)
+        if (g->addr == f->addr && g->m == f->m && g->x == f->x)
+            return 1;
+    return 0;
+}
+
 static uint64_t seed_for(const ct_func *f)
 {
     uint64_t k = (uint64_t)f->addr << 2 | (uint64_t)f->m << 1 | f->x;
+    if (dbdp_variant(f))   /* its own stream; the first row keeps the one it always had */
+        k ^= (uint64_t)(f->db & 0xFF) << 32 | (uint64_t)(f->dp & 0xFFFF) << 40 | 1ull << 63;
     k = (k ^ 0x9E3779B97F4A7C15ull) * 0xBF58476D1CE4E5B9ull;   /* splitmix64 step */
     k = (k ^ (k >> 31)) * 0x94D049BB133111EBull;
     k ^= k >> 29;
@@ -321,10 +335,13 @@ static void diff_func(const ct_func *f, int trials)
             dump_trial(f, t, &in, dp);
         CHECK(!memcmp(ra.alu, rb.alu, 4), "%s %s: math registers differ", tag, f->name);
     }
-    printf("  %-30s $%06X m%dx%d  %d trials, %ld fatal in both (%ld compared at the fault), "
+    char variant[24] = "";
+    if (dbdp_variant(f))
+        snprintf(variant, sizeof variant, " DB/DP %02X/%04X", f->db & 0xFF, f->dp & 0xFFFF);
+    printf("  %-30s $%06X m%dx%d%s  %d trials, %ld fatal in both (%ld compared at the fault), "
            "%ld timed out, %ld stack clobber%s",
-           f->name, f->addr, f->m, f->x, t, fatal_both, faulted_checked, timeouts, clobbers,
-           diff_overlay ? "" : "\n");
+           f->name, f->addr, f->m, f->x, variant, t, fatal_both, faulted_checked, timeouts,
+           clobbers, diff_overlay ? "" : "\n");
     if (diff_overlay)
         printf(", %ld self-modified\n", selfmod);
 }

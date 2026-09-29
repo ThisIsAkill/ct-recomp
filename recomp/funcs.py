@@ -26,6 +26,11 @@ class FuncMeta:
     # exactly. profile_states: states added that way to any entry.
     source: str | None = None
     profile_states: tuple[str, ...] = ()
+    # Entries observed at run time with a DB/DP other than db/dp (ct_boot
+    # --profile "seen DB/DP"): (state tag, DB, DP). Each is dispatched as its
+    # own variant, matched exactly; generated code reads DB and DP at run
+    # time, so a variant shares the state's C function.
+    profile_dbdp: tuple[tuple[str, int, int], ...] = ()
 
     def entry_states(self) -> list[State]:
         return [parse_state(s, e=bool(self.e)) for s in self.states]
@@ -90,10 +95,30 @@ def load(path: str) -> list[FuncMeta]:
         extra = tuple(t.get('profile_states', ()))
         if not set(extra) <= set(t['states']):
             raise DecodeError(f'funcs.toml: {t["name"]}: profile_states not all in states')
+        dbdp = tuple(parse_dbdp(t['name'], v, t['states']) for v in t.get('profile_dbdp', ()))
         out.append(FuncMeta(t['name'], t['addr'], tuple(t['states']), t['e'],
                             t.get('dp'), t.get('db'), t['module'], bool(t.get('manual')),
-                            t.get('source'), extra))
+                            t.get('source'), extra, dbdp))
     return out
+
+
+def parse_dbdp(name: str, text: str, states) -> tuple[str, int, int]:
+    """A profile_dbdp entry, "m1x0 7E/0100": state tag, DB, DP."""
+    parts = text.split()
+    try:
+        tag, (db, dp) = parts[0], parts[1].split('/')
+        v = (tag, int(db, 16), int(dp, 16))
+    except (IndexError, ValueError):
+        raise DecodeError(f'funcs.toml: {name}: bad profile_dbdp {text!r} (want "m1x0 7E/0100")')
+    if len(parts) != 2 or v[1] > 0xFF or v[2] > 0xFFFF or len(db) != 2 or len(dp) != 4:
+        raise DecodeError(f'funcs.toml: {name}: bad profile_dbdp {text!r} (want "m1x0 7E/0100")')
+    if tag not in states:
+        raise DecodeError(f'funcs.toml: {name}: profile_dbdp {text!r}: {tag} not in states')
+    return v
+
+
+def dbdp_text(v: tuple[str, int, int]) -> str:
+    return f'{v[0]} {v[1]:02X}/{v[2]:04X}'
 
 
 def split_emittable(reg: 'Registry', metas: list[FuncMeta]) -> tuple[list[FuncMeta],

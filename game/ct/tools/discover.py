@@ -15,6 +15,8 @@ usage: discover.py [--chronoret BANK] [--seed-profile FILE] [--max N] [--write]
            only for another M/X"), in the M/X they were entered with. Written
            with source = "profile" (new entries) or listed in profile_states
            (states added to registered ones); validated like any other.
+           Rows "recompiled, but DB/DP differ" add the DB/DP pairs they were
+           seen with to the entry's profile_dbdp (with --write).
   --write  append decodable candidates to funcs.toml (module bankXX);
            state additions for existing entries are reported, not written
 """
@@ -78,9 +80,24 @@ def main() -> int:
     skipped: list[str] = []
     profile_new: set[int] = set()
     profile_added: dict[str, set] = {}
+    dbdp_added: dict[str, set] = {}
     if '--seed-profile' in args:
         path = args[args.index('--seed-profile') + 1]
         by_addr = {fm.addr: fm for fm in metas}
+        dbdp_re = re.compile(r'\$([0-9A-F]{6}) m([01])x([01])e0\s.*DB/DP differ.*; seen DB/DP (.*)$')
+        for line in open(path):
+            m = dbdp_re.search(line)
+            known = by_addr.get(int(m.group(1), 16)) if m else None
+            if known is None:
+                continue
+            tag = f'm{m.group(2)}x{m.group(3)}'
+            have = {funcs.dbdp_text(v) for v in known.profile_dbdp}
+            for db, dp in re.findall(r'([0-9A-F]{2})/([0-9A-F]{4})', m.group(4)):
+                if int(db, 16) == known.db and int(dp, 16) == known.dp:
+                    continue   # the declared one (never listed as a mismatch)
+                v = f'{tag} {db}/{dp}'
+                if v not in have:
+                    dbdp_added.setdefault(known.name, set()).add(v)
         line_re = re.compile(r'\$([0-9A-F]{6}) m([01])x([01])e0\s.*'
                              r'(not recompiled|recompiled only for another M/X)')
         for line in open(path):
@@ -223,6 +240,8 @@ def main() -> int:
         print(f'fail  {name} {tag}: {err}')
     for name, tags in sorted(add_states.items()):
         print(f'state {name}: add {", ".join(sorted(tags))}')
+    for name, vs in sorted(dbdp_added.items()):
+        print(f'dbdp  {name}: add {", ".join(sorted(vs))}')
     if skipped:
         print(f'# skipped (no documented entry state): {", ".join(skipped)}', file=sys.stderr)
     print(f'# {len(ok)} decodable candidates of {len(cands)}', file=sys.stderr)
@@ -250,6 +269,21 @@ def main() -> int:
             listed = ', '.join(f'"{s}"' for s in prof)
             extra = f'\nprofile_states = [{listed}]' if prof else ''
             text = text[:m.start(1)] + new_line + text[m.end(1):end] + extra + tail
+        open(path, 'w').write(text)
+    if '--write' in args and dbdp_added:
+        path = os.path.join(GAME, 'funcs.toml')
+        text = open(path).read()
+        for name, vs in dbdp_added.items():
+            m = re.search(rf'name = "{re.escape(name)}"\naddr = [^\n]*\nstates = \[[^\]]*\]'
+                          r'(\nprofile_states = \[[^\]]*\])?', text)
+            if not m:
+                print(f'error: cannot find states line for {name}', file=sys.stderr)
+                return 1
+            pm = re.match(r'\nprofile_dbdp = \[([^\]]*)\]', text[m.end(0):])
+            had = [x.strip().strip('"') for x in pm.group(1).split(',') if x.strip()] if pm else []
+            listed = ', '.join(f'"{x}"' for x in sorted(set(had) | vs))
+            tail = text[m.end(0) + (pm.end() if pm else 0):]
+            text = text[:m.end(0)] + f'\nprofile_dbdp = [{listed}]' + tail
         open(path, 'w').write(text)
     if '--write' in args and ok:
         with open(os.path.join(GAME, 'funcs.toml'), 'a') as f:

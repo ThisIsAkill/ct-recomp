@@ -603,9 +603,14 @@ def emit_prototypes(reg: funcs.Registry, metas: list[funcs.FuncMeta]) -> tuple[s
             db = fm.db if fm.db is not None else -1
             dp = fm.dp if fm.dp is not None else -1
             ext = int(takes_hook(fn, reg.externs))
-            c.append(f'    {{"{fm.name}", 0x{fm.addr:06X}, {int(st.m)}, {int(st.x)}, {fn.size}, '
-                     f'{db}, {dp}, {ext}, {name}}},')
-            n += 1
+            # one row per DB/DP it is dispatched with: the declared one, then
+            # each observed variant (profile_dbdp), all running the same code
+            # (it reads DB and DP at run time)
+            rows = [(db, dp)] + [(v[1], v[2]) for v in fm.profile_dbdp if v[0] == st.tag()]
+            for rdb, rdp in rows:
+                c.append(f'    {{"{fm.name}", 0x{fm.addr:06X}, {int(st.m)}, {int(st.x)}, '
+                         f'{fn.size}, {rdb}, {rdp}, {ext}, {name}}},')
+                n += 1
     h += ['', '#endif', '']
     c += ['};', f'const unsigned ct_func_count = {n};', '']
     jt = sorted(reg.jumptables.items())
