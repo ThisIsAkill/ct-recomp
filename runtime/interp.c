@@ -820,6 +820,14 @@ int ct_call_interp(CPU *c, uint32_t target, uint32_t back, unsigned n)
     return c->S == u.s && ((uint32_t)c->PB << 16 | c->PC) == back;
 }
 
+void (*ct_tail_fn)(CPU *cpu);
+uint16_t ct_tail_s0;
+
+void ct_rest_runner(CPU *c)
+{
+    ct_interp_rest(c, ct_tail_s0);
+}
+
 void ct_interp_rest(CPU *c, uint16_t s0)
 {
     ct_exec_until u = {~0u, s0};

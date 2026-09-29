@@ -14,8 +14,8 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Opcodes implemented | 251 / 256 |
 | Opcodes used by recompiled routines | 190 / 256 |
 | Opcode x width combinations implemented | 446 |
-| Tests passing | 65 / 65 |
-| Test assertions checked | 616231156 |
+| Tests passing | 66 / 66 |
+| Test assertions checked | 616231164 |
 
 ## Coverage by bank
 
@@ -1467,6 +1467,7 @@ $00 BRK imm, $01 ORA dp_x_ind, $02 COP imm, $03 ORA sr, $04 TSB dp, $05 ORA dp, 
 | lockstep_leene_square | Passed |
 | lockstep_gato_battle | Passed |
 | lockstep_gato_win | Passed |
+| stack_field_replay | Passed |
 | battle_no_flicker | Passed |
 | native_coverage | Passed |
 | sdl_boot | Passed |

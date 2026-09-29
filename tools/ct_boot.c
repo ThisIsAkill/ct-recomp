@@ -47,6 +47,10 @@
  *                  from frame F on
  * --min-native P   exit 1 unless at least P percent of instructions ran
  *                  natively
+ * --max-stack N    print the deepest the CPU's C stack got (bytes, measured
+ *                  at the dispatcher and at each line's events) and exit 1
+ *                  if it passed N: native code must not nest without bound
+ *                  (#101)
  * --watch A[:N]    print every change to WRAM bytes A..A+N-1 (A a WRAM
  *                  offset in hex, 0-1FFFF; N default 2): frame, line, the
  *                  instruction that made it, old and new bytes (repeatable)
@@ -144,6 +148,7 @@ static void log_ppu_write(uint16_t reg, uint8_t v)
                 snes_ppu_dot ? snes_ppu_dot() : -1, reg, v);
 }
 static long profile_from;
+static long max_stack_allowed = -1;
 static long poke_frame = -1;
 static uint32_t poke_addr;
 static uint8_t poke_val;
@@ -543,6 +548,8 @@ int main(int argc, char **argv)
                 return 2;
             }
             snes_ppu_write_hook = log_ppu_write;
+        } else if (!strcmp(argv[k], "--max-stack") && k + 1 < argc) {
+            max_stack_allowed = strtol(argv[++k], NULL, 10);
         } else if (!strcmp(argv[k], "--poke-wram") && k + 1 < argc) {
             unsigned a, v;
             if (sscanf(argv[++k], "%ld:%x^%x", &poke_frame, &a, &v) != 3 || poke_frame < 1 ||
@@ -558,7 +565,7 @@ int main(int argc, char **argv)
             fprintf(stderr, "usage: ct_boot [--frames N] [--dump DIR] [--needed-hw FILE] "
                             "[--min-nmis K] [--require-render] [--wav FILE] "
                             "[--require-audio] [--input F1-F2:BUTTONS] [--script FILE] "
-                            "[--expect-pc ADDR] [--expect-wram F:ADDR=V] [--poke-wram F:ADDR^M] [--log-ppu LO:HI[@F] FILE] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--aram FILE] [--profile N[@F]] [--min-native P] [--watch A[:N]] [--at ADDR] [--log-entry ADDR[:MEM]] [--snap-at ADDR[@F] DIR] [--wram-entries FILE] [--overlay-strict|--overlay-fallback] [--first-exec FILE] [--trace LO:HI[@N] FILE] [--ref-quirk NAME] [--interp-only]\n");
+                            "[--expect-pc ADDR] [--expect-wram F:ADDR=V] [--poke-wram F:ADDR^M] [--log-ppu LO:HI[@F] FILE] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--aram FILE] [--profile N[@F]] [--min-native P] [--max-stack N] [--watch A[:N]] [--at ADDR] [--log-entry ADDR[:MEM]] [--snap-at ADDR[@F] DIR] [--wram-entries FILE] [--overlay-strict|--overlay-fallback] [--first-exec FILE] [--trace LO:HI[@N] FILE] [--ref-quirk NAME] [--interp-only]\n");
             return 2;
         }
     }
@@ -627,6 +634,12 @@ int main(int argc, char **argv)
     double native_pct = all ? 100.0 * (double)nat / (double)all : 0.0;
     if (profile_top >= 0)
         sched_profile_report(stdout, profile_top);
+    int stack_ok = 1;
+    if (max_stack_allowed >= 0) {
+        size_t used = sched_max_stack();
+        printf("ct_boot: deepest C stack %zu bytes (limit %ld)\n", used, max_stack_allowed);
+        stack_ok = (long)used <= max_stack_allowed;
+    }
     if (min_native >= 0 && native_pct < min_native)
         printf("ct_boot: %.2f%% native, below --min-native %.2f\n", native_pct, min_native);
     if (needed && hw_needed_write(needed, "ct_boot", NULL))
@@ -648,5 +661,5 @@ int main(int argc, char **argv)
         printf("ct_boot: last frame is black\n");
     return sched_nmi_count() >= min_nmis && (rendered || !require_render) &&
            (min_native < 0 || native_pct >= min_native) &&
-           (audible || !require_audio) && reached ? 0 : 1;
+           (audible || !require_audio) && reached && stack_ok ? 0 : 1;
 }

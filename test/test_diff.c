@@ -84,8 +84,10 @@ static void run(const ct_func *f, const CPU *in, uint32_t alu, int interp, Resul
     }
     if (interp)
         interp_call(&r->cpu, f->addr);
-    else
-        f->fn(&r->cpu);
+    else {
+        ct_tail_fn = NULL;   /* a fatal longjmp may have left one pending */
+        ct_run(&r->cpu, f->fn);
+    }
     r->clobber = stack_guard_end();
     for (int k = 0; k < 4; k++)
         r->alu[k] = read8(0x004214 + k);

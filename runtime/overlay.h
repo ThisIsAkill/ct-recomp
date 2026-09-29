@@ -96,5 +96,7 @@ void overlay_reset_active(void);
    may be replaced while the interpreter goes on, as at the end of a title
    sequence). */
 void ct_overlay_rest(CPU *cpu, uint16_t s0);
+/* ct_tail_rest for overlay code: the same, as a tail (cpu.h). */
+void ct_overlay_tail_rest(CPU *cpu, uint16_t s0);
 
 #endif

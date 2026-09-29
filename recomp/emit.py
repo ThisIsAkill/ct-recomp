@@ -294,7 +294,7 @@ def extern_call(target: int, cst: decode.State, back: int, n: int, check: str) -
     return ['if (ct_exec_hook) {',
             f'    if ({" || ".join(cond)}) {{ ct_interp_rest(cpu, s0); return; }}',
             '} else {',
-            f'    {callee(target, cst)}(cpu);',
+            f'    ct_run(cpu, {callee(target, cst)});',
             f'    {check}',
             '}']
 
@@ -308,7 +308,7 @@ def extern_tail(target: int, cst: decode.State) -> list[str]:
             '    ct_interp_rest(cpu, s0);',
             '    return;',
             '}',
-            f'{callee(target, cst)}(cpu);', 'return;']
+            f'ct_tail(cpu, {callee(target, cst)});', 'return;']
 
 
 def callee(target: int, st: decode.State) -> str:
@@ -402,7 +402,7 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
                     [f'push16(cpu, 0x{ret:04X});'] + extern_call(target, cst, back, 2, chk)
             else:
                 t = lambda i, target=target, cst=cst, ret=ret, chk=chk: [
-                    f'push16(cpu, 0x{ret:04X});', f'{callee(target, cst)}(cpu);', chk]
+                    f'push16(cpu, 0x{ret:04X});', f'ct_run(cpu, {callee(target, cst)});', chk]
         elif i.opcode == 0x22 and i.key in fn.calls:
             target, cst = fn.calls[i.key]
             ret = (i.addr + 3) & 0xFFFF
@@ -418,7 +418,7 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
                     f'push8(cpu, 0x{bank:02X});',
                     f'push16(cpu, 0x{ret:04X});',
                     f'cpu->PB = 0x{target >> 16:02X};',
-                    f'{callee(target, cst)}(cpu);', chk]
+                    f'ct_run(cpu, {callee(target, cst)});', chk]
         elif i.opcode in (0x7C, 0xFC) and i.key in fn.tables:
             targets, cst = fn.tables[i.key]
             is_call = i.opcode == 0xFC
@@ -445,13 +445,15 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
                     elif _via_dispatch(tg, cst) and is_call:
                         cond = ' || '.join([f'!ct_call_interp(cpu, 0x{tg:06X}, 0x{back:06X}, 2)'] + mx)
                         body.append(f'case 0x{2 * n:04X}: if (ct_exec_hook) {{ if ({cond}) {{ '
-                                    f'ct_interp_rest(cpu, s0); return; }} }} else {callee(tg, cst)}(cpu); '
+                                    f'ct_interp_rest(cpu, s0); return; }} }} else ct_run(cpu, {callee(tg, cst)}); '
                                     'break;')
                     elif _via_dispatch(tg, cst):
                         body.append(f'case 0x{2 * n:04X}: if (ct_exec_hook) {{ cpu->PC = 0x{tg & 0xFFFF:04X}; '
-                                    f'ct_interp_rest(cpu, s0); return; }} {callee(tg, cst)}(cpu); return;')
+                                    f'ct_interp_rest(cpu, s0); return; }} ct_tail(cpu, {callee(tg, cst)}); return;')
+                    elif is_call:
+                        body.append(f'case 0x{2 * n:04X}: ct_run(cpu, {callee(tg, cst)}); break;')
                     else:
-                        body.append(f'case 0x{2 * n:04X}: {callee(tg, cst)}(cpu); {after}')
+                        body.append(f'case 0x{2 * n:04X}: ct_tail(cpu, {callee(tg, cst)}); return;')
                 body.append(f'default: ct_fatal("${i.addr:06X}: jump table index $%04X out of range", '
                             'cpu->X);')
                 body.append('}')
@@ -471,14 +473,15 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
                     extern_tail(target, cst)
             else:
                 t = lambda i, target=target, cst=cst: [f'cpu->PB = 0x{target >> 16:02X};',
-                                                       f'{callee(target, cst)}(cpu);', 'return;']
+                                                       f'ct_tail(cpu, {callee(target, cst)});',
+                                                       'return;']
         elif i.opcode == 0x4C:
             if i.key in fn.tails:
                 target, cst = fn.tails[i.key]
                 if _routed(target) or _via_dispatch(target, cst):
                     t = lambda i, target=target, cst=cst: extern_tail(target, cst)
                 else:
-                    t = lambda i, target=target, cst=cst: [f'{callee(target, cst)}(cpu);',
+                    t = lambda i, target=target, cst=cst: [f'ct_tail(cpu, {callee(target, cst)});',
                                                            'return;']
             else:
                 tgt = (i.addr & 0xFF0000) | i.operand
@@ -530,7 +533,8 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
             lines += [f'        {b}' for b in body]
             lines.append('    }')
     lines.append('}')
-    return lines
+    # every hand-off to the executor ends the function: a tail (cpu.h, #101)
+    return [ln.replace('ct_interp_rest(cpu, s0);', 'ct_tail_rest(cpu, s0);') for ln in lines]
 
 
 def emit_module(reg: funcs.Registry, metas: list[funcs.FuncMeta], module: str) -> tuple[str, str]:
@@ -677,7 +681,7 @@ def emit_overlays(reg: funcs.Registry, manifest: str | None) -> tuple[str, list[
                         skipped.append(f'{fm.name} {tag}: {ex}')
                         continue
                     # handing its rest to the interpreter ends its own code
-                    c += [ln.replace('ct_interp_rest(', 'ct_overlay_rest(') for ln in body] + ['']
+                    c += [ln.replace('ct_tail_rest(', 'ct_overlay_tail_rest(') for ln in body] + ['']
                     name = c_name(e['addr'], st)
                     h = fnv64(data[lo - base:hi - base + 1])
                     table.append(f'    {{"{fm.name}", 0x{e["addr"]:06X}, {int(st.m)}, {int(st.x)}, '

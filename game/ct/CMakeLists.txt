@@ -173,8 +173,13 @@ add_test(NAME lockstep_gato_win COMMAND ${Python3_EXECUTABLE}
     ${CMAKE_SOURCE_DIR}/tools/lockstep.py $<TARGET_FILE:ct_boot> --frames 13950
     --script ${GAME_DIR}/test/replay/gato_win.txt
     --expect-wram 13400:6133=0 --expect-wram 13400:6134=0 --expect-wram 13400:5E30!=0)
+# The C stack stays flat through a long stretch of field play (#101): the
+# field loop there jumps between compiled functions every frame, which used
+# to nest a C frame each time (275 KB by frame 10600; now about 2 KB).
+add_test(NAME stack_field_replay COMMAND $<TARGET_FILE:ct_boot> --frames 10600
+    --script ${GAME_DIR}/test/replay/gato_win.txt --overlay-strict --max-stack 32768)
 list(APPEND ct_game_tests lockstep_boot lockstep_leene_square lockstep_gato_battle
-    lockstep_gato_win)
+    lockstep_gato_win stack_field_replay)
 
 # Battle sprites must not drop out on alternate frames (Gato's fight from
 # its start; broken until OAMADD kept its own reload value, test_hw_map).

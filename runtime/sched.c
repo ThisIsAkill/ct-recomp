@@ -75,6 +75,21 @@ static void yield_frame(void);
 #define CPU_STACK (8u << 20)
 static ucontext_t cpu_ctx, host_ctx;
 static char *cpu_stack;
+static size_t max_stack;   /* deepest C stack use seen on the CPU's stack */
+
+/* Record how deep the CPU's C stack is here (#101); cheap enough for the
+   dispatcher and the per-line events, which nested code always reaches. */
+static void note_stack(void)
+{
+    char here;
+    if (cpu_stack && &here > cpu_stack && &here < cpu_stack + CPU_STACK) {
+        size_t d = (size_t)(cpu_stack + CPU_STACK - &here);
+        if (d > max_stack)
+            max_stack = d;
+    }
+}
+
+size_t sched_max_stack(void) { return max_stack; }
 static int cpu_live;   /* started since sched_init */
 static int in_cpu;     /* running on it now */
 static void exec_hook(CPU *c, const ct_exec_until *u);
@@ -371,6 +386,8 @@ void sched_init(CPU *c)
 {
     cpu = c;
     native_build();
+    max_stack = 0;
+    ct_tail_fn = NULL;
     ct_tick_hook = tick;
     ct_exec_hook = exec_hook;
     line = 0;
@@ -449,6 +466,7 @@ static void apu_sync(unsigned early)
 
 static void start_line(void)
 {
+    note_stack();
     Ppu *ppu = snes_hw_ppu();
     Dma *dma = snes_hw_dma();
     if (line == 0) {
@@ -1211,6 +1229,7 @@ static void overlay_bail(CPU *c, overlay_act *a, uint32_t at)
     ct_exec_until u = {~0u, a->s0};
     while (!ct_exec_done(c, &u))
         exec_one();
+    ct_tail_fn = NULL;   /* nothing of the dropped frames runs */
     __builtin_longjmp(a->jb, 1);
 }
 
@@ -1304,6 +1323,7 @@ static void exec_one(void)
         }
         return;
     }
+    note_stack();
     const ct_func *f = native_lookup(cpu);
     const ct_overlay_func *o = f || !native_on ? NULL : overlay_lookup(cpu);
     if (f || o) {
@@ -1313,9 +1333,24 @@ static void exec_one(void)
         } else {
             run_overlay(o);
         }
+        /* the functions it tail-jumped to (cpu.h ct_run), here, flat */
+        while (ct_tail_fn && ct_tail_fn != ct_rest_runner) {
+            void (*next)(CPU *cpu) = ct_tail_fn;
+            ct_tail_fn = NULL;
+            next(cpu);
+        }
+        charge(cyc_finish());   /* its last instruction (RTS/RTL, or the jump) */
+        if (ct_tail_fn == ct_rest_runner) {
+            /* it handed its rest over: this loop runs it from PB:PC, as any
+               code (no nested run); the profile charges it to the hand-off,
+               in the top entry's place (the rest's RTS/RTL pops that) */
+            ct_tail_fn = NULL;
+            if (shadow_n > 0 && shadow_n <= PROF_DEPTH)
+                shadow[shadow_n - 1] = entry_key(cpu) | PROF_REST;
+            return;
+        }
         if (shadow_n > 0 && shadow_n <= PROF_DEPTH && shadow[shadow_n - 1] == entry)
             shadow_pop();   /* the interpreted JSR/JSL that called it */
-        charge(cyc_finish());   /* its last instruction (RTS/RTL) */
         return;
     }
     uint32_t at = (uint32_t)cpu->PB << 16 | cpu->PC;
@@ -1356,6 +1391,7 @@ static unsigned reset_delay(void)
    as from power-on (Mesen 2 resets its master clock too). */
 static void soft_reset(void)
 {
+    ct_tail_fn = NULL;   /* the native frames it leaves are dropped */
     if (cyc_in_progress())
         cyc_finish();
     cyc_done();

@@ -92,6 +92,95 @@ loop:
     goto loop;
 }
 
+/* Tail jumps (#101), shaped like emitter output. At base:
+     INC lo / BNE +2 / INC lo+1 / LDA lo+1 / CMP #$08 / BEQ +3 / JMP base+$10 / RTS
+   and at base+$10: JMP base, so the pair jumps back and forth $800 times
+   and then returns. $7E2D00 jumps natively (ct_tail); $7E2E00 hands the
+   rest over at the other's entry each time (ct_tail_rest), as a table case
+   does in the scheduler. Neither may nest a C frame per jump. */
+static const uint8_t pingpong_bytes[] = {0xE6, 0x00, 0xD0, 0x02, 0xE6, 0x00, 0xA5, 0x00,
+                                         0xC9, 0x08, 0xF0, 0x03, 0x4C, 0x10, 0x00, 0x60};
+
+static void pingpong_install(uint8_t *w, uint16_t base, uint8_t lo)
+{
+    memcpy(w + base, pingpong_bytes, sizeof pingpong_bytes);
+    w[base + 1] = lo;
+    w[base + 5] = w[base + 7] = (uint8_t)(lo + 1);
+    w[base + 0xD] = (uint8_t)(base + 0x10);
+    w[base + 0xE] = (uint8_t)(base >> 8);
+    w[base + 0x10] = 0x4C;   /* JMP base */
+    w[base + 0x11] = (uint8_t)base;
+    w[base + 0x12] = (uint8_t)(base >> 8);
+}
+
+static void inc_dp(CPU *cpu, uint8_t d)
+{
+    uint8_t v = (uint8_t)(read8(ea_dp(cpu, d)) + 1);
+    write8(ea_dp(cpu, d), v);
+    set_nz8(cpu, v);
+}
+
+/* The counting part; 1 if it returned (RTS), 0 at the JMP. */
+static int pingpong_step(CPU *cpu, uint32_t base, uint8_t lo)
+{
+    ct_insn(cpu, base + 0x0, 0xE6, lo);
+    inc_dp(cpu, lo);
+    ct_insn(cpu, base + 0x2, 0xD0, 0x02);
+    if (cpu->z) {
+        ct_insn(cpu, base + 0x4, 0xE6, (uint8_t)(lo + 1));
+        inc_dp(cpu, (uint8_t)(lo + 1));
+    } else {
+        ct_cyc_taken = 1;
+    }
+    ct_insn(cpu, base + 0x6, 0xA5, (uint8_t)(lo + 1));
+    lda8(cpu, read8(ea_dp(cpu, (uint8_t)(lo + 1))));
+    ct_insn(cpu, base + 0x8, 0xC9, 0x08);
+    cmp8(cpu, a8(cpu), 0x08);
+    ct_insn(cpu, base + 0xA, 0xF0, 0x03);
+    if (cpu->z) {
+        ct_cyc_taken = 1;
+        ct_insn(cpu, base + 0xF, 0x60, 0x60);
+        op_rts(cpu);
+        return 1;
+    }
+    ct_insn(cpu, base + 0xC, 0x4C, (uint8_t)((base + 0x10) >> 8));
+    return 0;
+}
+
+static void f_2D10(CPU *cpu);
+static void f_2D00(CPU *cpu)
+{
+    cpu_enter(cpu, 0x7E2D00, 1, 0);
+    if (!pingpong_step(cpu, 0x7E2D00, 0x18))
+        ct_tail(cpu, f_2D10);
+}
+
+static void f_2D10(CPU *cpu)
+{
+    cpu_enter(cpu, 0x7E2D10, 1, 0);
+    ct_insn(cpu, 0x7E2D10, 0x4C, 0x2D);
+    ct_tail(cpu, f_2D00);
+}
+
+static void f_2E00(CPU *cpu)
+{
+    cpu_enter(cpu, 0x7E2E00, 1, 0);
+    const uint16_t s0 = cpu->S;
+    if (!pingpong_step(cpu, 0x7E2E00, 0x1A)) {
+        cpu->PC = 0x2E10;
+        ct_tail_rest(cpu, s0);
+    }
+}
+
+static void f_2E10(CPU *cpu)
+{
+    cpu_enter(cpu, 0x7E2E10, 1, 0);
+    const uint16_t s0 = cpu->S;
+    ct_insn(cpu, 0x7E2E10, 0x4C, 0x2E);
+    cpu->PC = 0x2E00;
+    ct_tail_rest(cpu, s0);
+}
+
 static void f_2100(CPU *cpu) { native_loop(cpu, 0x7E2100); }
 static void f_2200(CPU *cpu) { native_loop(cpu, 0x7E2200); }
 
@@ -102,8 +191,12 @@ const ct_func ct_funcs[] = {
     {"TestCaller", 0x7E2300, 1, 0, 10, -1, -1, 0, f_2300},
     {"TestCallerMX", 0x7E2600, 1, 0, 10, -1, -1, 0, f_2600},
     {"TestForever", 0x7E2900, 1, 0, 4, -1, -1, 0, f_2900},
+    {"TestTailA", 0x7E2D00, 1, 0, 16, -1, -1, 0, f_2D00},
+    {"TestTailB", 0x7E2D10, 1, 0, 3, -1, -1, 0, f_2D10},
+    {"TestRestA", 0x7E2E00, 1, 0, 16, -1, -1, 0, f_2E00},
+    {"TestRestB", 0x7E2E10, 1, 0, 3, -1, -1, 0, f_2E10},
 };
-const unsigned ct_func_count = 5;
+const unsigned ct_func_count = 9;
 const ct_extern ct_externs[] = {{0, 0, 0}};
 const unsigned ct_extern_count = 0;
 const ct_jumptable ct_jumptables[] = {{0, 0}};
@@ -177,7 +270,8 @@ typedef struct {
     uint64_t clock, native_insns, interp_insns;
     char profile[1024];
     long nmis;
-    uint8_t w10, w11, w12, w13, w14, w15, w17;
+    uint8_t w10, w11, w12, w13, w14, w15, w17, w19, w1b;
+    size_t stack;
     CPU cpu;
 } Outcome;
 
@@ -219,6 +313,8 @@ static Outcome run_with(uint16_t target, int native, const uint8_t *nmi, size_t 
     memcpy(w + 0x2B00, handoff_bytes, sizeof handoff_bytes);
     static const uint8_t overwrite[] = {0x8F, 0x00, 0x2B, 0x7E, 0x60};   /* STA $7E2B00 / RTS */
     memcpy(w + 0x2C00, overwrite, sizeof overwrite);
+    pingpong_install(w, 0x2D00, 0x18);
+    pingpong_install(w, 0x2E00, 0x1A);
     if (ovl_patch)
         w[0x2801] = 0x43;   /* LDA #$43: the bytes no longer match the compiled code */
     static const uint8_t to_m0[] = {0xC2, 0x20, 0x60};   /* REP #$20 / RTS */
@@ -258,6 +354,9 @@ static Outcome run_with(uint16_t target, int native, const uint8_t *nmi, size_t 
     o.w14 = w[0x14];
     o.w15 = w[0x15];
     o.w17 = w[0x17];
+    o.w19 = w[0x19];
+    o.w1b = w[0x1B];
+    o.stack = sched_max_stack();
     o.cpu = c;
     return o;
 }
@@ -358,6 +457,19 @@ int main(void)
     CHECK(strstr(mx.profile, "$7E2603 m0x0e0 TestCallerMX") &&
               strstr(mx.profile, "handed over to the interpreter here"),
           "hand-off charged to its own row:\n%s", mx.profile);
+
+    /* Tail jumps (#101): $800 jumps each way, natively and by hand-off,
+       with the C stack flat (a C frame per jump would be tens of KB). */
+    {
+        Outcome tref = run(0x2D00, 0), tn = run(0x2D00, 1);
+        CHECK(tref.w19 == 0x08 && same(&tref, &tn), "native tails == interpreter: $19 %02X, %d",
+              tn.w19, same(&tref, &tn));
+        CHECK(tn.stack > 0 && tn.stack < 16384, "native tails: C stack %zu bytes", tn.stack);
+        Outcome rref = run(0x2E00, 0), rn = run(0x2E00, 1);
+        CHECK(rref.w1b == 0x08 && same(&rref, &rn), "hand-offs == interpreter: $1B %02X, %d",
+              rn.w1b, same(&rref, &rn));
+        CHECK(rn.stack > 0 && rn.stack < 16384, "hand-offs: C stack %zu bytes", rn.stack);
+    }
 
     /* Overlays (#92): code in WRAM runs natively while its bytes match. */
     ran_overlay = 0;

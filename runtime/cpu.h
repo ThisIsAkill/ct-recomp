@@ -68,4 +68,44 @@ int ct_exec_done(const CPU *cpu, const ct_exec_until *until);
 int ct_call_interp(CPU *cpu, uint32_t target, uint32_t back, unsigned n);
 void ct_interp_rest(CPU *cpu, uint16_t s0);
 
+/* Tail jumps (#101). A compiled function never jumps into another with a C
+   call (that nests one C frame per jump, and a game loop made of jumps
+   would grow the C stack without bound; no compiler-specific tail-call
+   attribute is used): it records the target and returns, and whoever
+   called it runs the target next (ct_run), so the C stack stays flat.
+   - ct_tail: jump to a compiled function (or hook);
+   - ct_tail_rest: hand the rest of this function, from the CPU's PB:PC, to
+     the system executor (ct_interp_rest with the function's entry S). The
+     frame scheduler's dispatcher runs that in its own instruction loop,
+     without nesting (ct_tail_fn == ct_rest_runner).
+   ct_tail_fn is NULL except between such a return and its caller's ct_run. */
+extern void (*ct_tail_fn)(CPU *cpu);
+extern uint16_t ct_tail_s0;
+void ct_rest_runner(CPU *cpu);   /* ct_interp_rest(cpu, ct_tail_s0) */
+
+static inline void ct_tail(CPU *cpu, void (*fn)(CPU *cpu))
+{
+    (void)cpu;
+    ct_tail_fn = fn;
+}
+
+static inline void ct_tail_rest(CPU *cpu, uint16_t s0)
+{
+    (void)cpu;
+    ct_tail_s0 = s0;
+    ct_tail_fn = ct_rest_runner;
+}
+
+/* Call a compiled function (or hook) and every function it tail-jumps to,
+   until one returns. */
+static inline void ct_run(CPU *cpu, void (*fn)(CPU *cpu))
+{
+    fn(cpu);
+    while (ct_tail_fn) {
+        void (*next)(CPU *cpu) = ct_tail_fn;
+        ct_tail_fn = 0;
+        next(cpu);
+    }
+}
+
 #endif

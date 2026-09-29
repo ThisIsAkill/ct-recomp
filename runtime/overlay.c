@@ -135,13 +135,24 @@ void overlay_reset_active(void)
     ct_wram_hit = 0;
 }
 
-void ct_overlay_rest(CPU *cpu, uint16_t s0)
+static void go_dormant(void)
 {
     if (ct_ovl_n > 0 && !ct_ovl_act[ct_ovl_n - 1].dormant) {
         ct_ovl_act[ct_ovl_n - 1].dormant = 1;
         rewatch();
     }
+}
+
+void ct_overlay_rest(CPU *cpu, uint16_t s0)
+{
+    go_dormant();
     ct_interp_rest(cpu, s0);
+}
+
+void ct_overlay_tail_rest(CPU *cpu, uint16_t s0)
+{
+    go_dormant();
+    ct_tail_rest(cpu, s0);
 }
 
 int overlay_state(uint32_t addr, int m, int x, int *stale)

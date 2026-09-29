@@ -136,7 +136,8 @@ static inline int call_jsr(CPU *cpu, th_fn fn, uint16_t caller_pc)
         }
         interp_call(cpu, addr);
     } else {
-        fn(cpu);
+        ct_tail_fn = 0;   /* a fatal longjmp may have left one pending */
+        ct_run(cpu, fn);
     }
     int ok = cpu->S == s0 && cpu->PC == (uint16_t)(caller_pc + 3);
     CHECK(cpu->S == s0, "S $%04X after call, expected $%04X", cpu->S, s0);
