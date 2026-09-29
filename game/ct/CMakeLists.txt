@@ -103,6 +103,12 @@ add_test(NAME c1_ui_gauge COMMAND test_c1_ui)
 add_test(NAME interp_c1_ui_gauge COMMAND test_c1_ui interp)
 list(APPEND ct_game_tests c1_ui_gauge interp_c1_ui_gauge)
 
+# The reset path's NMI/IRQ trampolines ($C00B64, $C00B75), native and interpreted.
+ct_game_exe(test_c0_spine test/test_c0_spine.c)
+add_test(NAME c0_spine_vectors COMMAND test_c0_spine)
+add_test(NAME interp_c0_spine_vectors COMMAND test_c0_spine interp)
+list(APPEND ct_game_tests c0_spine_vectors interp_c0_spine_vectors)
+
 # Every recompiled function vs the interpreter, 2000 trials, in shards.
 ct_game_exe(test_diff ${CMAKE_SOURCE_DIR}/test/test_diff.c)
 set(CT_DIFF_SHARDS 8)
