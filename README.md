@@ -75,6 +75,10 @@ Reference comparison: `tools/ref_compare.py --probe build/ct_boot --mesen PATH
 [Mesen 2](https://github.com/SourMesen/Mesen2) (used as a tool, headless under
 `xvfb-run`, with a private settings folder) and reports the first frame where
 WRAM or the picture differs, with the differing WRAM ranges.
+`tools/trace_diff.py --probe build/ct_boot --mesen PATH --rom $CT_ROM --from F
+--to G [--script FILE]` runs both untraced up to frame F and compares every
+instruction of frames F-G (address, clock, X, Y), reporting the first
+difference; about a minute for a window 12,000 frames in.
 `tools/tas_convert.py MOVIE OUT` turns a TASVideos BizHawk `.bk2` or lsnes
 `.lsmv` movie (from power-on) into an input script for both, resets included. Replays of a new
 game into Leene Square and into the first battle are in `game/ct/test/replay/`.
