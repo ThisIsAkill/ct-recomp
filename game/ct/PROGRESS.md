@@ -4,33 +4,33 @@ Written by `tools/progress.py`. Do not edit by hand.
 
 | Metric | Value |
 |---|---|
-| Routines recompiled | 1341 |
-| Emitted C functions (routine x entry state) | 1408 |
-| ROM bytes covered | 126783 |
-| Functions known total (validated + pending + unresolved) | 1963 |
-| Functions validated | 1341 |
+| Routines recompiled | 1414 |
+| Emitted C functions (routine x entry state) | 1482 |
+| ROM bytes covered | 136776 |
+| Functions known total (validated + pending + unresolved) | 2036 |
+| Functions validated | 1414 |
 | Functions unresolved (pending sync) | 622 |
 | Manual roots not yet emittable | 0 |
 | Opcodes implemented | 251 / 256 |
 | Opcodes used by recompiled routines | 190 / 256 |
 | Opcode x width combinations implemented | 446 |
-| Tests passing | 66 / 66 |
-| Test assertions checked | 616231164 |
+| Tests passing | 67 / 67 |
+| Test assertions checked | 616653598 |
 
 ## Coverage by bank
 
 | Bank | Bytes |
 |---|---|
 | $00 | 8 |
-| $C0 | 58297 |
-| $C1 | 23745 |
+| $C0 | 58351 |
+| $C1 | 28601 |
 | $C2 | 19108 |
 | $C3 | 1417 |
 | $C7 | 1401 |
-| $CC | 3561 |
-| $CD | 2969 |
+| $CC | 4353 |
+| $CD | 4878 |
 | $CE | 291 |
-| $CF | 1646 |
+| $CF | 4028 |
 | $D1 | 1272 |
 | $FD | 12470 |
 | $FF | 598 |
@@ -40,15 +40,15 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Bank | Validated | Unresolved | Known total |
 |---|---|---|---|
 | $00 | 2 | 0 | 2 |
-| $C0 | 577 | 622 | 1199 |
-| $C1 | 214 | 0 | 214 |
+| $C0 | 580 | 622 | 1202 |
+| $C1 | 238 | 0 | 238 |
 | $C2 | 350 | 0 | 350 |
 | $C3 | 11 | 0 | 11 |
 | $C7 | 8 | 0 | 8 |
-| $CC | 4 | 0 | 4 |
-| $CD | 53 | 0 | 53 |
+| $CC | 12 | 0 | 12 |
+| $CD | 77 | 0 | 77 |
 | $CE | 2 | 0 | 2 |
-| $CF | 13 | 0 | 13 |
+| $CF | 27 | 0 | 27 |
 | $D1 | 9 | 0 | 9 |
 | $FD | 92 | 0 | 92 |
 | $FF | 6 | 0 | 6 |
@@ -66,7 +66,7 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Loc_C10116 | $C10116 | m1x0, m0x0 | 9 | c1_math |
 | Battle_ShiftRight6 | $C10118 | m1x0, m0x0 | 7 | c1_math |
 | Battle_ShiftRight5 | $C10119 | m1x0, m0x0 | 6 | c1_math |
-| Battle_ShiftRight4 | $C1011A | m1x0, m0x0 | 5 | c1_math |
+| Battle_ShiftRight4 | $C1011A | m1x0, m0x0, m1x1 | 5 | c1_math |
 | Battle_ShiftRight3 | $C1011B | m1x0, m0x0 | 4 | c1_math |
 | BattleMsg_FormatNumberDigits | $C1011F | m0x0 | 85 | c1_text |
 | Battle_DivTen9499 | $C10174 | m0x0 | 53 | c1_text |
@@ -1398,6 +1398,79 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Menu_BuildColorMathHdmaTable | $FFFC04 | m1x0 | 83 | bankff |
 | Field_NmiHandler | $C0EA63 | m0x0, m1x0, m1x1 | 509 | bankc0 |
 | Field_IrqHandler | $C0ECCC | m0x0, m1x0 | 72 | bankc0 |
+| Loc_C07F58 | $C07F58 | m1x0 | 69 | bankc0 |
+| Loc_C07F5D | $C07F5D | m1x0 | 67 | bankc0 |
+| ASCIITextRelatedDMAVRAM | $C0EC77 | m1x0 | 44 | bankc0 |
+| AISpatial_DistSqCheck0640 | $C12AE3 | m1x0 | 127 | bankc1 |
+| Battle_TickEnemySlotRoundRobin | $C1305C | m1x0 | 48 | bankc1 |
+| Sub_C14058 | $C14058 | m1x0 | 358 | bankc1 |
+| Battle_CountPredictedKills | $C141BE | m1x0 | 84 | bankc1 |
+| BattleAnim_ResolveSlotMoveTargets | $C14212 | m1x0 | 40 | bankc1 |
+| BattleAnim_TickSlotDelayTimers | $C1423A | m1x0 | 214 | bankc1 |
+| BattleAnim_LoadActionConfig | $C14310 | m1x0 | 28 | bankc1 |
+| Sub_C1432C | $C1432C | m1x0 | 813 | bankc1 |
+| BattleAnim_ParseCEAnimHeader | $C148EC | m1x0 | 87 | bankc1 |
+| BattleAnim_BuildBattlerOam | $C14943 | m1x0 | 188 | bankc1 |
+| BattleAnim_SetupApproachToTarget | $C149FF | m1x0 | 114 | bankc1 |
+| Battle_PathfindInit | $C14A71 | m1x0 | 333 | bankc1 |
+| BattleAnim_RunActiveScripts | $C14BBE | m1x0 | 224 | bankc1 |
+| Battle_AnimScriptRun | $C14C9E | m1x0 | 82 | bankc1 |
+| Battle_AnimSetupBase | $C14D08 | m1x0 | 299 | bankc1 |
+| BAnimCmd_03 | $C14E22 | m1x0 | 161 | bankc1 |
+| BAnimCmd_04 | $C14EA2 | m1x0 | 136 | bankc1 |
+| BAnimCmd_MoveBToTable | $C1542D | m1x0 | 501 | bankc1 |
+| BAnimCmd_IfCounterBEq | $C15756 | m1x0 | 36 | bankc1 |
+| BAnimCmd_HideAllSprites | $C15ADB | m1x0 | 551 | bankc1 |
+| BAnimCmd_69 | $C15DD3 | m1x0 | 197 | bankc1 |
+| BAnimCmd_A8 | $C169C3 | m1x0 | 318 | bankc1 |
+| Dispatch_BankC1_ViaTable | $C1762E | m1x0 | 11 | bankc1 |
+| Battle_CommitInventoryToField | $C1B4E9 | m1x0 | 140 | bankc1 |
+| Battle_ResetSpriteAnimState | $CCF06B | m1x0 | 151 | bankcc |
+| Battle_FillA44CWith55 | $CCF102 | m1x0 | 14 | bankcc |
+| Battle_MarkBattlerGrid7CFD | $CCF110 | m1x0 | 70 | bankcc |
+| Battle_AnimLoadCurAnims | $CCF156 | m1x0 | 145 | bankcc |
+| Battle_TileAnimTick | $CCF1E7 | m1x0 | 145 | bankcc |
+| Battle_EnemyAnimTick | $CCF278 | m1x0 | 49 | bankcc |
+| Battle_EnemyAnimAdvanceFrame | $CCF2A9 | m1x0 | 188 | bankcc |
+| Battle_Mul8_CC | $CCF365 | m1x0 | 30 | bankcc |
+| BattleBg_LoadAnimGfxSet4Vec | $CD0015 | m1x0 | 72 | bankcd |
+| BattleBg_LoadAndStartSceneVec | $CD0018 | m1x0 | 14 | bankcd |
+| BattleBg_LoadAnimGfxSet2Vec | $CD002A | m1x0 | 76 | bankcd |
+| BattleSys_WaitFrameFlag47 | $CD044A | m1x0 | 9 | bankcd |
+| Sub_CD076C | $CD076C | m1x0 | 179 | bankcd |
+| BattleScene_InitScripts | $CD0D33 | m1x0 | 47 | bankcd |
+| BattleBg_StageOverlayCfgB | $CD0E79 | m1x0 | 36 | bankcd |
+| BattleBg_Load | $CD0EBD | m1x0 | 405 | bankcd |
+| BattleBg_FillTilemapsBlank | $CD1052 | m1x0 | 43 | bankcd |
+| BattleBg_FillTilemapRegionBlank | $CD1061 | m1x0 | 28 | bankcd |
+| BattleBg_BuildTilemap | $CD107D | m1x0 | 315 | bankcd |
+| BattleBg_LoadDescriptor | $CD11B8 | m1x0 | 44 | bankcd |
+| BattleBg_DecodeGfxChunk | $CD11E4 | m1x0 | 53 | bankcd |
+| BattleBg_CopyTile | $CD12B8 | m0x0 | 72 | bankcd |
+| BattleBg_DecodeAnimGfxChunk | $CD1368 | m1x0 | 98 | bankcd |
+| BattleBg_GetTilePlaneMaskIdx | $CD13CA | m1x0 | 10 | bankcd |
+| Sub_CD13EE | $CD13EE | m0x0 | 70 | bankcd |
+| BattleBg_CopyTileVFlip2 | $CD13F6 | m0x0 | 79 | bankcd |
+| BattleBg_VFlipTileRows2 | $CD13FE | m0x0 | 71 | bankcd |
+| Sub_CD1445 | $CD1445 | m0x0 | 67 | bankcd |
+| BattleBg_CopyTile4bpp | $CD1488 | m0x0 | 129 | bankcd |
+| BattleBg_CopyAnimTile | $CD1509 | m0x0 | 204 | bankcd |
+| BattleScene_RunScriptSlot | $CD1654 | m1x0 | 82 | bankcd |
+| BattleSys_WaitScanline | $CD3B82 | m1x0 | 41 | bankcd |
+| BattleSys_VblankDmaUploads | $CFE300 | m1x0 | 650 | bankcf |
+| Battle_FrameTick | $CFE58A | m1x0 | 503 | bankcf |
+| BattleSys_ApplyShakeToOam | $CFE781 | m1x0 | 86 | bankcf |
+| BattleSys_StepMoveCurves | $CFEC78 | m1x0 | 74 | bankcf |
+| BattleSys_UpdateAnimAnchors | $CFECC2 | m1x0 | 86 | bankcf |
+| BattleSys_ShiftTrailHistory | $CFED18 | m1x0 | 160 | bankcf |
+| BattleSys_DrawAnimSpriteGroup | $CFEEEB | m1x0 | 196 | bankcf |
+| Sub_CFF087 | $CFF087 | m1x0 | 269 | bankcf |
+| Sub_CFF61F | $CFF61F | m1x0 | 110 | bankcf |
+| BattleFx_SyncLinkedPositions | $CFF9D3 | m1x0 | 36 | bankcf |
+| BattleFx_SinLookup | $CFF9FB | m1x0 | 72 | bankcf |
+| BattleFx_PixelToCell16 | $CFFADD | m1x0 | 5 | bankcf |
+| Battle_Bootstrap | $CFFB65 | m1x0 | 128 | bankcf |
+| Battle_WaitVblankFrame | $CFFCFB | m1x0 | 7 | bankcf |
 
 ## Implemented opcodes
 
@@ -1460,6 +1533,7 @@ $00 BRK imm, $01 ORA dp_x_ind, $02 COP imm, $03 ORA sr, $04 TSB dp, $05 ORA dp, 
 | diff_open_bus | Passed |
 | sync_determinism | Passed |
 | manual_root | Passed |
+| discover_loop | Passed |
 | decompress | Passed |
 | boot_interp | Passed |
 | boot_menu | Passed |

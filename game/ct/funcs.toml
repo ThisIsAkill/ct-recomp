@@ -87,7 +87,7 @@ module = "c1_math"
 [[func]]
 name = "Battle_ShiftRight4"
 addr = 0xC1011A
-states = ["m1x0", "m0x0"]
+states = ["m1x0", "m0x0", "m1x1"]
 e = 0
 dp = 0x0000
 module = "c1_math"
@@ -10331,4 +10331,570 @@ addr = 0xC0ECCC
 states = ["m0x0", "m1x0"]
 e = 0
 module = "bankc0"
+source = "profile"
+
+# ---- discovered by tools/discover.py (entry state from call sites) ----
+
+[[func]]
+name = "Loc_C07F58"
+addr = 0xC07F58
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "Loc_C07F5D"
+addr = 0xC07F5D
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "ASCIITextRelatedDMAVRAM"
+addr = 0xC0EC77
+states = ["m1x0"]
+e = 0
+module = "bankc0"
+
+[[func]]
+name = "AISpatial_DistSqCheck0640"
+addr = 0xC12AE3
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_TickEnemySlotRoundRobin"
+addr = 0xC1305C
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Sub_C14058"
+addr = 0xC14058
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_CountPredictedKills"
+addr = 0xC141BE
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "BattleAnim_ResolveSlotMoveTargets"
+addr = 0xC14212
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BattleAnim_TickSlotDelayTimers"
+addr = 0xC1423A
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BattleAnim_LoadActionConfig"
+addr = 0xC14310
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Sub_C1432C"
+addr = 0xC1432C
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BattleAnim_ParseCEAnimHeader"
+addr = 0xC148EC
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BattleAnim_BuildBattlerOam"
+addr = 0xC14943
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BattleAnim_SetupApproachToTarget"
+addr = 0xC149FF
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_PathfindInit"
+addr = 0xC14A71
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BattleAnim_RunActiveScripts"
+addr = 0xC14BBE
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_AnimScriptRun"
+addr = 0xC14C9E
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_AnimSetupBase"
+addr = 0xC14D08
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "BAnimCmd_03"
+addr = 0xC14E22
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BAnimCmd_04"
+addr = 0xC14EA2
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BAnimCmd_MoveBToTable"
+addr = 0xC1542D
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BAnimCmd_IfCounterBEq"
+addr = 0xC15756
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BAnimCmd_HideAllSprites"
+addr = 0xC15ADB
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BAnimCmd_69"
+addr = 0xC15DD3
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "BAnimCmd_A8"
+addr = 0xC169C3
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Dispatch_BankC1_ViaTable"
+addr = 0xC1762E
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+
+[[func]]
+name = "Battle_CommitInventoryToField"
+addr = 0xC1B4E9
+states = ["m1x0"]
+e = 0
+module = "bankc1"
+source = "profile"
+
+[[func]]
+name = "Battle_ResetSpriteAnimState"
+addr = 0xCCF06B
+states = ["m1x0"]
+e = 0
+module = "bankcc"
+source = "profile"
+
+[[func]]
+name = "Battle_FillA44CWith55"
+addr = 0xCCF102
+states = ["m1x0"]
+e = 0
+module = "bankcc"
+
+[[func]]
+name = "Battle_MarkBattlerGrid7CFD"
+addr = 0xCCF110
+states = ["m1x0"]
+e = 0
+module = "bankcc"
+source = "profile"
+
+[[func]]
+name = "Battle_AnimLoadCurAnims"
+addr = 0xCCF156
+states = ["m1x0"]
+e = 0
+module = "bankcc"
+
+[[func]]
+name = "Battle_TileAnimTick"
+addr = 0xCCF1E7
+states = ["m1x0"]
+e = 0
+module = "bankcc"
+source = "profile"
+
+[[func]]
+name = "Battle_EnemyAnimTick"
+addr = 0xCCF278
+states = ["m1x0"]
+e = 0
+module = "bankcc"
+source = "profile"
+
+[[func]]
+name = "Battle_EnemyAnimAdvanceFrame"
+addr = 0xCCF2A9
+states = ["m1x0"]
+e = 0
+module = "bankcc"
+source = "profile"
+
+[[func]]
+name = "Battle_Mul8_CC"
+addr = 0xCCF365
+states = ["m1x0"]
+e = 0
+module = "bankcc"
+source = "profile"
+
+[[func]]
+name = "BattleBg_LoadAnimGfxSet4Vec"
+addr = 0xCD0015
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+
+[[func]]
+name = "BattleBg_LoadAndStartSceneVec"
+addr = 0xCD0018
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+
+[[func]]
+name = "BattleBg_LoadAnimGfxSet2Vec"
+addr = 0xCD002A
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+
+[[func]]
+name = "BattleSys_WaitFrameFlag47"
+addr = 0xCD044A
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "Sub_CD076C"
+addr = 0xCD076C
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleScene_InitScripts"
+addr = 0xCD0D33
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+
+[[func]]
+name = "BattleBg_StageOverlayCfgB"
+addr = 0xCD0E79
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+
+[[func]]
+name = "BattleBg_Load"
+addr = 0xCD0EBD
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+
+[[func]]
+name = "BattleBg_FillTilemapsBlank"
+addr = 0xCD1052
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleBg_FillTilemapRegionBlank"
+addr = 0xCD1061
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleBg_BuildTilemap"
+addr = 0xCD107D
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleBg_LoadDescriptor"
+addr = 0xCD11B8
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+
+[[func]]
+name = "BattleBg_DecodeGfxChunk"
+addr = 0xCD11E4
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleBg_CopyTile"
+addr = 0xCD12B8
+states = ["m0x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleBg_DecodeAnimGfxChunk"
+addr = 0xCD1368
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleBg_GetTilePlaneMaskIdx"
+addr = 0xCD13CA
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "Sub_CD13EE"
+addr = 0xCD13EE
+states = ["m0x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleBg_CopyTileVFlip2"
+addr = 0xCD13F6
+states = ["m0x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleBg_VFlipTileRows2"
+addr = 0xCD13FE
+states = ["m0x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "Sub_CD1445"
+addr = 0xCD1445
+states = ["m0x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleBg_CopyTile4bpp"
+addr = 0xCD1488
+states = ["m0x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleBg_CopyAnimTile"
+addr = 0xCD1509
+states = ["m0x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleScene_RunScriptSlot"
+addr = 0xCD1654
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleSys_WaitScanline"
+addr = 0xCD3B82
+states = ["m1x0"]
+e = 0
+module = "bankcd"
+source = "profile"
+
+[[func]]
+name = "BattleSys_VblankDmaUploads"
+addr = 0xCFE300
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+source = "profile"
+
+[[func]]
+name = "Battle_FrameTick"
+addr = 0xCFE58A
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+source = "profile"
+
+[[func]]
+name = "BattleSys_ApplyShakeToOam"
+addr = 0xCFE781
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+source = "profile"
+
+[[func]]
+name = "BattleSys_StepMoveCurves"
+addr = 0xCFEC78
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+source = "profile"
+
+[[func]]
+name = "BattleSys_UpdateAnimAnchors"
+addr = 0xCFECC2
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+source = "profile"
+
+[[func]]
+name = "BattleSys_ShiftTrailHistory"
+addr = 0xCFED18
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+source = "profile"
+
+[[func]]
+name = "BattleSys_DrawAnimSpriteGroup"
+addr = 0xCFEEEB
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+source = "profile"
+
+[[func]]
+name = "Sub_CFF087"
+addr = 0xCFF087
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+source = "profile"
+
+[[func]]
+name = "Sub_CFF61F"
+addr = 0xCFF61F
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+source = "profile"
+
+[[func]]
+name = "BattleFx_SyncLinkedPositions"
+addr = 0xCFF9D3
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+
+[[func]]
+name = "BattleFx_SinLookup"
+addr = 0xCFF9FB
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+source = "profile"
+
+[[func]]
+name = "BattleFx_PixelToCell16"
+addr = 0xCFFADD
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+
+[[func]]
+name = "Battle_Bootstrap"
+addr = 0xCFFB65
+states = ["m1x0"]
+e = 0
+module = "bankcf"
+source = "profile"
+
+[[func]]
+name = "Battle_WaitVblankFrame"
+addr = 0xCFFCFB
+states = ["m1x0"]
+e = 0
+module = "bankcf"
 source = "profile"
