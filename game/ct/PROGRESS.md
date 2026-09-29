@@ -14,8 +14,8 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Opcodes implemented | 251 / 256 |
 | Opcodes used by recompiled routines | 166 / 256 |
 | Opcode x width combinations implemented | 446 |
-| Tests passing | 59 / 59 |
-| Test assertions checked | 613375202 |
+| Tests passing | 60 / 60 |
+| Test assertions checked | 613612352 |
 
 ## Coverage by bank
 
@@ -990,62 +990,63 @@ $00 BRK imm, $01 ORA dp_x_ind, $02 COP imm, $03 ORA sr, $04 TSB dp, $05 ORA dp, 
 
 | Test | Result |
 |---|---|
-| native_coverage | Passed |
-| battle_no_flicker | Passed |
-| lockstep_gato_battle | Passed |
+| lockstep_boot | Passed |
 | interp_c1_math_divide | Passed |
 | interp_c1_text_divten | Passed |
 | interp_c1_math_mulaccum | Passed |
-| lockstep_boot | Passed |
 | boot_interp | Passed |
 | boot_menu | Passed |
+| decompress | Passed |
 | c1_text_divten | Passed |
 | interp_c1_text_reencode | Passed |
+| battle_no_flicker | Passed |
 | sdl_record | Passed |
+| native_coverage | Passed |
+| lockstep_gato_battle | Passed |
 | c1_math_mulaccum | Passed |
 | c1_math_divide | Passed |
 | interp_c1_text_format | Passed |
-| c1_text_reencode | Passed |
-| sdl_boot | Passed |
-| sync_determinism | Passed |
 | interp_c1_ui_gauge | Passed |
-| runtime | Passed |
+| c1_text_reencode | Passed |
+| sync_determinism | Passed |
 | c1_ui_gauge | Passed |
+| runtime | Passed |
 | c1_text_format | Passed |
-| lockstep_report | Passed |
-| c1_math_shifts | Passed |
-| interp_c1_math_shifts | Passed |
-| resample | Passed |
-| interp_c1_math_mul8 | Passed |
-| decode_calls | Passed |
-| funcs_meta | Passed |
 | tas_convert | Passed |
-| c1_math_mul8 | Passed |
-| sched | Passed |
-| check_agnostic | Passed |
-| runtime_fatal_entry | Passed |
-| runtime_fatal_decimal | Passed |
-| interp_modes | Passed |
-| runtime_fatal_open_bus | Passed |
-| runtime_fatal_rom_write | Passed |
+| interp_c1_math_shifts | Passed |
 | manual_root | Passed |
-| stack_guard | Passed |
+| c1_math_shifts | Passed |
+| resample | Passed |
+| check_agnostic | Passed |
+| funcs_meta | Passed |
+| interp_c1_math_mul8 | Passed |
+| c1_math_mul8 | Passed |
+| decode_calls | Passed |
+| native | Passed |
+| runtime_fatal_entry | Passed |
+| interp_modes | Passed |
+| runtime_fatal_decimal | Passed |
+| runtime_fatal_rom_write | Passed |
+| runtime_fatal_open_bus | Passed |
 | runtime_fatal_unhooked | Passed |
-| input | Passed |
+| stack_guard | Passed |
 | hw_map | Passed |
-| interp_system | Passed |
+| lockstep_report | Passed |
+| input | Passed |
+| sched | Passed |
 | dsp | Passed |
+| interp_system | Passed |
 | snes_bus | Passed |
 | replay | Passed |
 | diff_open_bus | Passed |
-| native | Passed |
+| sdl_boot | Passed |
 | lockstep_leene_square | Passed |
 | diff_all_0 | Passed |
 | diff_all_5 | Passed |
-| diff_all_3 | Passed |
-| diff_all_2 | Passed |
 | diff_all_6 | Passed |
 | diff_all_1 | Passed |
-| diff_all_7 | Passed |
+| diff_all_2 | Passed |
+| diff_all_3 | Passed |
 | diff_all_4 | Passed |
+| diff_all_7 | Passed |
 | sdl_audio_60s | Passed |
