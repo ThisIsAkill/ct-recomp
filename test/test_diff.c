@@ -252,6 +252,11 @@ static void diff_func(const ct_func *f, int trials)
             fatal_both++;   /* both ran away; the two count different units */
             continue;
         }
+        if (ra.fatal && rb.fatal && strstr(ra.msg, "call depth") && strstr(rb.msg, "call depth")) {
+            fatal_both++;   /* both recursed past the interpreter's depth cap: a runaway;
+                               where it trips depends on where interpretation began */
+            continue;
+        }
         if ((ra.fatal && strstr(ra.msg, "backward-branch cap exceeded")) ||
             (rb.fatal && strstr(rb.msg, "instruction cap exceeded"))) {
             timeouts++;   /* hard safety net (ops.h/interp.h), not a real result */
