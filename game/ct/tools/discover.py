@@ -3,7 +3,8 @@
 
 Decodes every registered routine. Each JSR/JSL to an unregistered target
 (or registered without the caller's M/X) -- an interpreter call in the
-generated code (#30), or a far jump the decoder rejects -- becomes a
+generated code (#30), a jump-table target run interpreted, or a far jump
+the decoder rejects -- becomes a
 candidate whose entry state is the caller's state at the call site. Repeats until no new targets
 appear or --max candidates exist. Names: ChronoRET label, else second
 disassembly label, else Sub_XXXXXX.
@@ -120,6 +121,18 @@ def close_graph(rom, metas, cands, add_states, failures, funcs_path, names, used
                         known = reg.by_addr.get(target)
                         k = (target, cst.tag(), known.name if known else None)
                         missing[k] = missing.get(k, 0) + 1
+                    # Jump-table targets run interpreted are entry points
+                    # too: neither interp_calls nor MissingTarget sites, so
+                    # without this they never become candidates. The entry
+                    # state is the state live at the dispatch site.
+                    for key, targets in fn.table_interp.items():
+                        cst = fn.tables[key][1]
+                        if cst.m is None or cst.x is None:
+                            continue
+                        for target in targets:
+                            known = reg.by_addr.get(target)
+                            k = (target, cst.tag(), known.name if known else None)
+                            missing[k] = missing.get(k, 0) + 1
                 except funcs.MissingTarget as ex:
                     k = (ex.target, ex.state.tag(), ex.name)
                     missing[k] = missing.get(k, 0) + 1
