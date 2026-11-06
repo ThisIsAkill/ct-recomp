@@ -28,6 +28,23 @@ void ct_hook_wram_mvn_stub(CPU *cpu)
     op_rtl(cpu);
 }
 
+/* $C2821E Menu_Yield / $C2822B Menu_YieldFrames: in the frame scheduler
+ * the real code runs (see funcs.toml); the hook stands in only for the
+ * diff harness, where a randomized scheduler round-trip is meaningless. */
+void ct_hook_menu_yield(CPU *cpu);
+void ct_hook_menu_yield(CPU *cpu)
+{
+    (void)cpu;
+    ct_fatal("$C2821E: menu yield is a scheduler boundary");
+}
+
+void ct_hook_menu_yield_frames(CPU *cpu);
+void ct_hook_menu_yield_frames(CPU *cpu)
+{
+    (void)cpu;
+    ct_fatal("$C2822B: menu yield is a scheduler boundary");
+}
+
 /* $C28000 MenuOverlay_Launch: menu task scheduler (stack-switching). */
 void ct_hook_menu_overlay(CPU *cpu);
 void ct_hook_menu_overlay(CPU *cpu)

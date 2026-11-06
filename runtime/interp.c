@@ -244,10 +244,72 @@ static void set_a(CPU *c, uint16_t v)
         c->A = v;
 }
 
+/* One BCD byte add: adjusted byte out, decimal carry in *carry. */
+static uint8_t adc_dec_byte_i(uint8_t a, uint8_t b, int carry, int *carry_out)
+{
+    int lo = (a & 0x0F) + (b & 0x0F) + carry;
+    int hi = (a >> 4) + (b >> 4);
+    if (lo > 9) { lo += 6; hi++; }
+    *carry_out = hi > 9;
+    if (*carry_out) hi += 6;
+    return (uint8_t)(((hi & 0x0F) << 4) | (lo & 0x0F));
+}
+
+static uint8_t sbc_dec_byte_i(uint8_t a, uint8_t b, int carry, int *carry_out)
+{
+    int lo = (a & 0x0F) - (b & 0x0F) - (1 - carry);
+    int hi = (a >> 4) - (b >> 4);
+    if (lo < 0) { lo -= 6; hi--; }
+    *carry_out = hi >= 0;
+    if (!*carry_out) hi -= 6;
+    return (uint8_t)(((hi & 0x0F) << 4) | (lo & 0x0F));
+}
+
+static uint16_t add_dec(CPU *c, uint16_t a, uint16_t b, int wide)
+{
+    if (!wide) {
+        c->v = ((~(a ^ b) & (a ^ (uint8_t)(a + b + c->c))) & 0x80) != 0;
+        int carry;
+        uint16_t r = adc_dec_byte_i((uint8_t)a, (uint8_t)b, c->c, &carry);
+        c->c = (uint8_t)carry;
+        nz(c, r, 0);
+        return r;
+    }
+    c->v = ((~(a ^ b) & (a ^ (uint16_t)(a + b + c->c))) & 0x8000) != 0;
+    int carry;
+    uint16_t lo = adc_dec_byte_i((uint8_t)a, (uint8_t)b, c->c, &carry);
+    uint16_t hi = adc_dec_byte_i((uint8_t)(a >> 8), (uint8_t)(b >> 8), carry, &carry);
+    c->c = (uint8_t)carry;
+    uint16_t r = (uint16_t)(lo | (hi << 8));
+    nz(c, r, 1);
+    return r;
+}
+
+static uint16_t sub_dec(CPU *c, uint16_t a, uint16_t b, int wide)
+{
+    if (!wide) {
+        c->v = (((a ^ (uint8_t)(a - b - (1 - c->c))) & (a ^ b)) & 0x80) != 0;
+        int carry;
+        uint16_t r = sbc_dec_byte_i((uint8_t)a, (uint8_t)b, c->c, &carry);
+        c->c = (uint8_t)carry;
+        nz(c, r, 0);
+        return r;
+    }
+    c->v = (((a ^ (uint16_t)(a - b - (1 - c->c))) & (a ^ b)) & 0x8000) != 0;
+    int carry;
+    uint16_t lo = sbc_dec_byte_i((uint8_t)a, (uint8_t)b, c->c, &carry);
+    uint16_t hi = sbc_dec_byte_i((uint8_t)(a >> 8), (uint8_t)(b >> 8), carry, &carry);
+    c->c = (uint8_t)carry;
+    uint16_t r = (uint16_t)(lo | (hi << 8));
+    nz(c, r, 1);
+    return r;
+}
+
 static uint16_t add(CPU *c, uint16_t a, uint16_t b, int wide, uint32_t at)
 {
+    (void)at;
     if (c->d)
-        ct_fatal("interp $%06X: decimal mode", at);
+        return add_dec(c, a, b, wide);
     uint32_t mask = wide ? 0xFFFF : 0xFF, sign = wide ? 0x8000 : 0x80;
     uint32_t r = (uint32_t)a + b + c->c;
     c->c = r > mask;
@@ -380,7 +442,8 @@ static void alu(CPU *c, uint8_t op, enum mode md, uint32_t at)
     case 3: set_a(c, add(c, a, v, wide, at)); break;                        /* ADC */
     case 5: nz(c, v, wide); set_a(c, v); break;                             /* LDA */
     case 6: compare(c, a, v, wide); break;                                  /* CMP */
-    case 7: set_a(c, add(c, a, (uint16_t)~v & (wide ? 0xFFFF : 0xFF), wide, at)); break; /* SBC */
+    case 7: set_a(c, c->d ? sub_dec(c, a, v, wide)
+                          : add(c, a, (uint16_t)~v & (wide ? 0xFFFF : 0xFF), wide, at)); break; /* SBC */
     }
 }
 

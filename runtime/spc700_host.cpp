@@ -2,7 +2,8 @@
  *
  * The core calls read/write/idle once per SPC700 cycle; here each one
  * steps the vendored APU (third_party/snes: DSP, timers, cycle count) by a
- * cycle, and the core runs as a coroutine (ucontext) that yields whenever
+ * cycle, and the core runs as a coroutine (ucontext; a fiber on Windows)
+ * that yields whenever
  * it reaches the cycle it was asked to run to, mid-instruction if need be,
  * so the SPC700 is exactly at the CPU's time on every $2140-$2143 access.
  *
@@ -12,7 +13,11 @@
  * each cycle's access (the CPU-port latch in snes_adapter.c). */
 #include <stdint.h>
 #include <stdlib.h>
+#if defined(_WIN32)
+#include <windows.h>   /* the coroutine below runs on a fiber instead */
+#else
 #include <ucontext.h>
+#endif
 
 #include "nall_shim.hpp"
 
@@ -82,11 +87,19 @@ struct Host : ares::SPC700 {
     Apu *apu = nullptr;
     uint64_t cycle = 0;    /* cycles run (ticked) so far */
     uint64_t target = 0;   /* run cycles below this, then yield */
+#if defined(_WIN32)
+    void *core_fiber = nullptr, *caller_fiber = nullptr;
+#else
     ucontext_t core_ctx, caller_ctx;
     void *stack = nullptr;
+#endif
     bool started = false;
 
+#if defined(_WIN32)
+    void yield() { SwitchToFiber(caller_fiber); }
+#else
     void yield() { swapcontext(&core_ctx, &caller_ctx); }
+#endif
     void begin() {
         while (cycle >= target)
             yield();
@@ -131,6 +144,13 @@ void core_main()
         host.instruction();
 }
 
+#if defined(_WIN32)
+void CALLBACK core_fiber_main(void *)
+{
+    core_main();
+}
+#endif
+
 }  // namespace
 
 extern "C" void spc_host_reset(Apu *apu)
@@ -145,6 +165,14 @@ extern "C" void spc_host_reset(Apu *apu)
     host.r.pc.w = (uint32_t)(apu_cpuRead(apu, 0xFFFE) | apu_cpuRead(apu, 0xFFFF) << 8);
     host.tick();
     host.tick();
+#if defined(_WIN32)
+    if (host.core_fiber)
+        DeleteFiber(host.core_fiber);
+    host.caller_fiber = IsThreadAFiber() ? GetCurrentFiber()
+                                         : ConvertThreadToFiber(nullptr);
+    host.core_fiber = CreateFiber(STACK, core_fiber_main, nullptr);
+    host.started = host.core_fiber && host.caller_fiber;
+#else
     if (!host.stack)
         host.stack = malloc(STACK);
     getcontext(&host.core_ctx);
@@ -153,6 +181,7 @@ extern "C" void spc_host_reset(Apu *apu)
     host.core_ctx.uc_link = nullptr;
     makecontext(&host.core_ctx, core_main, 0);
     host.started = true;
+#endif
 }
 
 extern "C" void spc_host_run(uint32_t cycles)
@@ -160,7 +189,14 @@ extern "C" void spc_host_run(uint32_t cycles)
     if (!host.started)
         return;
     host.target = host.cycle + cycles;
+#if defined(_WIN32)
+    /* swapcontext re-saves the caller on every run; fibers do not, and
+       the caller here is the CPU coroutine, not whoever ran the reset. */
+    host.caller_fiber = GetCurrentFiber();
+    SwitchToFiber(host.core_fiber);
+#else
     swapcontext(&host.caller_ctx, &host.core_ctx);
+#endif
 }
 
 extern "C" uint64_t spc_host_cycle(void) { return host.cycle; }
