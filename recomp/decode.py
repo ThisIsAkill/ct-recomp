@@ -548,6 +548,13 @@ def _stack_size(kind, st: State, addr: int, mnemonic: str) -> int:
     return kind
 
 
+def _boundary(resolve, addr: int) -> bool:
+    """A scheduler boundary address (funcs.toml [[boundary]]): decode stops
+    there and hands the rest to the interpreter (fn.interp_tails)."""
+    b = getattr(resolve, 'boundaries', None)
+    return b is not None and addr in b
+
+
 def next_state(i: Insn, st: State) -> State:
     nxt = _next_state(i, st)
     ck = {'CLC': False, 'SEC': True}.get(i.mnemonic)
@@ -683,9 +690,19 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
                 fn.exit_states.add((mn, nxt.m, nxt.x))
                 break
             if mn in BRANCHES:
-                work.append((i.branch_target(), nxt))
+                tgt = i.branch_target()
+                if _boundary(resolve, tgt):
+                    fn.interp_tails[ikey] = (tgt, State(nxt.m, nxt.x, nxt.e))
+                    fn.exit_states.add(('?', None, None))
+                else:
+                    work.append((tgt, nxt))
             elif mn in ('BRA', 'BRL'):
-                addr, cur = i.branch_target(), nxt
+                tgt = i.branch_target()
+                if _boundary(resolve, tgt):
+                    fn.interp_tails[ikey] = (tgt, State(nxt.m, nxt.x, nxt.e))
+                    fn.exit_states.add(('?', None, None))
+                    break
+                addr, cur = tgt, nxt
                 continue
             elif mn == 'JML' and i.mode == 'long':
                 if resolve is None:
@@ -704,6 +721,10 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
                 cst = State(nxt.m, nxt.x, nxt.e)
                 # a jump to this function's own entry in its entry state is a
                 # loop, not a tail call (that would recurse in C)
+                if _boundary(resolve, target):
+                    fn.interp_tails[ikey] = (target, cst)
+                    fn.exit_states.add(('?', None, None))
+                    break
                 own = target == entry and cst.key() == st.key()
                 exits = resolve.tail(addr, target, cst) if resolve is not None and not own else None
                 if exits is not None:
@@ -732,14 +753,14 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
                 nxt = _continue(fn, ikey, i, nxt, exits, work)
                 if nxt is None:
                     break
-            elif mn in ('JSR', 'JMP') and i.mode == 'abs_x_ind':
+            elif mn in ('JSR', 'JMP') and i.mode in ('abs_x_ind', 'abs_ind'):
                 if resolve is None:
                     raise DecodeError(f'${addr:06X}: {i.text()}: no call resolver')
                 cst = State(nxt.m, nxt.x, nxt.e)
-                if cst.x is None:
+                if i.mode == 'abs_x_ind' and cst.x is None:
                     raise DecodeError(f'${addr:06X}: {i.text()}: X width unknown')
-                if getattr(resolve, 'missing', None) is not None and \
-                        i.addr not in getattr(resolve, 'jumptables', {i.addr: 0}):
+                if i.mode == 'abs_ind' or (getattr(resolve, 'missing', None) is not None and \
+                        i.addr not in getattr(resolve, 'jumptables', {i.addr: 0})):
                     fn.dyn_tables[ikey] = cst
                     if mn == 'JMP':
                         fn.exit_states.add(('?', None, None))   # whatever the target does

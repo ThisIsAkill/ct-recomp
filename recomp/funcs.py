@@ -59,6 +59,22 @@ def load_externs(path: str) -> dict[int, Extern]:
     return out
 
 
+def load_boundaries(path: str) -> set[int]:
+    """Scheduler boundary addresses ([[boundary]] in funcs.toml): decode
+    stops at a transfer to one and hands the rest to the interpreter; the
+    address itself is never a function entry (menu thread scheduler and
+    its yield points, whose TCS/TSC stack switch no static stack model
+    can follow)."""
+    with open(path, 'rb') as f:
+        data = tomllib.load(f)
+    out = set()
+    for t in data.get('boundary', []):
+        if 'addr' not in t:
+            raise DecodeError(f'funcs.toml: bad boundary {t}')
+        out.add(t['addr'])
+    return out
+
+
 def load_jumptables(path: str) -> dict[int, int]:
     """site (24-bit address of JMP/JSR (abs,X)) -> entry count."""
     with open(path, 'rb') as f:
@@ -142,6 +158,7 @@ class Registry:
         self.by_addr = {fm.addr: fm for fm in metas}
         self.jumptables = load_jumptables(funcs_path) if jumptables is None else jumptables
         self.externs = load_externs(funcs_path)
+        self.boundaries = load_boundaries(funcs_path)
         self.cache: dict[tuple, decode.Function] = {}
         self.active: set[tuple] = set()
         self.assume: dict[tuple, tuple] = {}   # recursive key -> assumed exit (m, x)

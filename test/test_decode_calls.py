@@ -11,6 +11,8 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'recomp'))
 import decode  # noqa: E402
+import emit  # noqa: E402
+import funcs  # noqa: E402
 
 fails = 0
 
@@ -99,6 +101,17 @@ check(list(fn.dyn_tables) and [i.addr for i in fn.insns] == [0xE48000, 0xE48003]
 # JMP ($9000,X): the path ends, what it returns with is unknown
 fn = decode.decode_function(rom_with(bytes([0x7C, 0x00, 0x90])), 0xE48000, m1x0, Dyn())
 check(list(fn.dyn_tables) and ('?', None, None) in fn.exit_states, 'JMP (abs,X): exits unknown')
+# JMP ($9000): an absolute-indirect jump has no X offset, but its target is
+# still only known at run time, so decode marks it dynamic and emit reads the
+# pointer from bank 0 before dispatching.
+fn = decode.decode_function(rom_with(bytes([0x6C, 0x00, 0x90])), 0xE48000, m1x0, Dyn())
+check(list(fn.dyn_tables) and [i.addr for i in fn.insns] == [0xE48000] and
+      ('?', None, None) in fn.exit_states, 'JMP (abs): dynamic, exits unknown')
+check(0x6C in emit.implemented_opcodes(), 'JMP (abs): emitter implements opcode')
+body = '\n'.join(emit.emit_function(
+    funcs.FuncMeta('jmp_abs_ind', 0xE48000, ('m1x0',), 0, None, None, 'test'), fn))
+check('read16_b0(0x9000)' in body and 'cpu->PC = (uint16_t)t;' in body and
+      'ct_tail_rest(cpu, s0);' in body, 'JMP (abs): emitter reads bank-0 pointer and dispatches')
 # JML $E50000 (not compiled): continues through the interpreter, exits unknown
 fn = decode.decode_function(rom_with(bytes([0x5C, 0x00, 0x00, 0xE5])), 0xE48000, m1x0, Dyn())
 check({k[0]: t for k, (t, _) in fn.interp_tails.items()} == {0xE48000: 0xE50000} and

@@ -404,12 +404,46 @@ static inline void lsr_a16(CPU *c)
 static inline uint8_t inc8(CPU *c, uint8_t v) { v = (uint8_t)(v + 1); set_nz8(c, v); return v; }
 static inline uint8_t dec8(CPU *c, uint8_t v) { v = (uint8_t)(v - 1); set_nz8(c, v); return v; }
 
-/* ---- arithmetic (binary only; decimal mode is fatal in v0) ---- */
+/* ---- arithmetic ---- */
+
+/* One BCD byte add (65816 decimal mode): returns the adjusted byte and
+   stores the decimal carry-out in *carry_out. */
+static inline uint8_t adc_dec_byte(uint8_t a, uint8_t b, int carry, int *carry_out)
+{
+    int lo = (a & 0x0F) + (b & 0x0F) + carry;
+    int hi = (a >> 4) + (b >> 4);
+    if (lo > 9) { lo += 6; hi++; }
+    *carry_out = hi > 9;
+    if (*carry_out) hi += 6;
+    return (uint8_t)(((hi & 0x0F) << 4) | (lo & 0x0F));
+}
+
+/* One BCD byte subtract (borrow-in = 1 - carry). */
+static inline uint8_t sbc_dec_byte(uint8_t a, uint8_t b, int carry, int *carry_out)
+{
+    int lo = (a & 0x0F) - (b & 0x0F) - (1 - carry);
+    int hi = (a >> 4) - (b >> 4);
+    if (lo < 0) { lo -= 6; hi--; }
+    *carry_out = hi >= 0;
+    if (!*carry_out) hi -= 6;
+    return (uint8_t)(((hi & 0x0F) << 4) | (lo & 0x0F));
+}
 
 static inline void adc8(CPU *c, uint8_t b, uint32_t at)
 {
-    if (c->d)
-        ct_fatal("$%06X: ADC with D=1 not supported", at);
+    (void)at;
+    uint8_t a_dec = a8(c);
+    if (c->d) {
+        /* V follows the unadjusted binary sum, as on the 65816. */
+        unsigned bin = (unsigned)a_dec + b + c->c;
+        c->v = (uint8_t)(((~(a_dec ^ b) & (a_dec ^ bin)) >> 7) & 1);
+        int carry_dec;
+        uint8_t rdec = adc_dec_byte(a_dec, b, c->c, &carry_dec);
+        c->c = (uint8_t)carry_dec;
+        set_a8(c, rdec);
+        set_nz8(c, rdec);
+        return;
+    }
     uint8_t a = a8(c);
     unsigned r = (unsigned)a + b + c->c;
     c->c = r > 0xFF;
@@ -420,8 +454,20 @@ static inline void adc8(CPU *c, uint8_t b, uint32_t at)
 
 static inline void adc16(CPU *c, uint16_t b, uint32_t at)
 {
-    if (c->d)
-        ct_fatal("$%06X: ADC with D=1 not supported", at);
+    (void)at;
+    if (c->d) {
+        uint16_t a_dec = c->A;
+        unsigned bin = (unsigned)a_dec + b + c->c;
+        c->v = (uint8_t)(((~(a_dec ^ b) & (a_dec ^ bin)) >> 15) & 1);
+        int carry_dec;
+        uint8_t lo_dec = adc_dec_byte((uint8_t)a_dec, (uint8_t)b, c->c, &carry_dec);
+        uint8_t hi_dec = adc_dec_byte((uint8_t)(a_dec >> 8), (uint8_t)(b >> 8),
+                                      carry_dec, &carry_dec);
+        c->c = (uint8_t)carry_dec;
+        c->A = (uint16_t)(lo_dec | (hi_dec << 8));
+        set_nz16(c, c->A);
+        return;
+    }
     uint16_t a = c->A;
     unsigned r = (unsigned)a + b + c->c;
     c->c = r > 0xFFFF;
@@ -432,15 +478,35 @@ static inline void adc16(CPU *c, uint16_t b, uint32_t at)
 
 static inline void sbc8(CPU *c, uint8_t b, uint32_t at)
 {
-    if (c->d)
-        ct_fatal("$%06X: SBC with D=1 not supported", at);
+    if (c->d) {
+        uint8_t a_dec = a8(c);
+        unsigned bin = (unsigned)a_dec - b - (1 - c->c);
+        c->v = (uint8_t)((((a_dec ^ bin) & (a_dec ^ b)) >> 7) & 1);
+        int carry_dec;
+        uint8_t rdec = sbc_dec_byte(a_dec, b, c->c, &carry_dec);
+        c->c = (uint8_t)carry_dec;
+        set_a8(c, rdec);
+        set_nz8(c, rdec);
+        return;
+    }
     adc8(c, (uint8_t)~b, at);
 }
 
 static inline void sbc16(CPU *c, uint16_t b, uint32_t at)
 {
-    if (c->d)
-        ct_fatal("$%06X: SBC with D=1 not supported", at);
+    if (c->d) {
+        uint16_t a_dec = c->A;
+        unsigned bin = (unsigned)a_dec - b - (1 - c->c);
+        c->v = (uint8_t)((((a_dec ^ bin) & (a_dec ^ b)) >> 15) & 1);
+        int carry_dec;
+        uint8_t lo_dec = sbc_dec_byte((uint8_t)a_dec, (uint8_t)b, c->c, &carry_dec);
+        uint8_t hi_dec = sbc_dec_byte((uint8_t)(a_dec >> 8), (uint8_t)(b >> 8),
+                                      carry_dec, &carry_dec);
+        c->c = (uint8_t)carry_dec;
+        c->A = (uint16_t)(lo_dec | (hi_dec << 8));
+        set_nz16(c, c->A);
+        return;
+    }
     adc16(c, (uint16_t)~b, at);
 }
 

@@ -4,54 +4,54 @@ Written by `tools/progress.py`. Do not edit by hand.
 
 | Metric | Value |
 |---|---|
-| Routines recompiled | 1414 |
-| Emitted C functions (routine x entry state) | 1482 |
-| ROM bytes covered | 136776 |
-| Functions known total (validated + pending + unresolved) | 2036 |
-| Functions validated | 1414 |
+| Routines recompiled | 1797 |
+| Emitted C functions (routine x entry state) | 1886 |
+| ROM bytes covered | 162975 |
+| Functions known total (validated + pending + unresolved) | 2419 |
+| Functions validated | 1797 |
 | Functions unresolved (pending sync) | 622 |
 | Manual roots not yet emittable | 0 |
-| Opcodes implemented | 251 / 256 |
-| Opcodes used by recompiled routines | 190 / 256 |
+| Opcodes implemented | 252 / 256 |
+| Opcodes used by recompiled routines | 204 / 256 |
 | Opcode x width combinations implemented | 446 |
-| Tests passing | 67 / 67 |
-| Test assertions checked | 616653598 |
+| Tests passing | 68 / 71 |
+| Test assertions checked | 619037508 |
 
 ## Coverage by bank
 
 | Bank | Bytes |
 |---|---|
 | $00 | 8 |
-| $C0 | 58351 |
-| $C1 | 28601 |
-| $C2 | 19108 |
-| $C3 | 1417 |
+| $C0 | 59224 |
+| $C1 | 40763 |
+| $C2 | 26144 |
+| $C3 | 1856 |
 | $C7 | 1401 |
-| $CC | 4353 |
-| $CD | 4878 |
+| $CC | 4911 |
+| $CD | 6664 |
 | $CE | 291 |
-| $CF | 4028 |
-| $D1 | 1272 |
-| $FD | 12470 |
-| $FF | 598 |
+| $CF | 4349 |
+| $D1 | 1666 |
+| $FD | 14753 |
+| $FF | 945 |
 
 ## Symbol sync by bank
 
 | Bank | Validated | Unresolved | Known total |
 |---|---|---|---|
 | $00 | 2 | 0 | 2 |
-| $C0 | 580 | 622 | 1202 |
-| $C1 | 238 | 0 | 238 |
-| $C2 | 350 | 0 | 350 |
-| $C3 | 11 | 0 | 11 |
+| $C0 | 592 | 622 | 1214 |
+| $C1 | 354 | 0 | 354 |
+| $C2 | 499 | 0 | 499 |
+| $C3 | 21 | 0 | 21 |
 | $C7 | 8 | 0 | 8 |
-| $CC | 12 | 0 | 12 |
-| $CD | 77 | 0 | 77 |
+| $CC | 13 | 0 | 13 |
+| $CD | 138 | 0 | 138 |
 | $CE | 2 | 0 | 2 |
-| $CF | 27 | 0 | 27 |
-| $D1 | 9 | 0 | 9 |
-| $FD | 92 | 0 | 92 |
-| $FF | 6 | 0 | 6 |
+| $CF | 31 | 0 | 31 |
+| $D1 | 13 | 0 | 13 |
+| $FD | 116 | 0 | 116 |
+| $FF | 8 | 0 | 8 |
 
 ## Routines
 
@@ -247,7 +247,7 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Text_ToDec8 | $C261BD | m1x0 | 116 | bankc2 |
 | Text_DivLoop24 | $C26231 | m1x0 | 50 | bankc2 |
 | Gfx_DecompressVector | $C30002 | m1x0, m0x0 | 3 | bankc3 |
-| BattleSys_PerFrameServiceVec | $CD0009 | m1x0 | 56 | bankcd |
+| BattleSys_PerFrameServiceVec | $CD0009 | m1x0 | 3 | bankcd |
 | BattleMsg_GetDurationFrames | $CD01A5 | m1x0 | 14 | bankcd |
 | BattleBg_RestoreBaseGfx | $CD0453 | m1x0 | 83 | bankcd |
 | BattleMsg_TickActive | $CD04DF | m1x0 | 30 | bankcd |
@@ -785,7 +785,7 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Loc_C1D086 | $C1D086 | m1x0 | 28 | bankc1 |
 | Battle_Gold_Add | $C1D0A2 | m1x0 | 75 | bankc1 |
 | Loc_C1D0ED | $C1D0ED | m1x0 | 57 | bankc1 |
-| Menu_ShellEntryVector | $C20000 | m1x0 | 106 | bankc2 |
+| Menu_ShellEntryVector | $C20000 | m1x0 | 55 | bankc2 |
 | Menu_InitPpuRegs | $C20043 | m1x0 | 205 | bankc2 |
 | Menu_InstallInterruptVectors | $C20110 | m1x0 | 31 | bankc2 |
 | Menu_InitShellDpVars | $C2012F | m1x0 | 47 | bankc2 |
@@ -988,7 +988,7 @@ Written by `tools/progress.py`. Do not edit by hand.
 | SaveSlot_GetBase | $FFFBD3 | m0x0 | 14 | bankff |
 | SaveSlot_Checksum | $FFFBE7 | m0x0 | 29 | bankff |
 | Sub_00FF10 | $00FF10 | m0x0, m1x0, m1x1 | 4 | bank00 |
-| Sub_00FF14 | $00FF14 | m1x0, m0x0 | 4 | bank00 |
+| Sub_00FF14 | $00FF14 | m1x0, m0x0, m1x1 | 4 | bank00 |
 | Field_EntryVec02_UpdateBgAutoScroll | $C00002 | m1x0 | 394 | bankc0 |
 | Field_EntryVec08_StartLocationSong | $C00008 | m1x0 | 62 | bankc0 |
 | Sub_01A5 | $C001A5 | m1x0 | 167 | bankc0 |
@@ -1229,12 +1229,12 @@ Written by `tools/progress.py`. Do not edit by hand.
 | DmaQueue_Flush | $C28663 | m0x0, m1x0 | 70 | bankc2 |
 | Menu_FlushCgramBuffer | $C286A9 | m1x0, m0x0 | 52 | bankc2 |
 | Menu_SetupColorMathHdma | $C286DD | m0x0, m1x0 | 148 | bankc2 |
-| Menu_LoadCharRecordToBufKeepX | $C28816 | m0x0 | 10 | bankc2 |
-| Menu_LoadCharRecordToBuf | $C28839 | m1x0 | 72 | bankc2 |
+| Menu_LoadCharRecordToBufKeepX | $C28816 | m0x0, m1x0 | 10 | bankc2 |
+| Menu_LoadCharRecordToBuf | $C28839 | m1x0, m1x1 | 72 | bankc2 |
 | Item_GetStatsPtr | $C288AD | m1x0 | 43 | bankc2 |
 | Item_GetStatsPtr2 | $C288D8 | m1x0 | 40 | bankc2 |
-| Menu_CommitComputedStats | $C29137 | m0x0 | 55 | bankc2 |
-| Menu_ComputeEquippedStats | $C2916E | m0x0 | 109 | bankc2 |
+| Menu_CommitComputedStats | $C29137 | m0x0, m1x0 | 55 | bankc2 |
+| Menu_ComputeEquippedStats | $C2916E | m0x0, m1x0 | 109 | bankc2 |
 | Sub_C291EB | $C291EB | m1x1 | 56 | bankc2 |
 | Sub_C29223 | $C29223 | m1x1 | 25 | bankc2 |
 | Sub_C2923C | $C2923C | m1x1 | 37 | bankc2 |
@@ -1251,7 +1251,7 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Gfx_OrPlanes012ToPlane3 | $C2962E | m0x0 | 37 | bankc2 |
 | Gfx_CopyPlanes01To23 | $C29653 | m0x0 | 37 | bankc2 |
 | Gfx_TileOrPlanes01ToPlane2 | $C29678 | m0x0 | 21 | bankc2 |
-| PartyMenu_LoadStatsPanelGfx | $C2968D | m0x0 | 500 | bankc2 |
+| PartyMenu_LoadStatsPanelGfx | $C2968D | m0x0 | 445 | bankc2 |
 | Menu_ClearTilemapBuffer | $C2984A | m1x0 | 43 | bankc2 |
 | Menu_BuildItemInfoTables | $C29875 | m1x0 | 275 | bankc2 |
 | Menu_SanitizeInventory | $C29988 | m0x0 | 42 | bankc2 |
@@ -1267,8 +1267,8 @@ Written by `tools/progress.py`. Do not edit by hand.
 | NameEntry_CommitIfValid | $C2E363 | m1x0 | 45 | bankc2 |
 | NameEntry_NormalizeWorkName | $C2E390 | m1x0 | 80 | bankc2 |
 | NameEntry_CheckDuplicateName | $C2E3E0 | m1x0 | 46 | bankc2 |
-| NameEntry_BuildGlyphGrid | $C2E545 | m1x0 | 49 | bankc2 |
-| NameEntry_LoadKeyboardGfx | $C2E576 | m1x0 | 93 | bankc2 |
+| NameEntry_BuildGlyphGrid | $C2E545 | m1x0, m1x1 | 49 | bankc2 |
+| NameEntry_LoadKeyboardGfx | $C2E576 | m1x0, m1x1 | 93 | bankc2 |
 | Menu_DrawSlotDescFFCF3B | $C2E5D3 | m1x0 | 56 | bankc2 |
 | Menu_ResetOamPlaceCursor | $C2E92D | m0x0 | 79 | bankc2 |
 | Menu_UpdateSelectionInput | $C2E984 | m1x0 | 85 | bankc2 |
@@ -1294,7 +1294,7 @@ Written by `tools/progress.py`. Do not edit by hand.
 | Sub_C2F364 | $C2F364 | m1x0 | 20 | bankc2 |
 | MenuSprite_InitPartySlots | $C2F3CA | m1x0 | 88 | bankc2 |
 | MenuSprite_LoadCharGfx | $C2F422 | m1x1 | 294 | bankc2 |
-| MenuSprite_GetCharD1RecAddr | $C2F5ED | m1x0 | 57 | bankc2 |
+| MenuSprite_GetCharD1RecAddr | $C2F5ED | m1x0, m0x0 | 57 | bankc2 |
 | MenuSprite_TickAnim | $C2F69D | m1x1 | 164 | bankc2 |
 | Sub_C2F6D1 | $C2F6D1 | m0x0 | 1 | bankc2 |
 | MenuSprite_QueueFrameVramDma | $C2F75C | m0x0 | 277 | bankc2 |
@@ -1313,7 +1313,7 @@ Written by `tools/progress.py`. Do not edit by hand.
 | BattleSys_BootVec | $CD0000 | m1x0 | 8 | bankcd |
 | BattleSys_EnablePauseInputVec | $CD0003 | m1x0 | 8 | bankcd |
 | BattleSys_PlaySong08StartFade | $CD000C | m1x0 | 28 | bankcd |
-| BattleSys_PollTransitionVec | $CD0012 | m1x0 | 11 | bankcd |
+| BattleSys_PollTransitionVec | $CD0012 | m1x0 | 3 | bankcd |
 | BattleMsg_ShowAndWaitVec | $CD0021 | m1x0 | 90 | bankcd |
 | BattleSys_TickVector | $CD0036 | m1x0 | 7 | bankcd |
 | BattleSys_Wait16Frames | $CD020A | m1x0 | 11 | bankcd |
@@ -1471,10 +1471,393 @@ Written by `tools/progress.py`. Do not edit by hand.
 | BattleFx_PixelToCell16 | $CFFADD | m1x0 | 5 | bankcf |
 | Battle_Bootstrap | $CFFB65 | m1x0 | 128 | bankcf |
 | Battle_WaitVblankFrame | $CFFCFB | m1x0 | 7 | bankcf |
+| Sub_C00005 | $C00005 | m1x0 | 44 | bankc0 |
+| Sub_C0000B | $C0000B | m1x0 | 281 | bankc0 |
+| Sub_C000EB | $C000EB | m1x0 | 32 | bankc0 |
+| Scene_Unk0283 | $C00283 | m1x0 | 550 | bankc0 |
+| Sub_C01D5E | $C01D5E | m1x1 | 42 | bankc0 |
+| Sub_C01E07 | $C01E07 | m1x0 | 161 | bankc0 |
+| Sub_C01E9A | $C01E9A | m0x0 | 47 | bankc0 |
+| Sub_C1006D | $C1006D | m1x0 | 5 | bankc1 |
+| Sub_C128B0 | $C128B0 | m1x0 | 118 | bankc1 |
+| Sub_C12926 | $C12926 | m1x0 | 96 | bankc1 |
+| Sub_C129B2 | $C129B2 | m1x0 | 73 | bankc1 |
+| Sub_C12AEF | $C12AEF | m1x0 | 127 | bankc1 |
+| Sub_C12AFB | $C12AFB | m1x0 | 127 | bankc1 |
+| Sub_C12B07 | $C12B07 | m1x0 | 127 | bankc1 |
+| Sub_C12B13 | $C12B13 | m1x0 | 127 | bankc1 |
+| Sub_C12B2B | $C12B2B | m1x0 | 135 | bankc1 |
+| Sub_C130B6 | $C130B6 | m1x0 | 43 | bankc1 |
+| Sub_C1356D | $C1356D | m1x0 | 301 | bankc1 |
+| Sub_C1379A | $C1379A | m1x0 | 293 | bankc1 |
+| Sub_C13A3D | $C13A3D | m1x0 | 389 | bankc1 |
+| Sub_C145A0 | $C145A0 | m1x0 | 627 | bankc1 |
+| Sub_C14CF0 | $C14CF0 | m1x0 | 7 | bankc1 |
+| Sub_C14CF7 | $C14CF7 | m1x0 | 30 | bankc1 |
+| Sub_C14D04 | $C14D04 | m1x0 | 303 | bankc1 |
+| Sub_C14F1A | $C14F1A | m1x0 | 75 | bankc1 |
+| Sub_C14F54 | $C14F54 | m1x0 | 124 | bankc1 |
+| Sub_C1566C | $C1566C | m1x0 | 111 | bankc1 |
+| Sub_C1567D | $C1567D | m1x0 | 117 | bankc1 |
+| Sub_C156CC | $C156CC | m1x0 | 64 | bankc1 |
+| Sub_C156FB | $C156FB | m1x0 | 42 | bankc1 |
+| Sub_C15714 | $C15714 | m1x0 | 31 | bankc1 |
+| Sub_C15743 | $C15743 | m1x0 | 36 | bankc1 |
+| Sub_C1577D | $C1577D | m1x0 | 154 | bankc1 |
+| Sub_C158DC | $C158DC | m1x0 | 25 | bankc1 |
+| Sub_C158E4 | $C158E4 | m1x0 | 25 | bankc1 |
+| Sub_C158EC | $C158EC | m1x0 | 35 | bankc1 |
+| Sub_C1590C | $C1590C | m1x0 | 31 | bankc1 |
+| Sub_C1591A | $C1591A | m1x0 | 40 | bankc1 |
+| Sub_C15940 | $C15940 | m1x0 | 28 | bankc1 |
+| Sub_C1594B | $C1594B | m1x0 | 28 | bankc1 |
+| Sub_C1597B | $C1597B | m1x0 | 39 | bankc1 |
+| Sub_C159B9 | $C159B9 | m1x0 | 60 | bankc1 |
+| Sub_C15D1D | $C15D1D | m1x0 | 135 | bankc1 |
+| Sub_C15E87 | $C15E87 | m1x0 | 105 | bankc1 |
+| Sub_C15FC1 | $C15FC1 | m1x0 | 35 | bankc1 |
+| Sub_C15FD3 | $C15FD3 | m1x0 | 28 | bankc1 |
+| Sub_C15FDE | $C15FDE | m1x0 | 140 | bankc1 |
+| Sub_C16059 | $C16059 | m1x0 | 71 | bankc1 |
+| Sub_C160E6 | $C160E6 | m1x0 | 127 | bankc1 |
+| Sub_C1619E | $C1619E | m1x0 | 52 | bankc1 |
+| Sub_C161EB | $C161EB | m1x0 | 57 | bankc1 |
+| Sub_C161F5 | $C161F5 | m1x0 | 55 | bankc1 |
+| Sub_C1621B | $C1621B | m1x0 | 50 | bankc1 |
+| Sub_C16258 | $C16258 | m1x0 | 82 | bankc1 |
+| Sub_C16299 | $C16299 | m1x0 | 705 | bankc1 |
+| Sub_C16549 | $C16549 | m1x0 | 113 | bankc1 |
+| BattleAct_CalcMoveStep | $C165BA | m1x0 | 183 | bankc1 |
+| Sub_C16AF0 | $C16AF0 | m1x0 | 530 | bankc1 |
+| Sub_C16FFC | $C16FFC | m1x0 | 64 | bankc1 |
+| Sub_C1702B | $C1702B | m1x0 | 64 | bankc1 |
+| BattleAct_CalcFacing | $C175CC | m1x0 | 11 | bankc1 |
+| BattleAct_FaceLikeEntry | $C175D7 | m1x0 | 12 | bankc1 |
+| BattleAct_FaceTowardEntry | $C175E3 | m1x0 | 39 | bankc1 |
+| BattleAct_CalcEntryPos | $C17639 | m1x0 | 17 | bankc1 |
+| BattleAct_CalcSavedPos | $C177DA | m1x0 | 18 | bankc1 |
+| BattleAct_CalcLerpToTarget | $C1780B | m1x0 | 246 | bankc1 |
+| BattleAct_ProbeBoxOverlap | $C17C2B | m1x0 | 18 | bankc1 |
+| BankC1_BattleStartVec | $C18000 | m1x0 | 1125 | bankc1 |
+| Sub_C1895B | $C1895B | m1x0 | 26 | bankc1 |
+| Sub_C19765 | $C19765 | m1x0 | 70 | bankc1 |
+| Sub_C19810 | $C19810 | m1x0 | 42 | bankc1 |
+| Sub_C19980 | $C19980 | m1x0 | 1 | bankc1 |
+| Sub_C199B8 | $C199B8 | m1x0 | 6 | bankc1 |
+| Sub_C199BE | $C199BE | m1x0 | 123 | bankc1 |
+| Sub_C19A39 | $C19A39 | m1x0 | 4 | bankc1 |
+| Sub_C19A3D | $C19A3D | m1x0 | 265 | bankc1 |
+| Sub_C19E63 | $C19E63 | m1x0 | 21 | bankc1 |
+| Sub_C1A4AF | $C1A4AF | m1x0 | 49 | bankc1 |
+| Sub_C1AC89 | $C1AC89 | m1x0 | 69 | bankc1 |
+| Sub_C1ACCE | $C1ACCE | m1x0 | 36 | bankc1 |
+| Sub_C1ACF2 | $C1ACF2 | m1x0 | 23 | bankc1 |
+| Sub_C1AF79 | $C1AF79 | m1x0 | 89 | bankc1 |
+| Sub_C1B3BB | $C1B3BB | m1x0 | 23 | bankc1 |
+| Sub_C1B3D2 | $C1B3D2 | m1x0 | 39 | bankc1 |
+| Sub_C1B442 | $C1B442 | m1x0 | 70 | bankc1 |
+| BattleAi_FindReactPart | $C1B488 | m1x0 | 34 | bankc1 |
+| Sub_C1B7F2 | $C1B7F2 | m1x0 | 27 | bankc1 |
+| Battle_ScaleByte20 | $C1C02A | m1x0 | 57 | bankc1 |
+| Sub_C1C063 | $C1C063 | m1x0 | 55 | bankc1 |
+| Sub_C1C1B2 | $C1C1B2 | m1x0 | 43 | bankc1 |
+| Sub_C1D160 | $C1D160 | m1x0 | 20 | bankc1 |
+| Sub_C1D174 | $C1D174 | m1x0 | 44 | bankc1 |
+| Sub_C1D1A4 | $C1D1A4 | m1x0 | 17 | bankc1 |
+| Sub_C1D1BB | $C1D1BB | m1x0 | 20 | bankc1 |
+| Sub_C1D508 | $C1D508 | m1x0 | 27 | bankc1 |
+| BattleSys_UnkD7C4 | $C1D7C4 | m1x0 | 269 | bankc1 |
+| Sub_C1D8D1 | $C1D8D1 | m1x0 | 262 | bankc1 |
+| Sub_C1DC64 | $C1DC64 | m1x0 | 73 | bankc1 |
+| Sub_C1DE87 | $C1DE87 | m1x0 | 23 | bankc1 |
+| Sub_C1DE9E | $C1DE9E | m1x0 | 82 | bankc1 |
+| Sub_C1DEF0 | $C1DEF0 | m1x0 | 278 | bankc1 |
+| Sub_C1E0F5 | $C1E0F5 | m1x0 | 1350 | bankc1 |
+| Sub_C1E63B | $C1E63B | m1x0 | 36 | bankc1 |
+| Sub_C1E65F | $C1E65F | m1x0 | 271 | bankc1 |
+| Sub_C1E9B8 | $C1E9B8 | m1x0 | 29 | bankc1 |
+| Sub_C1EA6F | $C1EA6F | m1x0 | 45 | bankc1 |
+| Sub_C1EA9D | $C1EA9D | m1x0 | 75 | bankc1 |
+| Sub_C1EAE8 | $C1EAE8 | m1x0 | 38 | bankc1 |
+| BattleSys_CopyEffectBytes78 | $C1EB0E | m1x0 | 14 | bankc1 |
+| Sub_C1EB1C | $C1EB1C | m1x0 | 45 | bankc1 |
+| Sub_C1ED89 | $C1ED89 | m1x0 | 48 | bankc1 |
+| Sub_C1F205 | $C1F205 | m1x0 | 214 | bankc1 |
+| Sub_C1F2DB | $C1F2DB | m1x0 | 191 | bankc1 |
+| Sub_C1F39A | $C1F39A | m1x0 | 197 | bankc1 |
+| Sub_C1F45F | $C1F45F | m1x0 | 128 | bankc1 |
+| Sub_C1F623 | $C1F623 | m1x0 | 406 | bankc1 |
+| Sub_C1F7B9 | $C1F7B9 | m1x0 | 184 | bankc1 |
+| Sub_C1F871 | $C1F871 | m1x0 | 151 | bankc1 |
+| Sub_C1F908 | $C1F908 | m1x0 | 54 | bankc1 |
+| Sub_C1F93E | $C1F93E | m1x0 | 172 | bankc1 |
+| Sub_C1F9EB | $C1F9EB | m1x0 | 118 | bankc1 |
+| BattleSys_RunPcAttackLong | $C1FDC7 | m1x0 | 4 | bankc1 |
+| Battle_RandRangeLong | $C1FDCB | m1x0 | 4 | bankc1 |
+| Sub_C2338F | $C2338F | m1x0 | 11 | bankc2 |
+| Sub_C28349 | $C28349 | m1x0 | 4 | bankc2 |
+| Sub_C30BA6 | $C30BA6 | m0x0 | 5 | bankc3 |
+| Sub_C30BAA | $C30BAA | m0x0 | 1 | bankc3 |
+| Sub_C30BAB | $C30BAB | m0x0 | 17 | bankc3 |
+| Sub_C30BBC | $C30BBC | m0x0 | 19 | bankc3 |
+| Sub_C30BC4 | $C30BC4 | m0x0 | 19 | bankc3 |
+| Sub_C30C19 | $C30C19 | m0x0 | 24 | bankc3 |
+| Sub_C30C41 | $C30C41 | m0x0 | 27 | bankc3 |
+| Battle_InitUploadStep | $CCE000 | m1x0 | 558 | bankcc |
+| Sub_CD0006 | $CD0006 | m1x0 | 153 | bankcd |
+| Sub_CD001B | $CD001B | m1x0 | 8 | bankcd |
+| Sub_CD0033 | $CD0033 | m1x0 | 57 | bankcd |
+| Sub_CD039E | $CD039E | m1x0 | 22 | bankcd |
+| Sub_CD0516 | $CD0516 | m1x0 | 30 | bankcd |
+| Sub_CD0534 | $CD0534 | m1x0 | 8 | bankcd |
+| Sub_CD0D62 | $CD0D62 | m1x0 | 49 | bankcd |
+| Sub_CD0D93 | $CD0D93 | m1x0 | 30 | bankcd |
+| Sub_CD0DB1 | $CD0DB1 | m1x0 | 73 | bankcd |
+| Sub_CD0DD8 | $CD0DD8 | m1x0 | 34 | bankcd |
+| Sub_CD1221 | $CD1221 | m0x0 | 70 | bankcd |
+| Sub_CD1229 | $CD1229 | m0x0 | 76 | bankcd |
+| Sub_CD1275 | $CD1275 | m0x0 | 67 | bankcd |
+| Sub_CD13DC | $CD13DC | m1x0 | 10 | bankcd |
+| Sub_CD13DE | $CD13DE | m1x0 | 8 | bankcd |
+| Sub_CD13E0 | $CD13E0 | m1x0 | 6 | bankcd |
+| Sub_CD13E2 | $CD13E2 | m1x0 | 4 | bankcd |
+| Sub_CD15D5 | $CD15D5 | m1x0 | 52 | bankcd |
+| Sub_CD16A6 | $CD16A6 | m1x0 | 15 | bankcd |
+| Sub_CD1834 | $CD1834 | m1x0 | 23 | bankcd |
+| Sub_CD18C2 | $CD18C2 | m1x0 | 6 | bankcd |
+| Sub_CD1B42 | $CD1B42 | m1x0 | 14 | bankcd |
+| Sub_CD1B50 | $CD1B50 | m1x0 | 14 | bankcd |
+| Sub_CD1B5E | $CD1B5E | m1x0 | 26 | bankcd |
+| Sub_CD1B6D | $CD1B6D | m1x0 | 11 | bankcd |
+| Sub_CD1C32 | $CD1C32 | m1x0 | 41 | bankcd |
+| Sub_CD1E07 | $CD1E07 | m1x0 | 32 | bankcd |
+| Sub_CD20ED | $CD20ED | m1x0 | 6 | bankcd |
+| Sub_CD2436 | $CD2436 | m1x0 | 42 | bankcd |
+| Sub_CD2518 | $CD2518 | m1x0 | 35 | bankcd |
+| Sub_CD29DA | $CD29DA | m1x0 | 9 | bankcd |
+| Sub_CD29E3 | $CD29E3 | m1x0 | 95 | bankcd |
+| Sub_CD2A4A | $CD2A4A | m1x0 | 7 | bankcd |
+| Sub_CD2DCB | $CD2DCB | m1x0 | 11 | bankcd |
+| Sub_CD2DD6 | $CD2DD6 | m1x0 | 20 | bankcd |
+| Sub_CD2EA2 | $CD2EA2 | m1x0 | 19 | bankcd |
+| Sub_CD2EB5 | $CD2EB5 | m1x0 | 19 | bankcd |
+| Sub_CD2F4E | $CD2F4E | m1x0 | 19 | bankcd |
+| Sub_CD2F61 | $CD2F61 | m1x0 | 13 | bankcd |
+| Sub_CD2F6E | $CD2F6E | m1x0 | 29 | bankcd |
+| Sub_CD2F8B | $CD2F8B | m1x0 | 32 | bankcd |
+| Sub_CD2FAB | $CD2FAB | m1x0 | 6 | bankcd |
+| Sub_CD2FB1 | $CD2FB1 | m1x0 | 6 | bankcd |
+| Sub_CD3017 | $CD3017 | m1x0 | 9 | bankcd |
+| Sub_CD3032 | $CD3032 | m1x0 | 9 | bankcd |
+| Sub_CD303B | $CD303B | m1x0 | 72 | bankcd |
+| Sub_CD3083 | $CD3083 | m1x0 | 9 | bankcd |
+| Sub_CD308C | $CD308C | m1x0 | 6 | bankcd |
+| Sub_CD3092 | $CD3092 | m1x0 | 38 | bankcd |
+| Sub_CD30B8 | $CD30B8 | m1x0 | 6 | bankcd |
+| BattleCF_MoveHeading | $CFF194 | m1x0 | 100 | bankcf |
+| Sub_CFFCF6 | $CFFCF6 | m1x0 | 5 | bankcf |
+| BattleMsg_FormatNumber4Digits | $CFFDAD | m0x0 | 115 | bankcf |
+| BattleCF_RemoveMarkedEnemies | $CFFE20 | m1x0 | 101 | bankcf |
+| Sub_D1F67A | $D1F67A | m1x0 | 12 | bankd1 |
+| Sub_D1F74D | $D1F74D | m1x0 | 240 | bankd1 |
+| Sub_D1FBCE | $D1FBCE | m1x0 | 4 | bankd1 |
+| Sub_D1FCF4 | $D1FCF4 | m1x0 | 138 | bankd1 |
+| BattleFD_UnkAA98 | $FDAA98 | m1x0 | 24 | bankfd |
+| BattleFD_UnkAAB0 | $FDAAB0 | m1x0 | 34 | bankfd |
+| BattleFD_LoadUnkB18E | $FDAAD2 | m1x0 | 47 | bankfd |
+| BattleFD_LoadUnkB18E2 | $FDAB01 | m1x0 | 47 | bankfd |
+| BattleFD_AddEnemyRewards | $FDABA2 | m1x0 | 204 | bankfd |
+| BattleFD_UnkAD17 | $FDAD17 | m1x0 | 315 | bankfd |
+| BattleFD_UnkB201 | $FDB201 | m1x0 | 34 | bankfd |
+| Sub_C01DD1 | $C01DD1 | m1x1 | 39 | bankc0 |
+| Sub_C01EF7 | $C01EF7 | m0x0 | 25 | bankc0 |
+| Sub_CD2B45 | $CD2B45 | m1x0 | 23 | bankcd |
+| Sub_CD2E13 | $CD2E13 | m1x0 | 16 | bankcd |
+| Sub_CD2E4D | $CD2E4D | m1x0 | 17 | bankcd |
+| Sub_CD2E78 | $CD2E78 | m1x0 | 17 | bankcd |
+| Sub_C2051D | $C2051D | m1x0 | 54 | bankc2 |
+| Sub_C20553 | $C20553 | m1x0 | 3 | bankc2 |
+| Sub_C21807 | $C21807 | m0x0 | 18 | bankc2 |
+| Sub_C21819 | $C21819 | m1x0 | 3 | bankc2 |
+| Sub_C283CA | $C283CA | m1x0 | 60 | bankc2 |
+| Sub_C283D0 | $C283D0 | m1x0 | 54 | bankc2 |
+| Sub_C2E40E | $C2E40E | m1x0, m1x1 | 304/329 | bankc2 |
+| Sub_C2EF48 | $C2EF48 | m1x0 | 29 | bankc2 |
+| Sub_C2EF65 | $C2EF65 | m1x0, m0x0 | 25 | bankc2 |
+| Sub_C2EF7E | $C2EF7E | m0x0, m1x0 | 25 | bankc2 |
+| Sub_C2EFBE | $C2EFBE | m1x0 | 21 | bankc2 |
+| Sub_C2FAA8 | $C2FAA8 | m0x0 | 68 | bankc2 |
+| Sub_C0220E | $C0220E | m1x0 | 91 | bankc0 |
+| Sub_C02269 | $C02269 | m1x0 | 111 | bankc0 |
+| Sub_C07212 | $C07212 | m1x1 | 124 | bankc0 |
+| C2Scene_TaskRunScript | $C20F63 | m1x0 | 46 | bankc2 |
+| Sub_C21DD4 | $C21DD4 | m1x0 | 100 | bankc2 |
+| Sub_C220A2 | $C220A2 | m1x0 | 9 | bankc2 |
+| Sub_C22105 | $C22105 | m1x0 | 9 | bankc2 |
+| Sub_C22F0F | $C22F0F | m1x0 | 63 | bankc2 |
+| Sub_C22F94 | $C22F94 | m1x0 | 9 | bankc2 |
+| Sub_C2309E | $C2309E | m1x0 | 35 | bankc2 |
+| Sub_C23264 | $C23264 | m1x0 | 17 | bankc2 |
+| Sub_C23404 | $C23404 | m1x0 | 41 | bankc2 |
+| Sub_C23AE2 | $C23AE2 | m1x0 | 45 | bankc2 |
+| Sub_C25628 | $C25628 | m1x0 | 15 | bankc2 |
+| C2Scene_PlaceBelowView | $C2754D | m1x0 | 40 | bankc2 |
+| Sub_C27575 | $C27575 | m1x0 | 35 | bankc2 |
+| Sub_C27598 | $C27598 | m1x0 | 43 | bankc2 |
+| Sub_C275C3 | $C275C3 | m1x0 | 58 | bankc2 |
+| Sub_C278A1 | $C278A1 | m1x0 | 66 | bankc2 |
+| Sub_C28900 | $C28900 | m1x0 | 79 | bankc2 |
+| Sub_C28A98 | $C28A98 | m1x0 | 26 | bankc2 |
+| Sub_C28ABA | $C28ABA | m0x0 | 27 | bankc2 |
+| Sub_C28B69 | $C28B69 | m1x0 | 26 | bankc2 |
+| Sub_C28B85 | $C28B85 | m1x0 | 14 | bankc2 |
+| Sub_C28B93 | $C28B93 | m1x0, m0x0 | 19 | bankc2 |
+| Sub_C293A8 | $C293A8 | m1x0 | 23 | bankc2 |
+| Sub_C293BF | $C293BF | m1x0 | 78 | bankc2 |
+| Sub_C2A0E7 | $C2A0E7 | m0x0 | 26 | bankc2 |
+| Sub_C2D605 | $C2D605 | m1x0 | 19 | bankc2 |
+| Sub_C2DACA | $C2DACA | m1x0 | 206 | bankc2 |
+| Sub_C2DB9F | $C2DB9F | m1x0 | 73 | bankc2 |
+| Sub_C2DBE8 | $C2DBE8 | m1x0 | 54 | bankc2 |
+| Sub_C2DC1E | $C2DC1E | m0x0 | 86 | bankc2 |
+| Sub_C2DCBE | $C2DCBE | m0x0 | 28 | bankc2 |
+| Sub_C2DCDA | $C2DCDA | m1x0 | 40 | bankc2 |
+| Sub_C2DD02 | $C2DD02 | m1x0 | 30 | bankc2 |
+| Sub_C2DD20 | $C2DD20 | m0x0 | 32 | bankc2 |
+| Sub_C2DD40 | $C2DD40 | m1x0 | 22 | bankc2 |
+| Sub_C2DD56 | $C2DD56 | m0x0 | 38 | bankc2 |
+| Sub_C2DD7C | $C2DD7C | m1x0 | 161 | bankc2 |
+| Sub_C2DE21 | $C2DE21 | m1x0 | 53 | bankc2 |
+| Sub_C2DE56 | $C2DE56 | m1x1 | 66 | bankc2 |
+| Sub_C2E001 | $C2E001 | m0x0 | 17 | bankc2 |
+| Sub_C2E012 | $C2E012 | m0x0 | 68 | bankc2 |
+| Sub_C2E017 | $C2E017 | m1x0 | 65 | bankc2 |
+| Sub_C2E058 | $C2E058 | m1x0 | 26 | bankc2 |
+| Sub_C2E2A0 | $C2E2A0 | m1x0 | 34 | bankc2 |
+| Sub_C2E2AA | $C2E2AA | m1x0 | 34 | bankc2 |
+| Sub_C2E2CC | $C2E2CC | m1x0 | 30 | bankc2 |
+| Sub_C2E2D6 | $C2E2D6 | m1x0 | 30 | bankc2 |
+| Sub_C2EA36 | $C2EA36 | m1x0 | 16 | bankc2 |
+| Sub_C2EA3B | $C2EA3B | m1x0 | 16 | bankc2 |
+| Sub_C2EA40 | $C2EA40 | m1x0 | 16 | bankc2 |
+| Sub_C2EA45 | $C2EA45 | m1x0 | 14 | bankc2 |
+| Sub_C2EA53 | $C2EA53 | m1x0 | 46 | bankc2 |
+| Sub_C2EA81 | $C2EA81 | m0x0 | 57 | bankc2 |
+| Sub_C2EABA | $C2EABA | m1x0 | 8 | bankc2 |
+| Sub_C2EC93 | $C2EC93 | m0x0 | 25 | bankc2 |
+| Sub_C2ECC2 | $C2ECC2 | m0x0 | 25 | bankc2 |
+| Sub_C2EF05 | $C2EF05 | m1x0, m0x0 | 38 | bankc2 |
+| Sub_C2EFF4 | $C2EFF4 | m0x0 | 17 | bankc2 |
+| Sub_C2F005 | $C2F005 | m0x0 | 12 | bankc2 |
+| Sub_C2F011 | $C2F011 | m0x0 | 20 | bankc2 |
+| Sub_C2F022 | $C2F022 | m0x0 | 23 | bankc2 |
+| Sub_C2F036 | $C2F036 | m0x0 | 53 | bankc2 |
+| Sub_C2F068 | $C2F068 | m0x0 | 9 | bankc2 |
+| Sub_C2F114 | $C2F114 | m0x0 | 43 | bankc2 |
+| Sub_C2F13F | $C2F13F | m1x0 | 59 | bankc2 |
+| Sub_C2F1DA | $C2F1DA | m1x0 | 49 | bankc2 |
+| Sub_C2F20B | $C2F20B | m1x0 | 28 | bankc2 |
+| Sub_C2F2DC | $C2F2DC | m0x0 | 6 | bankc2 |
+| Sub_C2F2E2 | $C2F2E2 | m0x0 | 17 | bankc2 |
+| Sub_C2F2F3 | $C2F2F3 | m1x0 | 63 | bankc2 |
+| Sub_C2F588 | $C2F588 | m1x0, m1x1 | 31 | bankc2 |
+| Sub_C2F5A7 | $C2F5A7 | m1x0, m0x0 | 70 | bankc2 |
+| Sub_C2F626 | $C2F626 | m1x0, m0x0 | 29 | bankc2 |
+| Sub_C2F643 | $C2F643 | m0x0 | 20 | bankc2 |
+| Sub_C2F69B | $C2F69B | m1x1 | 166 | bankc2 |
+| Sub_C2F871 | $C2F871 | m1x1 | 148 | bankc2 |
+| Sub_C2FCB2 | $C2FCB2 | m1x0 | 47 | bankc2 |
+| Sub_C2FD1D | $C2FD1D | m1x0 | 59 | bankc2 |
+| Sub_C2FD58 | $C2FD58 | m0x0 | 46 | bankc2 |
+| Sub_C2FD68 | $C2FD68 | m0x0 | 47 | bankc2 |
+| Sub_C2FDBB | $C2FDBB | m1x0 | 36 | bankc2 |
+| Sub_C2FDDF | $C2FDDF | m1x0 | 43 | bankc2 |
+| Sub_C30008 | $C30008 | m1x0 | 338 | bankc3 |
+| Sub_C301C6 | $C301C6 | m0x0 | 30 | bankc3 |
+| Sub_C301CA | $C301CA | m0x0 | 26 | bankc3 |
+| PalAnim_RotateDown | $FDE532 | m1x0 | 74 | bankfd |
+| BankFF_BuildTileSets | $FFF548 | m0x0 | 224 | bankff |
+| Sub_C220AF | $C220AF | m1x0 | 86 | bankc2 |
+| Sub_C220DF | $C220DF | m1x0 | 38 | bankc2 |
+| Sub_C22116 | $C22116 | m1x0 | 67 | bankc2 |
+| Sub_C22152 | $C22152 | m1x0 | 36 | bankc2 |
+| Sub_C2216F | $C2216F | m1x0 | 37 | bankc2 |
+| Sub_C22345 | $C22345 | m0x0 | 14 | bankc2 |
+| Sub_C22353 | $C22353 | m0x0 | 38 | bankc2 |
+| Sub_C22379 | $C22379 | m0x0 | 47 | bankc2 |
+| Sub_C22FA5 | $C22FA5 | m1x0 | 151 | bankc2 |
+| Sub_C22FAE | $C22FAE | m1x0 | 142 | bankc2 |
+| Sub_C230CD | $C230CD | m1x0 | 219 | bankc2 |
+| Sub_C23279 | $C23279 | m1x0 | 62 | bankc2 |
+| Sub_C23439 | $C23439 | m1x0 | 36 | bankc2 |
+| Sub_C2563F | $C2563F | m1x0 | 310 | bankc2 |
+| Sub_C25663 | $C25663 | m1x0 | 274 | bankc2 |
+| Sub_C25699 | $C25699 | m1x0 | 220 | bankc2 |
+| Sub_C256F9 | $C256F9 | m1x0 | 124 | bankc2 |
+| Sub_CD0024 | $CD0024 | m1x0 | 202 | bankcd |
+| Sub_CD00A0 | $CD00A0 | m1x0 | 106 | bankcd |
+| Sub_CD010A | $CD010A | m1x0 | 147 | bankcd |
+| Sub_CD0154 | $CD0154 | m1x0 | 73 | bankcd |
+| Sub_CD04AA | $CD04AA | m1x0 | 53 | bankcd |
+| Sub_CD0DFA | $CD0DFA | m1x0 | 11 | bankcd |
+| Sub_CD0E05 | $CD0E05 | m1x0 | 30 | bankcd |
+| BattleFD_AddItemEntry | $FDAF80 | m1x0 | 103 | bankfd |
+| M7Scene_UpdateScroll | $FDDCBD | m1x0 | 145 | bankfd |
+| PalAnim_CopyRomFrame | $FDE437 | m1x0 | 78 | bankfd |
+| M7Scene_RestoreWram7F | $FDEAB7 | m1x0 | 17 | bankfd |
+| M7Scene_ScreenOff | $FDEAC8 | m1x0 | 18 | bankfd |
+| M7Scene_ScreenOn | $FDEADA | m1x0 | 17 | bankfd |
+| M7Scene_WaitNmi | $FDEAEB | m1x0 | 9 | bankfd |
+| M7Scene_BuildIris | $FDEB8B | m1x0 | 245 | bankfd |
+| M7Scene_IrisEmptyLines | $FDEC80 | m1x0, m1x1 | 17 | bankfd |
+| M7Scene_UploadSprGfx | $FDEC91 | m1x0 | 47 | bankfd |
+| M7Scene_PlotPixel | $FDECD5 | m1x0 | 164 | bankfd |
+| M7Scene_InitHdma | $FDED89 | m1x0 | 410 | bankfd |
+| M7Scene_WriteScale | $FDEF23 | m1x0 | 76 | bankfd |
+| M7Scene_CyclePalette | $FDF123 | m1x0 | 94 | bankfd |
+| M7Scene_UploadOam | $FDF222 | m1x0 | 42 | bankfd |
+| M7Scene_UploadPalette | $FDF266 | m1x0 | 42 | bankfd |
+| C2Scene_NegateXVel | $C21C84 | m0x0 | 26 | bankc2 |
+| Trig_Cos1024 | $C2225A | m1x0 | 11 | bankc2 |
+| C2Scene_Main | $C223A8 | m1x0 | 51 | bankc2 |
+| Menu_Nmi | $C2840E | m1x0 | 100 | bankc2 |
+| Sub_C28820 | $C28820 | m1x1, m0x0, m1x0 | 25 | bankc2 |
+| Sub_C290FC | $C290FC | m0x0 | 37 | bankc2 |
+| Menu_Mode01H0 | $C29C31 | m1x0 | 94 | bankc2 |
+| Sub_C29E76 | $C29E76 | m0x0 | 58 | bankc2 |
+| Menu_Icon0Preview | $C2A051 | m1x0 | 150 | bankc2 |
+| Sub_C2A170 | $C2A170 | m1x0 | 66 | bankc2 |
+| Sub_C2A1EF | $C2A1EF | m0x0 | 39 | bankc2 |
+| Sub_C2A216 | $C2A216 | m0x0 | 9 | bankc2 |
+| Menu_LoadWindowGfx | $C2C511 | m1x0 | 55 | bankc2 |
+| Sub_C2C649 | $C2C649 | m1x0, m1x1 | 21 | bankc2 |
+| Sub_C2C805 | $C2C805 | m0x0 | 86 | bankc2 |
+| Sub_C2C85B | $C2C85B | m1x1 | 95 | bankc2 |
+| Sub_C2C8BA | $C2C8BA | m0x0 | 143 | bankc2 |
+| Sub_C2C9E5 | $C2C9E5 | m1x1 | 126 | bankc2 |
+| Sub_C2CAF3 | $C2CAF3 | m1x0 | 152 | bankc2 |
+| Sub_C2CB8B | $C2CB8B | m1x1 | 39 | bankc2 |
+| Sub_C2CC4F | $C2CC4F | m1x0, m0x0 | 100 | bankc2 |
+| Sub_C2CD2B | $C2CD2B | m0x0 | 112 | bankc2 |
+| Sub_C2CD9B | $C2CD9B | m1x1 | 48 | bankc2 |
+| Sub_C2CE86 | $C2CE86 | m1x0 | 16 | bankc2 |
+| Sub_C2CFFB | $C2CFFB | m1x0 | 73 | bankc2 |
+| Sub_C2D0E5 | $C2D0E5 | m1x0 | 40 | bankc2 |
+| Menu_MainCursorThread | $C2E91B | m0x0 | 8 | bankc2 |
+| Sub_C2E923 | $C2E923 | m1x0 | 50 | bankc2 |
+| Menu_DrawText4bpp | $C2F905 | m1x0 | 57 | bankc2 |
+| Sub_FFF677 | $FFF677 | m1x0 | 123 | bankff |
+| Sub_C2A1B2 | $C2A1B2 | m1x0 | 55 | bankc2 |
+| Sub_C2A22F | $C2A22F | m1x0 | 68 | bankc2 |
+| Sub_C2A273 | $C2A273 | m1x0 | 83 | bankc2 |
+| Sub_C2A6F0 | $C2A6F0 | m1x0 | 46 | bankc2 |
+| Sub_C2CCDB | $C2CCDB | m0x0 | 80 | bankc2 |
+| Sub_C2F28D | $C2F28D | m1x0 | 63 | bankc2 |
+| Sub_C2F2CC | $C2F2CC | m1x0 | 16 | bankc2 |
 
 ## Implemented opcodes
 
-$00 BRK imm, $01 ORA dp_x_ind, $02 COP imm, $03 ORA sr, $04 TSB dp, $05 ORA dp, $06 ASL dp, $07 ORA dp_ind_long, $08 PHP impl, $09 ORA imm_m, $0A ASL A, $0B PHD impl, $0C TSB abs, $0D ORA abs, $0E ASL abs, $0F ORA long, $10 BPL rel, $11 ORA dp_ind_y, $12 ORA dp_ind, $13 ORA sr_ind_y, $14 TRB dp, $15 ORA dp_x, $16 ASL dp_x, $17 ORA dp_ind_long_y, $18 CLC impl, $19 ORA abs_y, $1A INC A, $1B TCS impl, $1C TRB abs, $1D ORA abs_x, $1E ASL abs_x, $1F ORA long_x, $20 JSR abs, $21 AND dp_x_ind, $22 JSL long, $23 AND sr, $24 BIT dp, $25 AND dp, $26 ROL dp, $27 AND dp_ind_long, $28 PLP impl, $29 AND imm_m, $2A ROL A, $2B PLD impl, $2C BIT abs, $2D AND abs, $2E ROL abs, $2F AND long, $30 BMI rel, $31 AND dp_ind_y, $32 AND dp_ind, $33 AND sr_ind_y, $34 BIT dp_x, $35 AND dp_x, $36 ROL dp_x, $37 AND dp_ind_long_y, $38 SEC impl, $39 AND abs_y, $3A DEC A, $3B TSC impl, $3C BIT abs_x, $3D AND abs_x, $3E ROL abs_x, $3F AND long_x, $41 EOR dp_x_ind, $43 EOR sr, $45 EOR dp, $46 LSR dp, $47 EOR dp_ind_long, $48 PHA impl, $49 EOR imm_m, $4A LSR A, $4B PHK impl, $4C JMP abs, $4D EOR abs, $4E LSR abs, $4F EOR long, $50 BVC rel, $51 EOR dp_ind_y, $52 EOR dp_ind, $53 EOR sr_ind_y, $54 MVN block, $55 EOR dp_x, $56 LSR dp_x, $57 EOR dp_ind_long_y, $58 CLI impl, $59 EOR abs_y, $5A PHY impl, $5B TCD impl, $5C JML long, $5D EOR abs_x, $5E LSR abs_x, $5F EOR long_x, $60 RTS impl, $61 ADC dp_x_ind, $62 PER rlong, $63 ADC sr, $64 STZ dp, $65 ADC dp, $66 ROR dp, $67 ADC dp_ind_long, $68 PLA impl, $69 ADC imm_m, $6A ROR A, $6B RTL impl, $6D ADC abs, $6E ROR abs, $6F ADC long, $70 BVS rel, $71 ADC dp_ind_y, $72 ADC dp_ind, $73 ADC sr_ind_y, $74 STZ dp_x, $75 ADC dp_x, $76 ROR dp_x, $77 ADC dp_ind_long_y, $78 SEI impl, $79 ADC abs_y, $7A PLY impl, $7B TDC impl, $7C JMP abs_x_ind, $7D ADC abs_x, $7E ROR abs_x, $7F ADC long_x, $80 BRA rel, $81 STA dp_x_ind, $82 BRL rlong, $83 STA sr, $84 STY dp, $85 STA dp, $86 STX dp, $87 STA dp_ind_long, $88 DEY impl, $89 BIT imm_m, $8A TXA impl, $8B PHB impl, $8C STY abs, $8D STA abs, $8E STX abs, $8F STA long, $90 BCC rel, $91 STA dp_ind_y, $92 STA dp_ind, $93 STA sr_ind_y, $94 STY dp_x, $95 STA dp_x, $96 STX dp_y, $97 STA dp_ind_long_y, $98 TYA impl, $99 STA abs_y, $9A TXS impl, $9B TXY impl, $9C STZ abs, $9D STA abs_x, $9E STZ abs_x, $9F STA long_x, $A0 LDY imm_x, $A1 LDA dp_x_ind, $A2 LDX imm_x, $A3 LDA sr, $A4 LDY dp, $A5 LDA dp, $A6 LDX dp, $A7 LDA dp_ind_long, $A8 TAY impl, $A9 LDA imm_m, $AA TAX impl, $AB PLB impl, $AC LDY abs, $AD LDA abs, $AE LDX abs, $AF LDA long, $B0 BCS rel, $B1 LDA dp_ind_y, $B2 LDA dp_ind, $B3 LDA sr_ind_y, $B4 LDY dp_x, $B5 LDA dp_x, $B6 LDX dp_y, $B7 LDA dp_ind_long_y, $B8 CLV impl, $B9 LDA abs_y, $BA TSX impl, $BB TYX impl, $BC LDY abs_x, $BD LDA abs_x, $BE LDX abs_y, $BF LDA long_x, $C0 CPY imm_x, $C1 CMP dp_x_ind, $C2 REP imm, $C3 CMP sr, $C4 CPY dp, $C5 CMP dp, $C6 DEC dp, $C7 CMP dp_ind_long, $C8 INY impl, $C9 CMP imm_m, $CA DEX impl, $CB WAI impl, $CC CPY abs, $CD CMP abs, $CE DEC abs, $CF CMP long, $D0 BNE rel, $D1 CMP dp_ind_y, $D2 CMP dp_ind, $D3 CMP sr_ind_y, $D4 PEI dp, $D5 CMP dp_x, $D6 DEC dp_x, $D7 CMP dp_ind_long_y, $D8 CLD impl, $D9 CMP abs_y, $DA PHX impl, $DB STP impl, $DD CMP abs_x, $DE DEC abs_x, $DF CMP long_x, $E0 CPX imm_x, $E1 SBC dp_x_ind, $E2 SEP imm, $E3 SBC sr, $E4 CPX dp, $E5 SBC dp, $E6 INC dp, $E7 SBC dp_ind_long, $E8 INX impl, $E9 SBC imm_m, $EA NOP impl, $EB XBA impl, $EC CPX abs, $ED SBC abs, $EE INC abs, $EF SBC long, $F0 BEQ rel, $F1 SBC dp_ind_y, $F2 SBC dp_ind, $F3 SBC sr_ind_y, $F4 PEA abs, $F5 SBC dp_x, $F6 INC dp_x, $F7 SBC dp_ind_long_y, $F8 SED impl, $F9 SBC abs_y, $FA PLX impl, $FB XCE impl, $FC JSR abs_x_ind, $FD SBC abs_x, $FE INC abs_x, $FF SBC long_x
+$00 BRK imm, $01 ORA dp_x_ind, $02 COP imm, $03 ORA sr, $04 TSB dp, $05 ORA dp, $06 ASL dp, $07 ORA dp_ind_long, $08 PHP impl, $09 ORA imm_m, $0A ASL A, $0B PHD impl, $0C TSB abs, $0D ORA abs, $0E ASL abs, $0F ORA long, $10 BPL rel, $11 ORA dp_ind_y, $12 ORA dp_ind, $13 ORA sr_ind_y, $14 TRB dp, $15 ORA dp_x, $16 ASL dp_x, $17 ORA dp_ind_long_y, $18 CLC impl, $19 ORA abs_y, $1A INC A, $1B TCS impl, $1C TRB abs, $1D ORA abs_x, $1E ASL abs_x, $1F ORA long_x, $20 JSR abs, $21 AND dp_x_ind, $22 JSL long, $23 AND sr, $24 BIT dp, $25 AND dp, $26 ROL dp, $27 AND dp_ind_long, $28 PLP impl, $29 AND imm_m, $2A ROL A, $2B PLD impl, $2C BIT abs, $2D AND abs, $2E ROL abs, $2F AND long, $30 BMI rel, $31 AND dp_ind_y, $32 AND dp_ind, $33 AND sr_ind_y, $34 BIT dp_x, $35 AND dp_x, $36 ROL dp_x, $37 AND dp_ind_long_y, $38 SEC impl, $39 AND abs_y, $3A DEC A, $3B TSC impl, $3C BIT abs_x, $3D AND abs_x, $3E ROL abs_x, $3F AND long_x, $41 EOR dp_x_ind, $43 EOR sr, $45 EOR dp, $46 LSR dp, $47 EOR dp_ind_long, $48 PHA impl, $49 EOR imm_m, $4A LSR A, $4B PHK impl, $4C JMP abs, $4D EOR abs, $4E LSR abs, $4F EOR long, $50 BVC rel, $51 EOR dp_ind_y, $52 EOR dp_ind, $53 EOR sr_ind_y, $54 MVN block, $55 EOR dp_x, $56 LSR dp_x, $57 EOR dp_ind_long_y, $58 CLI impl, $59 EOR abs_y, $5A PHY impl, $5B TCD impl, $5C JML long, $5D EOR abs_x, $5E LSR abs_x, $5F EOR long_x, $60 RTS impl, $61 ADC dp_x_ind, $62 PER rlong, $63 ADC sr, $64 STZ dp, $65 ADC dp, $66 ROR dp, $67 ADC dp_ind_long, $68 PLA impl, $69 ADC imm_m, $6A ROR A, $6B RTL impl, $6C JMP abs_ind, $6D ADC abs, $6E ROR abs, $6F ADC long, $70 BVS rel, $71 ADC dp_ind_y, $72 ADC dp_ind, $73 ADC sr_ind_y, $74 STZ dp_x, $75 ADC dp_x, $76 ROR dp_x, $77 ADC dp_ind_long_y, $78 SEI impl, $79 ADC abs_y, $7A PLY impl, $7B TDC impl, $7C JMP abs_x_ind, $7D ADC abs_x, $7E ROR abs_x, $7F ADC long_x, $80 BRA rel, $81 STA dp_x_ind, $82 BRL rlong, $83 STA sr, $84 STY dp, $85 STA dp, $86 STX dp, $87 STA dp_ind_long, $88 DEY impl, $89 BIT imm_m, $8A TXA impl, $8B PHB impl, $8C STY abs, $8D STA abs, $8E STX abs, $8F STA long, $90 BCC rel, $91 STA dp_ind_y, $92 STA dp_ind, $93 STA sr_ind_y, $94 STY dp_x, $95 STA dp_x, $96 STX dp_y, $97 STA dp_ind_long_y, $98 TYA impl, $99 STA abs_y, $9A TXS impl, $9B TXY impl, $9C STZ abs, $9D STA abs_x, $9E STZ abs_x, $9F STA long_x, $A0 LDY imm_x, $A1 LDA dp_x_ind, $A2 LDX imm_x, $A3 LDA sr, $A4 LDY dp, $A5 LDA dp, $A6 LDX dp, $A7 LDA dp_ind_long, $A8 TAY impl, $A9 LDA imm_m, $AA TAX impl, $AB PLB impl, $AC LDY abs, $AD LDA abs, $AE LDX abs, $AF LDA long, $B0 BCS rel, $B1 LDA dp_ind_y, $B2 LDA dp_ind, $B3 LDA sr_ind_y, $B4 LDY dp_x, $B5 LDA dp_x, $B6 LDX dp_y, $B7 LDA dp_ind_long_y, $B8 CLV impl, $B9 LDA abs_y, $BA TSX impl, $BB TYX impl, $BC LDY abs_x, $BD LDA abs_x, $BE LDX abs_y, $BF LDA long_x, $C0 CPY imm_x, $C1 CMP dp_x_ind, $C2 REP imm, $C3 CMP sr, $C4 CPY dp, $C5 CMP dp, $C6 DEC dp, $C7 CMP dp_ind_long, $C8 INY impl, $C9 CMP imm_m, $CA DEX impl, $CB WAI impl, $CC CPY abs, $CD CMP abs, $CE DEC abs, $CF CMP long, $D0 BNE rel, $D1 CMP dp_ind_y, $D2 CMP dp_ind, $D3 CMP sr_ind_y, $D4 PEI dp, $D5 CMP dp_x, $D6 DEC dp_x, $D7 CMP dp_ind_long_y, $D8 CLD impl, $D9 CMP abs_y, $DA PHX impl, $DB STP impl, $DD CMP abs_x, $DE DEC abs_x, $DF CMP long_x, $E0 CPX imm_x, $E1 SBC dp_x_ind, $E2 SEP imm, $E3 SBC sr, $E4 CPX dp, $E5 SBC dp, $E6 INC dp, $E7 SBC dp_ind_long, $E8 INX impl, $E9 SBC imm_m, $EA NOP impl, $EB XBA impl, $EC CPX abs, $ED SBC abs, $EE INC abs, $EF SBC long, $F0 BEQ rel, $F1 SBC dp_ind_y, $F2 SBC dp_ind, $F3 SBC sr_ind_y, $F4 PEA abs, $F5 SBC dp_x, $F6 INC dp_x, $F7 SBC dp_ind_long_y, $F8 SED impl, $F9 SBC abs_y, $FA PLX impl, $FB XCE impl, $FC JSR abs_x_ind, $FD SBC abs_x, $FE INC abs_x, $FF SBC long_x
 
 ## Tests
 
@@ -1484,7 +1867,6 @@ $00 BRK imm, $01 ORA dp_x_ind, $02 COP imm, $03 ORA sr, $04 TSB dp, $05 ORA dp, 
 | runtime_fatal_open_bus | Passed |
 | runtime_fatal_rom_write | Passed |
 | runtime_fatal_unhooked | Passed |
-| runtime_fatal_decimal | Passed |
 | runtime_fatal_entry | Passed |
 | snes_bus | Passed |
 | hw_map | Passed |
@@ -1496,13 +1878,12 @@ $00 BRK imm, $01 ORA dp_x_ind, $02 COP imm, $03 ORA sr, $04 TSB dp, $05 ORA dp, 
 | resample | Passed |
 | dsp | Passed |
 | native | Passed |
-| lockstep_report | Passed |
+| lockstep_report | Failed |
 | ref_compare_report | Passed |
-| ctest_cache_report | Passed |
+| ctest_cache_report | Failed |
 | tas_convert | Passed |
 | decode_calls | Passed |
 | funcs_meta | Passed |
-| input | Passed |
 | check_agnostic | Passed |
 | c1_math_mul8 | Passed |
 | interp_c1_math_mul8 | Passed |
@@ -1531,9 +1912,12 @@ $00 BRK imm, $01 ORA dp_x_ind, $02 COP imm, $03 ORA sr, $04 TSB dp, $05 ORA dp, 
 | diff_all_6 | Passed |
 | diff_all_7 | Passed |
 | diff_open_bus | Passed |
-| sync_determinism | Passed |
+| sync_determinism | Skipped |
 | manual_root | Passed |
 | discover_loop | Passed |
+| decode_boundary | Passed |
+| find_overlays | Passed |
+| label_encoding | Passed |
 | decompress | Passed |
 | boot_interp | Passed |
 | boot_menu | Passed |
@@ -1541,9 +1925,12 @@ $00 BRK imm, $01 ORA dp_x_ind, $02 COP imm, $03 ORA sr, $04 TSB dp, $05 ORA dp, 
 | lockstep_leene_square | Passed |
 | lockstep_gato_battle | Passed |
 | lockstep_gato_win | Passed |
+| lockstep_telepod_gate | Passed |
+| lockstep_marle_meeting | Passed |
+| lockstep_marle_joins | Passed |
+| lockstep_telepod_exhibit | Passed |
+| lockstep_telepod_ride | Passed |
+| lockstep_fair_wander | Passed |
 | stack_field_replay | Passed |
 | battle_no_flicker | Passed |
 | native_coverage | Passed |
-| sdl_boot | Passed |
-| sdl_record | Passed |
-| sdl_audio_60s | Passed |

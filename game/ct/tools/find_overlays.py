@@ -20,6 +20,12 @@ overlays.toml holds pointers, sizes and a 64-bit FNV-1a hash per blob (to
 check the decompressor port against at build time), never ROM bytes.
 WRAM entries no blob covers are reported: that code got there another way.
 
+ct_boot logs at most MAX_LOG (64) --log-entry addresses per run, one of
+which is the decompressor itself, so pass 2 re-runs each replay once per
+batch of 63 WRAM entries and merges the results. That keeps the tool
+working when longer replays (past the first battle, into new areas) push
+the distinct WRAM-entry count past one batch, instead of giving up.
+
 usage: find_overlays.py BUILD_DIR [--write]
 """
 from __future__ import annotations
@@ -42,6 +48,51 @@ BOOT_FRAMES = 1500
 ENTRY_RE = re.compile(r'^entry ([0-9A-F]{6}) frame \d+ line \d+ clock (\d+) .* m (\d) x (\d) '
                       r'dp((?: [0-9A-F-]{2}){16})$')
 PROF_RE = re.compile(r'\$(7[EF][0-9A-F]{4}) m([01])x([01])e0\s')
+
+# ct_boot's MAX_LOG is 64 --log-entry slots; one is the decompressor call
+# itself, leaving room for this many WRAM entries per pass-2 run.
+MAX_LOG_ENTRIES = 63
+
+
+def batched(items: list, n: int):
+    """Yield successive slices of at most n items (the last may be short)."""
+    for i in range(0, len(items), n):
+        yield items[i:i + n]
+
+
+def attribute_run(lines, size_of):
+    """Charge one run's logged entries to the loads that covered them.
+
+    lines: the run's stdout lines. size_of(src) -> decompressed size in
+    bytes (0 for a blob that fails to decompress: it then covers nothing).
+    Returns (loads, entries, n_calls): loads in call order as (src, dst);
+    entries as {(src, dst, entry): {states}} with (0, 0, entry) for an
+    entry no load covered yet. An entry is charged to the latest load
+    covering its address before it (buffers are reused over time)."""
+    resident: list[tuple[int, int, int]] = []   # (dst, end, src), latest last
+    loads: list[tuple[int, int]] = []
+    entries: dict[tuple[int, int, int], set[str]] = {}
+    n_calls = 0
+    for line in lines:
+        m = ENTRY_RE.match(line)
+        if not m:
+            continue
+        at = int(m.group(1), 16)
+        if at == DECOMPRESS:
+            dp = [int(b, 16) if b != '--' else 0 for b in m.group(5).split()]
+            src = dp[0] | dp[1] << 8 | dp[2] << 16
+            dst = (0x7F if dp[5] & 1 else 0x7E) << 16 | dp[3] | dp[4] << 8
+            loads.append((src, dst))
+            resident.append((dst, dst + size_of(src), src))
+            n_calls += 1
+            continue
+        owner = next((r_ for r_ in reversed(resident) if r_[0] <= at < r_[1]), None)
+        state = f'm{m.group(3)}x{m.group(4)}'
+        if owner is None:
+            entries.setdefault((0, 0, at), set()).add(state)
+        else:
+            entries.setdefault((owner[2], owner[0], at), set()).add(state)
+    return loads, entries, n_calls
 
 
 def runs() -> list[tuple[str, list[str]]]:
@@ -82,44 +133,39 @@ def main(argv: list[str]) -> int:
         if os.path.exists(jumps):
             wram |= {int(line.split()[0], 16) for line in open(jumps) if line.strip()}
             os.remove(jumps)
-    if len(wram) > 63:
-        print(f'find_overlays: {len(wram)} WRAM entries, more than ct_boot logs', file=sys.stderr)
-        return 1
-    # pass 2: loads and executions in time order
+    # pass 2: loads and executions in time order. ct_boot logs at most
+    # MAX_LOG entries per run, so re-run each replay once per batch of
+    # WRAM entries and merge; attribution within a batch is self-contained
+    # because the decompressor itself is logged in every batch.
     sizes: dict[int, int] = {}
+
+    def size_of(src: int) -> int:
+        if src not in sizes:
+            try:
+                sizes[src] = len(ct_decompress.decompress(rom, src))
+            except ct_decompress.DecompressError as ex:
+                print(f'# skip ${src:06X}: {ex}', file=sys.stderr)
+                sizes[src] = 0
+        return sizes[src]
+
     loads: dict[tuple[int, int], set[str]] = {}          # (src, dst) -> runs
     entries: dict[tuple[int, int, int], set[str]] = {}   # (src, dst, entry) -> states
+    batches = list(batched(sorted(wram), MAX_LOG_ENTRIES)) or [[]]
+    if len(batches) > 1:
+        print(f'# {len(wram)} WRAM entries: pass 2 in {len(batches)} batches of '
+              f'at most {MAX_LOG_ENTRIES}', file=sys.stderr)
     for name, args in runs():
-        log = [f'{DECOMPRESS:06X}:0300'] + [f'{a:06X}' for a in sorted(wram)]
-        r = subprocess.run([probe, *args, *(x for a in log for x in ('--log-entry', a))],
-                           capture_output=True, text=True)
-        resident: list[tuple[int, int, int]] = []   # (dst, end, src), latest last
         n_calls = 0
-        for line in r.stdout.splitlines():
-            m = ENTRY_RE.match(line)
-            if not m:
-                continue
-            at = int(m.group(1), 16)
-            if at == DECOMPRESS:
-                dp = [int(b, 16) if b != '--' else 0 for b in m.group(5).split()]
-                src = dp[0] | dp[1] << 8 | dp[2] << 16
-                dst = (0x7F if dp[5] & 1 else 0x7E) << 16 | dp[3] | dp[4] << 8
-                if src not in sizes:
-                    try:
-                        sizes[src] = len(ct_decompress.decompress(rom, src))
-                    except ct_decompress.DecompressError as ex:
-                        print(f'# skip ${src:06X}: {ex}', file=sys.stderr)
-                        sizes[src] = 0
-                loads.setdefault((src, dst), set()).add(name)
-                resident.append((dst, dst + sizes[src], src))
-                n_calls += 1
-                continue
-            owner = next((r_ for r_ in reversed(resident) if r_[0] <= at < r_[1]), None)
-            state = f'm{m.group(3)}x{m.group(4)}'
-            if owner is None:
-                entries.setdefault((0, 0, at), set()).add(state)
-            else:
-                entries.setdefault((owner[2], owner[0], at), set()).add(state)
+        for batch in batches:
+            log = [f'{DECOMPRESS:06X}:0300'] + [f'{a:06X}' for a in batch]
+            r = subprocess.run([probe, *args, *(x for a in log for x in ('--log-entry', a))],
+                               capture_output=True, text=True)
+            got_loads, got_entries, got_calls = attribute_run(r.stdout.splitlines(), size_of)
+            n_calls += got_calls
+            for key in got_loads:
+                loads.setdefault(key, set()).add(name)
+            for key, states in got_entries.items():
+                entries.setdefault(key, set()).update(states)
         print(f'# {name}: {n_calls} decompressor calls', file=sys.stderr)
 
     overlays, covered = [], set()
