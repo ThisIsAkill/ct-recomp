@@ -47,8 +47,9 @@ def main(argv: list[str]) -> int:
         if old != data:
             with open(path, 'wb') as f:
                 f.write(data)
+        image = path.replace('\\', '\\\\')   # TOML basic strings escape backslashes
         manifest += ['[[overlay]]', f'name = "{ov["name"]}"', f'dst = 0x{ov["dst"]:06X}',
-                     f'image = "{path}"']
+                     f'image = "{image}"']
         for e in ov.get('entry', []):
             states = ', '.join(f'"{s}"' for s in e['states'])
             manifest += ['[[overlay.entry]]', f'addr = 0x{e["addr"]:06X}', f'states = [{states}]']
