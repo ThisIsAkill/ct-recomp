@@ -3,7 +3,7 @@
 compiled become interpreter calls (#30), with the continuation decoded in
 the call's own M/X; decode.assumed_calls marks the calls whose M/X rest on
 such an assumption until a REP/SEP grounds them; a JMP to the routine's own
-entry is a loop, not a tail call; WDM is never code; code in WRAM decodes
+entry is a loop, not a tail call; WDM executes as a NOP; code in WRAM decodes
 from its image (decode.Image) and nowhere else; jump tables of unknown
 length and JMLs to uncompiled code go through the interpreter's dispatch."""
 import os
@@ -11,6 +11,8 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'recomp'))
 import decode  # noqa: E402
+import emit  # noqa: E402
+import funcs  # noqa: E402
 
 fails = 0
 
@@ -67,12 +69,59 @@ rom = rom_with(bytes([0x4C, 0x00, 0x00]))
 fn = decode.decode_function(rom, 0xE48000, m1x0, Resolver())
 check(len(fn.tails) == 1, 'jump to another registered entry is a tail call')
 
+# WDM ($42 + signature byte) is reserved on the 65C816 and executes as a
+# two-byte NOP in both engines, so it decodes and emits like one.
 rom = rom_with(bytes([0xEA, 0x42, 0x00, 0x60]))
-try:
-    decode.decode_function(rom, 0xE48000, m1x0, Resolver())
-    check(False, 'WDM rejected')
-except decode.DecodeError as ex:
-    check('WDM' in str(ex), f'WDM rejected: {ex}')
+fn = decode.decode_function(rom, 0xE48000, m1x0, Resolver())
+check([i.mnemonic for i in fn.insns] == ['NOP', 'WDM', 'RTS'],
+      f'WDM decodes as NOP: {[i.mnemonic for i in fn.insns]}')
+check(0x42 in emit.implemented_opcodes(), 'WDM: emitter implements opcode')
+
+# RTI ($40) ends a handler; the emitter returns through op_rti.
+fn = decode.decode_function(rom_with(bytes([0x40])), 0xE48000, m1x0, Resolver())
+check(('RTI', True, False) in fn.exit_states, f'RTI exit: {fn.exit_states}')
+check(0x40 in emit.implemented_opcodes(), 'RTI: emitter implements opcode')
+body = '\n'.join(emit.emit_function(
+    funcs.FuncMeta('rti_handler', 0xE48000, ('m1x0',), 0, None, None, 'test'), fn))
+check('op_rti(cpu, 0xE48000);' in body, 'RTI: emitter returns through op_rti')
+
+# MVP ($44, block move down) with 16-bit indexes emits mvp16 like MVN's mvn16.
+fn = decode.decode_function(rom_with(bytes([0x44, 0x7E, 0x7F, 0x60])), 0xE48000,
+                            decode.State(True, False), Resolver())
+check([i.mnemonic for i in fn.insns] == ['MVP', 'RTS'], 'MVP decodes')
+check(0x44 in emit.implemented_opcodes(), 'MVP: emitter implements opcode')
+body = '\n'.join(emit.emit_function(
+    funcs.FuncMeta('mvp_move', 0xE48000, ('m1x0',), 0, None, None, 'test'), fn))
+check('mvp16(cpu, 0xE48000, 0x7E, 0x7F);' in body, f'MVP: emitter emits mvp16: {body}')
+
+# MVN/MVP with 8-bit indexes (X flag set): the index registers step masked
+# to 8 bits (as the interpreter's block_move does), so the emitter needs
+# the mvn8/mvp8 forms, not a "width 8 not implemented" failure.
+m1x1 = decode.State(True, True)
+fn = decode.decode_function(rom_with(bytes([0x54, 0x7E, 0x7F, 0x60])), 0xE48000,
+                            m1x1, Resolver())
+check([i.mnemonic for i in fn.insns] == ['MVN', 'RTS'], 'MVN (x1) decodes')
+body = '\n'.join(emit.emit_function(
+    funcs.FuncMeta('mvn_move8', 0xE48000, ('m1x1',), 0, None, None, 'test'), fn))
+check('mvn8(cpu, 0xE48000, 0x7E, 0x7F);' in body, f'MVN (x1): emitter emits mvn8: {body}')
+fn = decode.decode_function(rom_with(bytes([0x44, 0x7E, 0x7F, 0x60])), 0xE48000,
+                            m1x1, Resolver())
+check([i.mnemonic for i in fn.insns] == ['MVP', 'RTS'], 'MVP (x1) decodes')
+body = '\n'.join(emit.emit_function(
+    funcs.FuncMeta('mvp_move8', 0xE48000, ('m1x1',), 0, None, None, 'test'), fn))
+check('mvp8(cpu, 0xE48000, 0x7E, 0x7F);' in body, f'MVP (x1): emitter emits mvp8: {body}')
+
+# JML [$9000] ($DC): target is a 24-bit bank-0 pointer known only at run
+# time, so decode marks it dynamic and emit reads the pointer and dispatches.
+fn = decode.decode_function(rom_with(bytes([0xDC, 0x00, 0x90])), 0xE48000, m1x0, Resolver())
+check(list(fn.dyn_tables) and ('?', None, None) in fn.exit_states,
+      'JML (abs_ind_long): dynamic, exits unknown')
+check(0xDC in emit.implemented_opcodes(), 'JML (abs_ind_long): emitter implements opcode')
+body = '\n'.join(emit.emit_function(
+    funcs.FuncMeta('jml_ind', 0xE48000, ('m1x0',), 0, None, None, 'test'), fn))
+check('read16_b0(0x9000)' in body and 'cpu->PB = (uint8_t)(t >> 16);' in body and
+      'ct_tail_rest(cpu, s0);' in body,
+      'JML (abs_ind_long): emitter reads bank-0 pointer and dispatches')
 
 # Code in WRAM (an overlay image, #92): $7E4000: JSR $4010 / BRA +1 / RTS,
 # where $7E4010 (in the image) runs interpreted; nothing past the image is read.
@@ -99,6 +148,17 @@ check(list(fn.dyn_tables) and [i.addr for i in fn.insns] == [0xE48000, 0xE48003]
 # JMP ($9000,X): the path ends, what it returns with is unknown
 fn = decode.decode_function(rom_with(bytes([0x7C, 0x00, 0x90])), 0xE48000, m1x0, Dyn())
 check(list(fn.dyn_tables) and ('?', None, None) in fn.exit_states, 'JMP (abs,X): exits unknown')
+# JMP ($9000): an absolute-indirect jump has no X offset, but its target is
+# still only known at run time, so decode marks it dynamic and emit reads the
+# pointer from bank 0 before dispatching.
+fn = decode.decode_function(rom_with(bytes([0x6C, 0x00, 0x90])), 0xE48000, m1x0, Dyn())
+check(list(fn.dyn_tables) and [i.addr for i in fn.insns] == [0xE48000] and
+      ('?', None, None) in fn.exit_states, 'JMP (abs): dynamic, exits unknown')
+check(0x6C in emit.implemented_opcodes(), 'JMP (abs): emitter implements opcode')
+body = '\n'.join(emit.emit_function(
+    funcs.FuncMeta('jmp_abs_ind', 0xE48000, ('m1x0',), 0, None, None, 'test'), fn))
+check('read16_b0(0x9000)' in body and 'cpu->PC = (uint16_t)t;' in body and
+      'ct_tail_rest(cpu, s0);' in body, 'JMP (abs): emitter reads bank-0 pointer and dispatches')
 # JML $E50000 (not compiled): continues through the interpreter, exits unknown
 fn = decode.decode_function(rom_with(bytes([0x5C, 0x00, 0x00, 0xE5])), 0xE48000, m1x0, Dyn())
 check({k[0]: t for k, (t, _) in fn.interp_tails.items()} == {0xE48000: 0xE50000} and

@@ -7,7 +7,7 @@ src = 0xC31313
 dst = 0x7E3000
 size = 0x857F
 fnv64 = "6316fcc01010d923"
-seen = ["boot", "gato_battle", "leene_square"]
+seen = ["boot", "canyon_guardia", "fair_wander", "gato_battle", "gato_win", "leene_square", "marle_joins", "marle_meeting", "telepod_exhibit", "telepod_gate", "telepod_ride"]
 source = "profile"
 [[overlay.entry]]
 addr = 0x7E3000
@@ -106,6 +106,10 @@ states = ["m0x0"]
 addr = 0x7E5C57
 states = ["m1x0"]
 [[overlay.entry]]
+# REGISTERED (2026-11-05): entry $7E5C98 m0x0 below was dropped while
+# test_diff trials 685/1900 diverged at its JSR ($0950,X) hand-off;
+# root cause was the interp_call frame bug fixed in runtime/interp.c
+# (nested-callee RTS ending the outer call). Now fuzz-clean.
 addr = 0x7E5C98
 states = ["m0x0"]
 [[overlay.entry]]
@@ -150,4 +154,3 @@ states = ["m1x0"]
 [[overlay.entry]]
 addr = 0x7E9690
 states = ["m0x0"]
-

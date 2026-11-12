@@ -207,6 +207,11 @@ _SPECIAL = {
     (0xDB, ''):   lambda i: [f'ct_fatal("${i.addr:06X}: STP executed");'],
     (0xCB, ''):   lambda i: [f'ct_fatal("${i.addr:06X}: WAI executed");'],
     (0x54, '16'): lambda i: [f'mvn16(cpu, 0x{i.addr:06X}, 0x{i.operand & 0xFF:02X}, 0x{i.operand >> 8:02X});'],  # MVN
+    (0x44, '16'): lambda i: [f'mvp16(cpu, 0x{i.addr:06X}, 0x{i.operand & 0xFF:02X}, 0x{i.operand >> 8:02X});'],  # MVP
+    (0x54, '8'):  lambda i: [f'mvn8(cpu, 0x{i.addr:06X}, 0x{i.operand & 0xFF:02X}, 0x{i.operand >> 8:02X});'],  # MVN, 8-bit indexes
+    (0x44, '8'):  lambda i: [f'mvp8(cpu, 0x{i.addr:06X}, 0x{i.operand & 0xFF:02X}, 0x{i.operand >> 8:02X});'],  # MVP, 8-bit indexes
+    (0x40, ''):   lambda i: [f'op_rti(cpu, 0x{i.addr:06X});', 'return;'],              # RTI
+    (0x42, ''):   lambda i: [';'],                                                         # WDM: reserved, acts as NOP
 }
 
 
@@ -230,7 +235,7 @@ NO_FALLTHROUGH = {'RTS', 'RTL', 'RTI', 'BRA', 'BRL', 'JMP', 'JML', 'STP', 'BRK',
 
 
 def implemented_opcodes() -> set[int]:
-    return {op for op, _ in TEMPLATES} | {0x20, 0x22, 0x4C, 0x5C, 0x7C, 0xFC}   # emit_function
+    return {op for op, _ in TEMPLATES} | {0x20, 0x22, 0x4C, 0x5C, 0x6C, 0x7C, 0xDC, 0xFC}   # emit_function
 
 
 _OVERLAY = ''   # set while emitting an overlay: names its WRAM functions
@@ -354,12 +359,22 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
             raise EmitError(str(ex)) from None
         t = TEMPLATES.get((i.opcode, w))
 
-        if i.opcode in (0xFC, 0x7C) and i.key in fn.dyn_tables:
+        if i.opcode in (0xFC, 0x7C, 0x6C, 0xDC) and i.key in fn.dyn_tables:
             cst = fn.dyn_tables[i.key]
             bank = i.addr >> 16
             ret = (i.addr + 2) & 0xFFFF
 
             def t(i, cst=cst, bank=bank, ret=ret):
+                if i.opcode == 0xDC:   # JML [$xxxx]: 24-bit pointer in bank 0
+                    return [_strict_rest(i),
+                            f'uint32_t t = read16_b0(0x{i.operand:04X}) | '
+                            f'(uint32_t)read8(0x{(i.operand + 2) & 0xFFFF:04X}) << 16;',
+                            'cpu->PB = (uint8_t)(t >> 16);', 'cpu->PC = (uint16_t)t;',
+                            'ct_interp_rest(cpu, s0);', 'return;']
+                if i.opcode == 0x6C:   # JMP ($xxxx): pointer in bank 0, target in this bank
+                    return [_strict_rest(i),
+                            f'uint32_t t = 0x{bank:02X}0000u | read16_b0(0x{i.operand:04X});',
+                            'cpu->PC = (uint16_t)t;', 'ct_interp_rest(cpu, s0);', 'return;']
                 # a table of unknown length: read the target as the CPU does
                 # (bus reads, after a JSR's pushes: the cycle model charges
                 # them at the table's own speed) and let the dispatcher run it
@@ -475,6 +490,12 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
                 t = lambda i, target=target, cst=cst: [f'cpu->PB = 0x{target >> 16:02X};',
                                                        f'ct_tail(cpu, {callee(target, cst)});',
                                                        'return;']
+        elif i.opcode == 0x4C and i.key in fn.interp_tails:
+            target = fn.interp_tails[i.key][0]
+            t = lambda i, target=target: [f'cpu->PB = 0x{target >> 16:02X};',
+                                          f'cpu->PC = 0x{target & 0xFFFF:04X};',
+                                          'ct_interp_rest(cpu, s0);   /* scheduler boundary: its return is ours */',
+                                          'return;']
         elif i.opcode == 0x4C:
             if i.key in fn.tails:
                 target, cst = fn.tails[i.key]
@@ -488,6 +509,15 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
                 dest = label(tgt, post)
                 tick = f'ct_loop(0x{i.addr:06X}); ' if tgt <= i.addr else ''
                 t = lambda i, dest=dest, tick=tick: [f'{tick}goto {dest};']
+        elif i.mnemonic in _BRANCH and i.key in fn.interp_tails:
+            target = fn.interp_tails[i.key][0]
+            cond = _BRANCH[i.mnemonic]
+            xfer = (f'cpu->PB = 0x{target >> 16:02X}; cpu->PC = 0x{target & 0xFFFF:04X}; '
+                    'ct_interp_rest(cpu, s0); return;   /* scheduler boundary */')
+            if cond:
+                t = lambda i, cond=cond, xfer=xfer: [f'if ({cond}) {{ {xfer} }}']
+            else:
+                t = lambda i, xfer=xfer: [xfer]
         elif i.mnemonic in _BRANCH:
             tgt = i.branch_target()
             dest = label(tgt, post)
@@ -505,7 +535,9 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
             raise EmitError(f'${i.addr:06X}: {i.text()} (opcode ${i.opcode:02X}, '
                             f'width {w or "-"}) not implemented')
         body = t(i)
-        if i.mnemonic == 'PLP':
+        if i.mnemonic == 'PLP' and i.key in fn.call_exits:
+            pass  # unknown provenance: runtime dispatch below, no static check
+        elif i.mnemonic == 'PLP':
             if post[0] is None or post[1] is None:
                 raise EmitError(f'${i.addr:06X}: PLP restores unknown M/X')
             body.append(f'cpu_check_mx(cpu, 0x{i.addr:06X}, {int(post[0])}, {int(post[1])});')

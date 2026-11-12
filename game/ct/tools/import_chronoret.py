@@ -34,7 +34,7 @@ def parse(path: str) -> list[dict]:
     out = []
     entry_note = None
     pending_org = None
-    with open(path) as f:
+    with open(path, encoding='utf-8', errors='replace') as f:
         lines = f.readlines()
     for n, line in enumerate(lines):
         m = ENTRY_RE.match(line)
@@ -47,7 +47,16 @@ def parse(path: str) -> list[dict]:
             continue
         m = LABEL_RE.match(line)
         if m and pending_org is not None:
-            out.append({'name': m.group(1), 'addr': pending_org, 'entry': entry_note, 'line': n + 1})
+            # A label whose first body line is a data directive (a handler
+            # table, a pointer) is not a routine; flag it so callers skip it.
+            data = False
+            for body in lines[n + 1:]:
+                if not body.strip() or body.startswith(';'):
+                    continue
+                data = re.match(r'\s+(dw|db|dl|dd)\b', body) is not None
+                break
+            out.append({'name': m.group(1), 'addr': pending_org, 'entry': entry_note,
+                        'line': n + 1, 'data': data})
             pending_org = None
             entry_note = None
             continue
