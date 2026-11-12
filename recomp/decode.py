@@ -548,6 +548,13 @@ def _stack_size(kind, st: State, addr: int, mnemonic: str) -> int:
     return kind
 
 
+def _boundary(resolve, addr: int) -> bool:
+    """A scheduler boundary address (funcs.toml [[boundary]]): decode stops
+    there and hands the rest to the interpreter (fn.interp_tails)."""
+    b = getattr(resolve, 'boundaries', None)
+    return b is not None and addr in b
+
+
 def next_state(i: Insn, st: State) -> State:
     nxt = _next_state(i, st)
     ck = {'CLC': False, 'SEC': True}.get(i.mnemonic)
@@ -619,6 +626,12 @@ class Function:
     # interpreter's dispatch (compiled targets still run native); a JSR's
     # continuation assumes M/X come back unchanged, a JMP ends the path.
     dyn_tables: dict = field(default_factory=dict)
+    # JSR/JSL whose operand the game itself rewrites (a patched call site,
+    # declared by address): key -> entry State. Like a dynamic table call,
+    # the target is read from the operand bytes at run time and run through
+    # the interpreter's dispatch; the continuation assumes M/X unchanged.
+    # Overlay hashes leave the operand bytes out (#97).
+    patched_calls: dict = field(default_factory=dict)
     # JML to code that isn't compiled -> (target, entry State): execution
     # continues there through the interpreter's dispatch (a jump into a
     # program in WRAM, say); what it returns with is unknown.
@@ -657,13 +670,16 @@ def _continue(fn: Function, ikey: tuple, i: Insn, nxt: State, exits: set, work: 
     return states[0]
 
 
-def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function:
+def decode_function(rom: bytes, entry: int, st: State, resolve=None,
+                    patched=frozenset()) -> Function:
     """Decode all instructions reachable from entry without leaving the
     function. In-bank branches are followed. JSR abs requires resolve:
     resolve(site, target, state) -> (m, x) exit state of the callee.
     JMP abs to a registered entry (resolve.tail) is a tail call; any other
     JMP abs is followed as an in-function jump. Other calls and far jumps
-    are rejected."""
+    are rejected. A JSR/JSL whose address is in `patched` (the game
+    rewrites its operand) decodes as a patched call instead: no static
+    target, no resolver."""
     fn = Function(entry, st)
     seen: set[tuple] = set()
     work = [(entry, st)]
@@ -679,13 +695,35 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
             nxt = next_state(i, cur)
             fn.post[ikey] = nxt.key()
             mn = i.mnemonic
+            if mn == 'PLP' and (nxt.m is None or nxt.x is None):
+                # Pulled byte pushed before entry: M/X is a run-time fact.
+                # Fork into every consistent state; emitter dispatches on
+                # cpu->m/x after the pull (call_exits mechanism).
+                ms = (nxt.m,) if nxt.m is not None else (False, True)
+                xs = (nxt.x,) if nxt.x is not None else (False, True)
+                states = [State(m, x, nxt.e, nxt.stack, nxt.stack_lost) for m, x in sorted((m, x) for m in ms for x in xs)]
+                fn.call_exits[ikey] = [s.key() for s in states]
+                for s in states[1:]:
+                    work.append((i.next_addr, s))
+                fn.post[ikey] = states[0].key()
+                nxt = states[0]
             if mn in RETURNS:
                 fn.exit_states.add((mn, nxt.m, nxt.x))
                 break
             if mn in BRANCHES:
-                work.append((i.branch_target(), nxt))
+                tgt = i.branch_target()
+                if _boundary(resolve, tgt):
+                    fn.interp_tails[ikey] = (tgt, State(nxt.m, nxt.x, nxt.e))
+                    fn.exit_states.add(('?', None, None))
+                else:
+                    work.append((tgt, nxt))
             elif mn in ('BRA', 'BRL'):
-                addr, cur = i.branch_target(), nxt
+                tgt = i.branch_target()
+                if _boundary(resolve, tgt):
+                    fn.interp_tails[ikey] = (tgt, State(nxt.m, nxt.x, nxt.e))
+                    fn.exit_states.add(('?', None, None))
+                    break
+                addr, cur = tgt, nxt
                 continue
             elif mn == 'JML' and i.mode == 'long':
                 if resolve is None:
@@ -699,11 +737,21 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
                 fn.tails[ikey] = (i.operand, cst)
                 fn.exit_states |= resolve.tail_required(addr, i.operand, cst)
                 break
+            elif mn == 'JML' and i.mode == 'abs_ind_long':
+                if resolve is None:
+                    raise DecodeError(f'${addr:06X}: {i.text()}: no call resolver')
+                fn.dyn_tables[ikey] = State(nxt.m, nxt.x, nxt.e)
+                fn.exit_states.add(('?', None, None))   # target known only at run time
+                break
             elif mn == 'JMP' and i.mode == 'abs':
                 target = (addr & 0xFF0000) | i.operand
                 cst = State(nxt.m, nxt.x, nxt.e)
                 # a jump to this function's own entry in its entry state is a
                 # loop, not a tail call (that would recurse in C)
+                if _boundary(resolve, target):
+                    fn.interp_tails[ikey] = (target, cst)
+                    fn.exit_states.add(('?', None, None))
+                    break
                 own = target == entry and cst.key() == st.key()
                 exits = resolve.tail(addr, target, cst) if resolve is not None and not own else None
                 if exits is not None:
@@ -713,6 +761,14 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
                 addr, cur = target, nxt
                 continue
             elif (mn == 'JSR' and i.mode == 'abs') or (mn == 'JSL' and i.mode == 'long'):
+                if addr in patched:
+                    # the operand is rewritten at run time: no static target
+                    fn.patched_calls[ikey] = State(nxt.m, nxt.x, nxt.e)
+                    nxt = _continue(fn, ikey, i, nxt, {(nxt.m, nxt.x)}, work)
+                    if nxt is None:
+                        break
+                    addr, cur = i.next_addr, nxt
+                    continue
                 if resolve is None:
                     raise DecodeError(f'${addr:06X}: {i.text()}: no call resolver')
                 target = (addr & 0xFF0000) | i.operand if mn == 'JSR' else i.operand
@@ -729,17 +785,20 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
                 if exits is None:   # not compiled for this state, or returns who knows how
                     fn.interp_calls[ikey] = (target, cst)
                     exits = {(nxt.m, nxt.x)}
+                other = getattr(resolve, 'other_exits', None)
+                if other is not None and ikey in fn.calls:
+                    fn.exit_states |= other(target, cst, mn)   # unwind exits are ours too
                 nxt = _continue(fn, ikey, i, nxt, exits, work)
                 if nxt is None:
                     break
-            elif mn in ('JSR', 'JMP') and i.mode == 'abs_x_ind':
+            elif mn in ('JSR', 'JMP') and i.mode in ('abs_x_ind', 'abs_ind'):
                 if resolve is None:
                     raise DecodeError(f'${addr:06X}: {i.text()}: no call resolver')
                 cst = State(nxt.m, nxt.x, nxt.e)
-                if cst.x is None:
+                if i.mode == 'abs_x_ind' and cst.x is None:
                     raise DecodeError(f'${addr:06X}: {i.text()}: X width unknown')
-                if getattr(resolve, 'missing', None) is not None and \
-                        i.addr not in getattr(resolve, 'jumptables', {i.addr: 0}):
+                if i.mode == 'abs_ind' or (getattr(resolve, 'missing', None) is not None and \
+                        i.addr not in getattr(resolve, 'jumptables', {i.addr: 0})):
                     fn.dyn_tables[ikey] = cst
                     if mn == 'JMP':
                         fn.exit_states.add(('?', None, None))   # whatever the target does
@@ -769,6 +828,9 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
                         continue
                     try:
                         exits |= resolve(addr, tg, cst, 'JSR')
+                        other = getattr(resolve, 'other_exits', None)
+                        if other is not None:
+                            fn.exit_states |= other(tg, cst, 'JSR')
                     except UnknownExit:
                         if missing is None:
                             raise
@@ -779,8 +841,6 @@ def decode_function(rom: bytes, entry: int, st: State, resolve=None) -> Function
                 nxt = _continue(fn, ikey, i, nxt, exits, work)
                 if nxt is None:
                     break
-            elif mn == 'WDM':
-                raise DecodeError(f'${addr:06X}: WDM: not code (data decoded as code?)')
             elif mn in ('BRK', 'COP', 'STP', 'WAI'):
                 break   # translated as a run-time fatal error
             elif mn in ('JSR', 'JSL', 'JMP', 'JML'):
@@ -810,7 +870,8 @@ def assumed_calls(fn: Function) -> set:
             work.append(key)
 
     for i in fn.insns:
-        if i.key in fn.interp_calls or (i.key in fn.dyn_tables and i.mnemonic == 'JSR'):
+        if i.key in fn.interp_calls or i.key in fn.patched_calls or \
+                (i.key in fn.dyn_tables and i.mnemonic == 'JSR'):
             for k in fn.call_exits.get(i.key) or [fn.post[i.key]]:
                 reach((i.next_addr,) + tuple(k), True, True)
     while work:
@@ -839,7 +900,8 @@ def assumed_calls(fn: Function) -> set:
         for k in succ:
             reach(k, gm, gx)
     return {k for k in list(fn.calls) + list(fn.interp_calls) + list(fn.tables) +
-            list(fn.dyn_tables) if any(guess.get(k, (False, False)))}
+            list(fn.dyn_tables) + list(fn.patched_calls)
+            if any(guess.get(k, (False, False)))}
 
 
 def listing(fn: Function) -> str:
