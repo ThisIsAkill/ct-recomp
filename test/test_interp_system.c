@@ -3,6 +3,16 @@
  * the ROM vector, RTI, and WAI. Test programs run from WRAM ($7E, 8 master
  * clocks per cycle). */
 #include <setjmp.h>
+#if defined(_WIN32)
+/* Observed on MinGW: a standard (SEH) longjmp out of interp_step raises
+   STATUS_BAD_STACK on this call chain. The builtin forms only restore
+   registers and work; runtime/sched.c already relies on them the same
+   way for its overlay dispatch. */
+#undef setjmp
+#undef longjmp
+#define setjmp __builtin_setjmp
+#define longjmp __builtin_longjmp
+#endif
 
 #include "harness.h"
 

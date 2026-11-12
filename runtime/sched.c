@@ -1,7 +1,11 @@
 #include "sched.h"
 
 #include <setjmp.h>
+#if defined(_WIN32)
+#include <windows.h>   /* the CPU coroutine below runs on a fiber instead */
+#else
 #include <ucontext.h>
+#endif
 #include <string.h>
 #include <stdio.h>
 
@@ -73,8 +77,12 @@ static unsigned line_clocks(void);
 static void walk_reset(void);
 static void yield_frame(void);
 #define CPU_STACK (8u << 20)
+#if defined(_WIN32)
+static void *cpu_fiber, *host_fiber;
+#else
 static ucontext_t cpu_ctx, host_ctx;
 static char *cpu_stack;
+#endif
 static size_t max_stack;   /* deepest C stack use seen on the CPU's stack */
 
 /* Record how deep the CPU's C stack is here (#101); cheap enough for the
@@ -82,16 +90,46 @@ static size_t max_stack;   /* deepest C stack use seen on the CPU's stack */
 static void note_stack(void)
 {
     char here;
+#if defined(_WIN32)
+    /* The fiber's stack bounds live in the thread information block. */
+    char *top = (char *)((NT_TIB *)NtCurrentTeb())->StackBase;
+    if (&here < top) {
+        size_t d = (size_t)(top - &here);
+        if (d > max_stack)
+            max_stack = d;
+    }
+#else
     if (cpu_stack && &here > cpu_stack && &here < cpu_stack + CPU_STACK) {
         size_t d = (size_t)(cpu_stack + CPU_STACK - &here);
         if (d > max_stack)
             max_stack = d;
     }
+#endif
 }
 
 size_t sched_max_stack(void) { return max_stack; }
 static int cpu_live;   /* started since sched_init */
 static int in_cpu;     /* running on it now */
+#if defined(_WIN32)
+/* A ct_fatal raised on the CPU (or SPC) fiber is delivered on the host
+   fiber instead: the hook's longjmp to a host setjmp must not unwind SEH
+   frames across fibers (STATUS_BAD_STACK, or worse). The escape records
+   the message and switches; sched_run_frame then runs the hook through
+   ct_fatal_deliver before doing anything else. */
+static char fatal_pending[256];
+static int fatal_set;
+
+static void fatal_escape(const char *msg)
+{
+    if (!in_cpu)
+        return;
+    snprintf(fatal_pending, sizeof fatal_pending, "%s", msg);
+    fatal_set = 1;
+    in_cpu = 0;
+    SwitchToFiber(host_fiber);
+    in_cpu = 1;   /* resumed only if the host ever switches back */
+}
+#endif
 static void exec_hook(CPU *c, const ct_exec_until *u);
 static unsigned reset_delay(void);
 static void native_build(void);
@@ -397,6 +435,10 @@ void sched_init(CPU *c)
     hclock = 0;
     need_start = 1;
     cpu_live = in_cpu = 0;   /* a CPU coroutine from before is dropped */
+#if defined(_WIN32)
+    fatal_set = 0;
+    ct_fatal_escape = fatal_escape;
+#endif
     overlay_reset_active();
     reset_armed = 0;
     /* From power-on (emulation mode), the reset sequence runs before the
@@ -1490,7 +1532,11 @@ static void yield_frame(void)
     if (!in_cpu)
         return;
     in_cpu = 0;
+#if defined(_WIN32)
+    SwitchToFiber(host_fiber);
+#else
     swapcontext(&cpu_ctx, &host_ctx);
+#endif
     in_cpu = 1;
 }
 
@@ -1514,11 +1560,28 @@ static void cpu_main(void)
     }
 }
 
+#if defined(_WIN32)
+static void CALLBACK cpu_fiber_main(void *)
+{
+    cpu_main();
+}
+#endif
+
 long sched_run_frame(void)
 {
     long f0 = frames;
     frame_done = 0;
     if (!cpu_live) {
+#if defined(_WIN32)
+        if (cpu_fiber)
+            DeleteFiber(cpu_fiber);   /* dropped by sched_init since */
+        host_fiber = IsThreadAFiber() ? GetCurrentFiber()
+                                      : ConvertThreadToFiber(NULL);
+        cpu_fiber = CreateFiberEx(CPU_STACK / 64, CPU_STACK, 0,
+                                  cpu_fiber_main, NULL);
+        if (!host_fiber || !cpu_fiber)
+            ct_fatal("sched: cannot create the CPU fiber");
+#else
         if (!cpu_stack && !(cpu_stack = malloc(CPU_STACK)))
             ct_fatal("sched: out of memory for the CPU stack");
         getcontext(&cpu_ctx);
@@ -1526,9 +1589,21 @@ long sched_run_frame(void)
         cpu_ctx.uc_stack.ss_size = CPU_STACK;
         cpu_ctx.uc_link = NULL;
         makecontext(&cpu_ctx, cpu_main, 0);
+#endif
         cpu_live = 1;
     }
+#if defined(_WIN32)
+    host_fiber = GetCurrentFiber();   /* as swapcontext would re-save it */
+    SwitchToFiber(cpu_fiber);
+    if (fatal_set) {                  /* a fatal waited on the CPU fiber */
+        char msg[256];
+        snprintf(msg, sizeof msg, "%s", fatal_pending);
+        fatal_set = 0;
+        ct_fatal_deliver(msg);        /* the hook, on this host fiber */
+    }
+#else
     swapcontext(&host_ctx, &cpu_ctx);
+#endif
     return frames - f0;
 }
 

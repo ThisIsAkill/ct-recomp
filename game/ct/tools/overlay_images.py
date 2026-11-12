@@ -5,7 +5,8 @@ the recorded FNV-1a 64 hash (a mismatch means the decompressor port or the
 list is wrong: fail the build), and write OUT_DIR/manifest.toml, the
 game-agnostic list recomp/emit.py --overlays reads:
 
-  [[overlay]]  name, dst (24-bit WRAM address), image (path), and
+  [[overlay]]  name, dst (24-bit WRAM address), image (path), patched
+  (JSR/JSL sites whose operand the game rewrites, #97), and
   [[overlay.entry]]  addr, states
 
 Everything written is derived from the ROM: it stays in the build tree.
@@ -47,8 +48,12 @@ def main(argv: list[str]) -> int:
         if old != data:
             with open(path, 'wb') as f:
                 f.write(data)
+        image = path.replace('\\', '\\\\')   # TOML basic strings escape backslashes
         manifest += ['[[overlay]]', f'name = "{ov["name"]}"', f'dst = 0x{ov["dst"]:06X}',
-                     f'image = "{path}"']
+                     f'image = "{image}"']
+        if ov.get('patched'):
+            sites = ', '.join(f'0x{a:06X}' for a in ov['patched'])
+            manifest.append(f'patched = [{sites}]')
         for e in ov.get('entry', []):
             states = ', '.join(f'"{s}"' for s in e['states'])
             manifest += ['[[overlay.entry]]', f'addr = 0x{e["addr"]:06X}', f'states = [{states}]']
