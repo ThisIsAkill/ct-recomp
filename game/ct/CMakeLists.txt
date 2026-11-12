@@ -134,6 +134,11 @@ add_test(NAME sync_determinism COMMAND ${Python3_EXECUTABLE} ${GAME_DIR}/test/te
 set_tests_properties(sync_determinism PROPERTIES SKIP_RETURN_CODE 77)
 add_test(NAME manual_root COMMAND ${Python3_EXECUTABLE} ${GAME_DIR}/test/test_manual_root.py)
 add_test(NAME discover_loop COMMAND ${Python3_EXECUTABLE} ${GAME_DIR}/test/test_discover_loop.py)
+add_test(NAME discover_table COMMAND ${Python3_EXECUTABLE} ${GAME_DIR}/test/test_discover_table.py)
+add_test(NAME decode_boundary COMMAND ${Python3_EXECUTABLE} ${GAME_DIR}/test/test_decode_boundary.py)
+add_test(NAME decode_plp COMMAND ${Python3_EXECUTABLE} ${GAME_DIR}/test/test_decode_plp.py)
+add_test(NAME find_overlays COMMAND ${Python3_EXECUTABLE} ${GAME_DIR}/test/test_find_overlays.py)
+add_test(NAME label_encoding COMMAND ${Python3_EXECUTABLE} ${GAME_DIR}/test/test_label_encoding.py)
 list(APPEND ct_game_tests sync_determinism manual_root)
 
 # tools/ct_decompress.py against the game's own decompressor, call by call.
@@ -162,6 +167,14 @@ list(APPEND ct_game_tests boot_interp boot_menu)
 # only in battle).
 add_test(NAME lockstep_boot COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/lockstep.py
     $<TARGET_FILE:ct_boot> --frames 1500)
+# Idle on the title into the attract demos: battle code there returns by
+# rewriting the stacked return address (RTS as a jump), which compiled
+# callers must hand off, not fatal on (frame 6779 before the hand-off).
+# Overlay fallback, not strict: the demos run the $7E3000 dispatcher
+# whose JSR operand at $7E3024 the game patches itself (#97); the hashes
+# still have to agree frame by frame.
+add_test(NAME lockstep_attract COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/lockstep.py
+    $<TARGET_FILE:ct_boot> --frames 16000 --overlay-fallback)
 add_test(NAME lockstep_leene_square COMMAND ${Python3_EXECUTABLE}
     ${CMAKE_SOURCE_DIR}/tools/lockstep.py $<TARGET_FILE:ct_boot> --frames 9210
     --script ${GAME_DIR}/test/replay/leene_square.txt --expect-pc C2940D)
@@ -174,13 +187,80 @@ add_test(NAME lockstep_gato_win COMMAND ${Python3_EXECUTABLE}
     ${CMAKE_SOURCE_DIR}/tools/lockstep.py $<TARGET_FILE:ct_boot> --frames 13950
     --script ${GAME_DIR}/test/replay/gato_win.txt
     --expect-wram 13400:6133=0 --expect-wram 13400:6134=0 --expect-wram 13400:5E30!=0)
+# To the Telepod gate at the top of the bell screen; the attendant's
+# "still setting up" dialogue (exhibit not ready on this route yet).
+add_test(NAME lockstep_telepod_gate COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_SOURCE_DIR}/tools/lockstep.py $<TARGET_FILE:ct_boot> --frames 21500
+    --script ${GAME_DIR}/test/replay/telepod_gate.txt)
+# The Marle meeting at Leene's Bell: bump into her, the pendant dialogue,
+# and Marle following - story event code past the first battle.
+add_test(NAME lockstep_marle_meeting COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_SOURCE_DIR}/tools/lockstep.py $<TARGET_FILE:ct_boot> --frames 11800
+    --script ${GAME_DIR}/test/replay/marle_meeting.txt)
+# Marle formally joins: bump, talk, pendant pickup at tile (30, 8),
+# return it, and the name-entry screen; party slot 2 ($7E2981) holds
+# Marle's character id 1 at the end.
+add_test(NAME lockstep_marle_joins COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_SOURCE_DIR}/tools/lockstep.py $<TARGET_FILE:ct_boot> --frames 24000
+    --script ${GAME_DIR}/test/replay/marle_joins.txt
+    --expect-wram 24000:2981=1)
+# Through the Telepod exhibit: the shopkeeper talk sets the gate flag,
+# Lucca's talk advances the story 8 -> 10, and Marle's talk runs the
+# Telepod demonstration; she vanishes and the story flag ($7F0000)
+# is 12 at the end.
+add_test(NAME lockstep_telepod_exhibit COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_SOURCE_DIR}/tools/lockstep.py $<TARGET_FILE:ct_boot> --frames 96600
+    --script ${GAME_DIR}/test/replay/telepod_exhibit.txt
+    --expect-wram 96600:10000=C)
+# Crono's own ride: step onto the left Telepod pad; Lucca's machine
+# sends him through the Gate to the 600 A.D. canyon (location 113),
+# where he is object 2 at tile (8.5, 8.9) at the end.
+add_test(NAME lockstep_telepod_ride COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_SOURCE_DIR}/tools/lockstep.py $<TARGET_FILE:ct_boot> --frames 105000
+    --script ${GAME_DIR}/test/replay/telepod_ride.txt
+    --expect-wram 105000:1805=8)
+# Through Truce Canyon (location 112) and out the south exit onto the
+# 600 A.D. overworld (location 497, WRAM $7E0100 = F1).
+add_test(NAME lockstep_canyon_guardia COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_SOURCE_DIR}/tools/lockstep.py $<TARGET_FILE:ct_boot> --frames 130000
+    --script ${GAME_DIR}/test/replay/canyon_guardia.txt
+    --expect-wram 130000:100=F1)
+# On the 600 A.D. overworld, tile (45, 36) facing north with an A press
+# enters location 118 at spawn (56, 11), story flag still $0C
+# (WRAM $7E0100 = 76 at the end).
+add_test(NAME lockstep_loc118_entry COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_SOURCE_DIR}/tools/lockstep.py $<TARGET_FILE:ct_boot> --frames 136500
+    --script ${GAME_DIR}/test/replay/loc118_entry.txt
+    --expect-wram 136500:100=76)
+# Into Truce (location 119) in 600 A.D. via the BFS-guided overworld
+# bridge route; enters at frame 179168 (WRAM $7E0100 = 77 at the end),
+# story flag still $0C.
+add_test(NAME lockstep_truce_entry COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_SOURCE_DIR}/tools/lockstep.py $<TARGET_FILE:ct_boot> --frames 183800
+    --script ${GAME_DIR}/test/replay/truce_entry.txt
+    --expect-wram 183800:100=77)
+# Through Truce's north exit to the overworld, north to Guardia Castle
+# (location 120), and the throne-room audience: the story flag
+# ($7F0000) advances $0C -> $0F at frame 197750 (WRAM $7E0100 = 78).
+add_test(NAME lockstep_castle_audience COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_SOURCE_DIR}/tools/lockstep.py $<TARGET_FILE:ct_boot> --frames 201500
+    --script ${GAME_DIR}/test/replay/castle_audience.txt
+    --expect-wram 201500:10000=F)
+# After the win: scripted wandering around Leene Square fair (direction
+# holds and A presses), exercising field movement, collision and NPC code
+# past the first battle.
+add_test(NAME lockstep_fair_wander COMMAND ${Python3_EXECUTABLE}
+    ${CMAKE_SOURCE_DIR}/tools/lockstep.py $<TARGET_FILE:ct_boot> --frames 19350
+    --script ${GAME_DIR}/test/replay/fair_wander.txt)
 # The C stack stays flat through a long stretch of field play (#101): the
 # field loop there jumps between compiled functions every frame, which used
 # to nest a C frame each time (275 KB by frame 10600; now about 2 KB).
 add_test(NAME stack_field_replay COMMAND $<TARGET_FILE:ct_boot> --frames 10600
     --script ${GAME_DIR}/test/replay/gato_win.txt --overlay-strict --max-stack 32768)
-list(APPEND ct_game_tests lockstep_boot lockstep_leene_square lockstep_gato_battle
-    lockstep_gato_win stack_field_replay)
+list(APPEND ct_game_tests lockstep_boot lockstep_attract lockstep_leene_square lockstep_gato_battle
+    lockstep_gato_win lockstep_fair_wander lockstep_marle_meeting lockstep_telepod_gate stack_field_replay
+    lockstep_marle_joins lockstep_telepod_exhibit lockstep_telepod_ride lockstep_canyon_guardia
+    lockstep_loc118_entry lockstep_truce_entry lockstep_castle_audience)
 
 # Battle sprites must not drop out on alternate frames (Gato's fight from
 # its start; broken until OAMADD kept its own reload value, test_hw_map).

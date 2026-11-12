@@ -134,6 +134,21 @@ KNOWN_BAD: dict[int, str] = {
                "($C0AF4E); the two likely share the broken code path"),
 }
 
+# Per-state version of KNOWN_BAD: (addr -> (states to strip, reason)). A
+# propagated state is a hint, and step-2 validation only checks that the
+# variant decodes; diff_all is the check that catches a variant that
+# decodes but is not a real entry state. Strip the state, keep the rest.
+KNOWN_BAD_STATES: dict[int, tuple[tuple[str, ...], str]] = {
+    0xC093E1: (("m1x1",), "diff_all: Camera_ApplyScrollSteps in m1x1 "
+               "unbalances its stack (the shared tail pulls Y with 8-bit "
+               "width), so its final RTS pops a byte pair the interpreter "
+               "executes on from at $C00001 while the native frame "
+               "machinery treats it as a return. Every caller the "
+               "propagation walk finds (Camera_RecenterProcess, "
+               "Player_ProcessControl) enters in m1x0; the m1x1 state is "
+               "a propagation artifact, not a real entry."),
+}
+
 
 def dscotton_dir() -> str:
     d = os.environ.get('DSCOTTON_DIR')
@@ -432,6 +447,13 @@ def validate(rom: bytes, existing: list[funcs.FuncMeta], candidates: dict[int, C
         if addr in KNOWN_BAD:
             res.unresolved.append((c, KNOWN_BAD[addr]))
             continue
+        if addr in KNOWN_BAD_STATES:
+            drop, reason = KNOWN_BAD_STATES[addr]
+            states = tuple(s for s in c.states if s not in drop)
+            if not states:
+                res.unresolved.append((c, reason))
+                continue
+            c = Candidate(c.addr, c.name, c.src, states)
         if not c.states:
             res.unresolved.append((c, 'entry M/X state unknown: not documented, '
                                        'no caller found within synced scope'))
