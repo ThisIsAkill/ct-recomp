@@ -256,15 +256,36 @@ static void f_ovl_2B00(CPU *cpu)
     ct_overlay_rest(cpu, s0);
 }
 
+/* $7E2F00: the same LDA/STA/RTS, but its operand byte is a declared
+   patched range (#97): left out of the hash, so a change there keeps the
+   entry native (the compiled code still uses the byte it was built from;
+   generated patched calls read theirs at run time). Hash as TestOverlay's
+   with byte 1 skipped. */
+static void f_ovl_2F00(CPU *cpu)
+{
+    ran_overlay++;
+    cpu_enter(cpu, 0x7E2F00, 1, 0);
+    ct_insn(cpu, 0x7E2F00, 0xA9, 0x42);
+    lda8(cpu, 0x42);
+    ct_insn(cpu, 0x7E2F02, 0x85, 0x15);
+    write8(ea_dp(cpu, 0x15), a8(cpu));
+    ct_insn(cpu, 0x7E2F04, 0x60, 0x60);
+    op_rts(cpu);
+}
+
+static const uint32_t patch_2f00[] = {0x7E2F01, 0x7E2F01};
+
 const ct_overlay_func ct_overlay_funcs[] = {
     {"TestOverlay", 0x7E2800, 1, 0, 0x7E2800, 0x7E2804, 0xC029F4EF3B675BA0ull, f_ovl_2800,
-     ovl_bytes, 0x7E2800, sizeof ovl_bytes},
+     ovl_bytes, 0x7E2800, sizeof ovl_bytes, 0, 0},
     {"TestSelfPatch", 0x7E2A00, 1, 0, 0x7E2A00, 0x7E2A0A, 0xEFF53BD7C943CCA2ull, f_ovl_2A00,
-     patch_bytes, 0x7E2A00, sizeof patch_bytes},
+     patch_bytes, 0x7E2A00, sizeof patch_bytes, 0, 0},
     {"TestHandoff", 0x7E2B00, 1, 0, 0x7E2B00, 0x7E2B03, 0xCB21C33BE735E62Bull, f_ovl_2B00,
-     handoff_bytes, 0x7E2B00, sizeof handoff_bytes},
+     handoff_bytes, 0x7E2B00, sizeof handoff_bytes, 0, 0},
+    {"TestPatchedOperand", 0x7E2F00, 1, 0, 0x7E2F00, 0x7E2F04, 0x3C1A2ED7CA8F7496ull, f_ovl_2F00,
+     ovl_bytes, 0x7E2F00, sizeof ovl_bytes, patch_2f00, 1},
 };
-const unsigned ct_overlay_func_count = 3;
+const unsigned ct_overlay_func_count = 4;
 
 typedef struct {
     uint64_t clock, native_insns, interp_insns;
@@ -310,14 +331,17 @@ static Outcome run_with(uint16_t target, int native, const uint8_t *nmi, size_t 
                                         0x20, 0x60};
     memcpy(w + 0x2600, caller_m0, sizeof caller_m0);
     memcpy(w + 0x2800, ovl_bytes, sizeof ovl_bytes);
+    memcpy(w + 0x2F00, ovl_bytes, sizeof ovl_bytes);
     memcpy(w + 0x2A00, patch_bytes, sizeof patch_bytes);
     memcpy(w + 0x2B00, handoff_bytes, sizeof handoff_bytes);
     static const uint8_t overwrite[] = {0x8F, 0x00, 0x2B, 0x7E, 0x60};   /* STA $7E2B00 / RTS */
     memcpy(w + 0x2C00, overwrite, sizeof overwrite);
     pingpong_install(w, 0x2D00, 0x18);
     pingpong_install(w, 0x2E00, 0x1A);
-    if (ovl_patch)
+    if (ovl_patch) {
         w[0x2801] = 0x43;   /* LDA #$43: the bytes no longer match the compiled code */
+        w[0x2F01] = 0x43;   /* the same byte at $7E2F00, inside its patched range */
+    }
     static const uint8_t to_m0[] = {0xC2, 0x20, 0x60};   /* REP #$20 / RTS */
     memcpy(w + 0x2500, to_m0, sizeof to_m0);
 
@@ -491,6 +515,16 @@ int main(void)
           ran_overlay, pat.w15);
     Outcome ovi = run(0x2800, 0);
     CHECK(same(&ov, &ovi) && ov.w15 == ovi.w15, "overlay native == interpreter");
+
+    /* A byte inside a declared patched range (#97) is out of the hash:
+       the entry stays native (with the operand it was compiled from),
+       where the same change above sent TestOverlay to the interpreter. */
+    ran_overlay = 0;
+    ovl_patch = 1;
+    Outcome pop = run(0x2F00, 1);
+    ovl_patch = 0;
+    CHECK(ran_overlay == 1 && pop.w15 == 0x42, "patched byte: still native (%d), $15=%02X",
+          ran_overlay, pop.w15);
 
     /* Overlay code that overwrites itself while running natively: strict
        mode fails loudly; otherwise the interpreter takes over from the next

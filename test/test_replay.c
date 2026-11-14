@@ -30,8 +30,20 @@ int main(int argc, char **argv)
           "malformed specs rejected");
     replay_free(&r);
 
-    char path[] = "/tmp/ct_replay_XXXXXX";
+    /* $TMPDIR/$TEMP where /tmp is not writable (Windows); the working
+     * directory as a last resort. */
+    char path[512];
+    const char *tmp = getenv("TMPDIR");
+    if (!tmp || !*tmp)
+        tmp = getenv("TEMP");
+    if (!tmp || !*tmp)
+        tmp = "/tmp";
+    snprintf(path, sizeof path, "%s/ct_replay_XXXXXX", tmp);
     int fd = mkstemp(path);
+    if (fd < 0) {
+        snprintf(path, sizeof path, "ct_replay_XXXXXX");
+        fd = mkstemp(path);
+    }
     CHECK(fd >= 0, "temp file");
     close(fd);
     replay_rec w;

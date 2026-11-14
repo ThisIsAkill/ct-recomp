@@ -207,6 +207,11 @@ _SPECIAL = {
     (0xDB, ''):   lambda i: [f'ct_fatal("${i.addr:06X}: STP executed");'],
     (0xCB, ''):   lambda i: [f'ct_fatal("${i.addr:06X}: WAI executed");'],
     (0x54, '16'): lambda i: [f'mvn16(cpu, 0x{i.addr:06X}, 0x{i.operand & 0xFF:02X}, 0x{i.operand >> 8:02X});'],  # MVN
+    (0x44, '16'): lambda i: [f'mvp16(cpu, 0x{i.addr:06X}, 0x{i.operand & 0xFF:02X}, 0x{i.operand >> 8:02X});'],  # MVP
+    (0x54, '8'):  lambda i: [f'mvn8(cpu, 0x{i.addr:06X}, 0x{i.operand & 0xFF:02X}, 0x{i.operand >> 8:02X});'],  # MVN, 8-bit indexes
+    (0x44, '8'):  lambda i: [f'mvp8(cpu, 0x{i.addr:06X}, 0x{i.operand & 0xFF:02X}, 0x{i.operand >> 8:02X});'],  # MVP, 8-bit indexes
+    (0x40, ''):   lambda i: [f'op_rti(cpu, 0x{i.addr:06X});', 'return;'],              # RTI
+    (0x42, ''):   lambda i: [';'],                                                         # WDM: reserved, acts as NOP
 }
 
 
@@ -230,7 +235,7 @@ NO_FALLTHROUGH = {'RTS', 'RTL', 'RTI', 'BRA', 'BRL', 'JMP', 'JML', 'STP', 'BRK',
 
 
 def implemented_opcodes() -> set[int]:
-    return {op for op, _ in TEMPLATES} | {0x20, 0x22, 0x4C, 0x5C, 0x7C, 0xFC}   # emit_function
+    return {op for op, _ in TEMPLATES} | {0x20, 0x22, 0x4C, 0x5C, 0x6C, 0x7C, 0xDC, 0xFC}   # emit_function
 
 
 _OVERLAY = ''   # set while emitting an overlay: names its WRAM functions
@@ -311,6 +316,19 @@ def extern_tail(target: int, cst: decode.State) -> list[str]:
             f'ct_tail(cpu, {callee(target, cst)});', 'return;']
 
 
+def return_check(miss: str, fatal: str) -> str:
+    """After a compiled callee it should have come back to the static
+    continuation, but the game also returns elsewhere on purpose (it
+    rewrites the stacked return address: RTS as a jump). Under the frame
+    scheduler that is not an error: hand this function's rest to the
+    executor, which continues from the CPU's own PB:PC (rewritten to
+    ct_tail_rest below, like every hand-off). Without a scheduler
+    (diff_all's oracle, whose interpreter shadow stack fatals the same
+    way) keep the fatal."""
+    return (f'if ({miss}) {{ if (ct_exec_hook) {{ ct_interp_rest(cpu, s0); return; }} '
+            f'{fatal} }}')
+
+
 def callee(target: int, st: decode.State) -> str:
     ext = _EXTERNS.get(target)
     return f'ct_hook_{ext.hook}' if ext else c_name(target, st)
@@ -327,7 +345,8 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
     ext_edges = [t for t, c in list(fn.calls.values()) + list(fn.tails.values())
                  if _routed(t) or _via_dispatch(t, c)]
     ext_edges += [t for ts, c in fn.tables.values() for t in ts if _via_dispatch(t, c)]
-    if fn.interp_calls or fn.dyn_tables or fn.interp_tails or fn.table_interp or ext_edges:
+    if fn.interp_calls or fn.dyn_tables or fn.interp_tails or fn.table_interp or ext_edges \
+            or fn.calls or fn.tables or fn.patched_calls:
         lines.append('    const uint16_t s0 = cpu->S;   /* the return address sits above */')
     keys = {i.key for i in fn.insns}
     per_addr: dict[int, int] = {}
@@ -354,12 +373,22 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
             raise EmitError(str(ex)) from None
         t = TEMPLATES.get((i.opcode, w))
 
-        if i.opcode in (0xFC, 0x7C) and i.key in fn.dyn_tables:
+        if i.opcode in (0xFC, 0x7C, 0x6C, 0xDC) and i.key in fn.dyn_tables:
             cst = fn.dyn_tables[i.key]
             bank = i.addr >> 16
             ret = (i.addr + 2) & 0xFFFF
 
             def t(i, cst=cst, bank=bank, ret=ret):
+                if i.opcode == 0xDC:   # JML [$xxxx]: 24-bit pointer in bank 0
+                    return [_strict_rest(i),
+                            f'uint32_t t = read16_b0(0x{i.operand:04X}) | '
+                            f'(uint32_t)read8(0x{(i.operand + 2) & 0xFFFF:04X}) << 16;',
+                            'cpu->PB = (uint8_t)(t >> 16);', 'cpu->PC = (uint16_t)t;',
+                            'ct_interp_rest(cpu, s0);', 'return;']
+                if i.opcode == 0x6C:   # JMP ($xxxx): pointer in bank 0, target in this bank
+                    return [_strict_rest(i),
+                            f'uint32_t t = 0x{bank:02X}0000u | read16_b0(0x{i.operand:04X});',
+                            'cpu->PC = (uint16_t)t;', 'ct_interp_rest(cpu, s0);', 'return;']
                 # a table of unknown length: read the target as the CPU does
                 # (bus reads, after a JSR's pushes: the cycle model charges
                 # them at the table's own speed) and let the dispatcher run it
@@ -371,11 +400,45 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
                     return [_strict_rest(i)] + body + ['cpu->PC = (uint16_t)t;',
                                                        'ct_interp_rest(cpu, s0);', 'return;']
                 back = (bank << 16) | ((ret + 1) & 0xFFFF)
+                # forked over the return states (call_exits dispatch below):
+                # no M/X condition. Unforked (M/X unknown at decode): as before.
                 cond = [f'!ct_call_interp(cpu, t, 0x{back:06X}, 2)']
-                cond += [f'cpu->{r} != {int(v)}' for r, v in (('m', cst.m), ('x', cst.x))
-                         if v is not None]
+                if i.key not in fn.call_exits:
+                    cond += [f'cpu->{r} != {int(v)}' for r, v in (('m', cst.m), ('x', cst.x))
+                             if v is not None]
                 return [_strict_rest(i), f'push16(cpu, 0x{ret:04X});'] + body + \
                     [f'if ({" || ".join(cond)}) {{ ct_interp_rest(cpu, s0); return; }}']
+        elif i.opcode in (0x20, 0x22) and i.key in fn.patched_calls:
+            # the game rewrites this call's operand (#97): read the target
+            # from the operand bytes and dispatch it, like a dynamic table
+            # call; the bytes stay out of the overlay hash. bus_peek, not a
+            # bus read: this is the instruction's own operand fetch, whose
+            # clocks the cycle model already charges to the JSR/JSL.
+            cst = fn.patched_calls[i.key]
+            long = i.opcode == 0x22
+            ret = (i.addr + (3 if long else 2)) & 0xFFFF
+            bank = i.addr >> 16
+            back = (bank << 16) | ((ret + 1) & 0xFFFF)
+            op = (i.addr + 1) & 0xFFFF
+
+            def t(i, cst=cst, ret=ret, bank=bank, long=long, back=back, op=op):
+                body = [_strict_rest(i)] + ([f'push8(cpu, 0x{bank:02X});'] if long else [])
+                body.append(f'push16(cpu, 0x{ret:04X});')
+                body.append(f'uint32_t t = bus_peek(0x{bank:02X}0000u | 0x{op:04X});')
+                body.append(f't |= (uint32_t)bus_peek(0x{bank:02X}0000u | '
+                            f'0x{(op + 1) & 0xFFFF:04X}) << 8;')
+                if long:
+                    body.append(f't |= (uint32_t)bus_peek(0x{bank:02X}0000u | '
+                                f'0x{(op + 2) & 0xFFFF:04X}) << 16;')
+                else:
+                    body.append(f't |= 0x{bank:02X}0000u;')
+                # forked continuation, as a dynamic table call (unforked: as before)
+                cond = [f'!ct_call_interp(cpu, t, 0x{back:06X}, {3 if long else 2})']
+                if i.key not in fn.call_exits:
+                    cond += [f'cpu->{r} != {int(v)}' for r, v in (('m', cst.m), ('x', cst.x))
+                             if v is not None]
+                body.append(f'if ({" || ".join(cond)}) {{ ct_interp_rest(cpu, s0); return; }}')
+                return body
         elif i.opcode in (0x20, 0x22) and i.key in fn.interp_calls:
             target, cst = fn.interp_calls[i.key]
             long = i.opcode == 0x22
@@ -395,7 +458,9 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
         elif i.opcode == 0x20 and i.key in fn.calls:
             target, cst = fn.calls[i.key]
             ret = (i.addr + 2) & 0xFFFF
-            chk = f'cpu_check_return(cpu, 0x{i.addr:06X}, 0x{(ret + 1) & 0xFFFF:04X});'
+            chk = return_check(f'cpu->PC != 0x{(ret + 1) & 0xFFFF:04X}',
+                               f'cpu_check_return(cpu, 0x{i.addr:06X}, '
+                               f'0x{(ret + 1) & 0xFFFF:04X});')
             if _routed(target) or _via_dispatch(target, cst):
                 back = (i.addr & 0xFF0000) | ((ret + 1) & 0xFFFF)
                 t = lambda i, target=target, cst=cst, ret=ret, back=back, chk=chk: \
@@ -407,7 +472,10 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
             target, cst = fn.calls[i.key]
             ret = (i.addr + 3) & 0xFFFF
             bank = i.addr >> 16
-            chk = f'cpu_check_return_long(cpu, 0x{i.addr:06X}, 0x{bank:02X}{(ret + 1) & 0xFFFF:04X});'
+            chk = return_check(f'cpu->PC != 0x{(ret + 1) & 0xFFFF:04X} || '
+                               f'cpu->PB != 0x{bank:02X}',
+                               f'cpu_check_return_long(cpu, 0x{i.addr:06X}, '
+                               f'0x{bank:02X}{(ret + 1) & 0xFFFF:04X});')
             if _routed(target) or _via_dispatch(target, cst):
                 back = (bank << 16) | ((ret + 1) & 0xFFFF)
                 t = lambda i, target=target, cst=cst, ret=ret, bank=bank, back=back, chk=chk: [
@@ -458,7 +526,10 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
                             'cpu->X);')
                 body.append('}')
                 if is_call:
-                    body.append(f'cpu_check_return(cpu, 0x{i.addr:06X}, 0x{(ret + 1) & 0xFFFF:04X});')
+                    body.append(return_check(
+                        f'cpu->PC != 0x{(ret + 1) & 0xFFFF:04X}',
+                        f'cpu_check_return(cpu, 0x{i.addr:06X}, '
+                        f'0x{(ret + 1) & 0xFFFF:04X});'))
                 return body
         elif i.opcode == 0x5C and i.key in fn.interp_tails:
             target, cst = fn.interp_tails[i.key]
@@ -475,6 +546,12 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
                 t = lambda i, target=target, cst=cst: [f'cpu->PB = 0x{target >> 16:02X};',
                                                        f'ct_tail(cpu, {callee(target, cst)});',
                                                        'return;']
+        elif i.opcode == 0x4C and i.key in fn.interp_tails:
+            target = fn.interp_tails[i.key][0]
+            t = lambda i, target=target: [f'cpu->PB = 0x{target >> 16:02X};',
+                                          f'cpu->PC = 0x{target & 0xFFFF:04X};',
+                                          'ct_interp_rest(cpu, s0);   /* scheduler boundary: its return is ours */',
+                                          'return;']
         elif i.opcode == 0x4C:
             if i.key in fn.tails:
                 target, cst = fn.tails[i.key]
@@ -488,6 +565,15 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
                 dest = label(tgt, post)
                 tick = f'ct_loop(0x{i.addr:06X}); ' if tgt <= i.addr else ''
                 t = lambda i, dest=dest, tick=tick: [f'{tick}goto {dest};']
+        elif i.mnemonic in _BRANCH and i.key in fn.interp_tails:
+            target = fn.interp_tails[i.key][0]
+            cond = _BRANCH[i.mnemonic]
+            xfer = (f'cpu->PB = 0x{target >> 16:02X}; cpu->PC = 0x{target & 0xFFFF:04X}; '
+                    'ct_interp_rest(cpu, s0); return;   /* scheduler boundary */')
+            if cond:
+                t = lambda i, cond=cond, xfer=xfer: [f'if ({cond}) {{ {xfer} }}']
+            else:
+                t = lambda i, xfer=xfer: [xfer]
         elif i.mnemonic in _BRANCH:
             tgt = i.branch_target()
             dest = label(tgt, post)
@@ -505,7 +591,9 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
             raise EmitError(f'${i.addr:06X}: {i.text()} (opcode ${i.opcode:02X}, '
                             f'width {w or "-"}) not implemented')
         body = t(i)
-        if i.mnemonic == 'PLP':
+        if i.mnemonic == 'PLP' and i.key in fn.call_exits:
+            pass  # unknown provenance: runtime dispatch below, no static check
+        elif i.mnemonic == 'PLP':
             if post[0] is None or post[1] is None:
                 raise EmitError(f'${i.addr:06X}: PLP restores unknown M/X')
             body.append(f'cpu_check_mx(cpu, 0x{i.addr:06X}, {int(post[0])}, {int(post[1])});')
@@ -518,7 +606,13 @@ def emit_function(fm: funcs.FuncMeta, fn: decode.Function) -> list[str]:
             for k in fn.call_exits[i.key]:
                 body.append(f'if (cpu->m == {int(k[0])} && cpu->x == {int(k[1])}) '
                             f'goto {label(i.next_addr, k)};')
-            body.append(f'ct_fatal("${i.addr:06X}: callee returned with m%d x%d", cpu->m, cpu->x);')
+            if i.key in fn.dyn_tables or i.key in fn.patched_calls:
+                # forked over every M/X at this E on purpose (the callee is
+                # known only at run time): anything else -- an E flip -- is
+                # the interpreter's, not a decoder bug
+                body.append('ct_interp_rest(cpu, s0); return;')
+            else:
+                body.append(f'ct_fatal("${i.addr:06X}: callee returned with m%d x%d", cpu->m, cpu->x);')
         elif i.mnemonic not in NO_FALLTHROUGH:
             succ = (i.next_addr,) + post
             if nxt is None or nxt.key != succ:
@@ -635,14 +729,26 @@ def fnv64(data: bytes) -> int:
     return h
 
 
+def fnv64_skip(data: bytes, skip: set[int]) -> int:
+    """fnv64 over data with some offsets left out (patched operand bytes,
+    #97): must agree with runtime/overlay.c matches()."""
+    h = 0xCBF29CE484222325
+    for k, b in enumerate(data):
+        if k not in skip:
+            h = ((h ^ b) * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
+    return h
+
+
 def emit_overlays(reg: funcs.Registry, manifest: str | None) -> tuple[str, list[str]]:
     """ct_overlays.c: code the game puts in WRAM (#92), recompiled from the
     images a game build step wrote (manifest: [[overlay]] name, dst, image,
-    [[overlay.entry]] addr, states). Each entry is decoded from its image
+    patched [call sites the game rewrites, #97], [[overlay.entry]] addr,
+    states). Each entry is decoded from its image
     (calls into ROM compile as usual; anything else in WRAM is an interpreter
     call) and kept only if it decodes, emits, and stays inside the image.
     The table records the WRAM bytes each function was decoded from and
-    their FNV-1a 64 hash: the runtime runs it only while they still match.
+    their FNV-1a 64 hash (patched operand bytes left out): the runtime
+    runs it only while they still match.
     Returns the source and the entries left out, with why."""
     global _OVERLAY, _REG
     _REG = reg
@@ -662,6 +768,8 @@ def emit_overlays(reg: funcs.Registry, manifest: str | None) -> tuple[str, list[
              ['    ' + ', '.join(f'0x{b:02X}' for b in data[k:k + 16]) + ','
               for k in range(0, len(data), 16)] + ['};', '']
         image = decode.Image(reg.rom, base, data)
+        patched = frozenset(ov.get('patched', []))
+        used_patched: set[int] = set()
         _OVERLAY = ov['name']
         try:
             for e in ov.get('entry', []):
@@ -670,7 +778,7 @@ def emit_overlays(reg: funcs.Registry, manifest: str | None) -> tuple[str, list[
                     fm = funcs.FuncMeta(f'{ov["name"]}_{e["addr"]:06X}', e['addr'], (tag,), 0,
                                         None, None, 'overlays')
                     try:
-                        fn = decode.decode_function(image, e['addr'], st, reg)
+                        fn = decode.decode_function(image, e['addr'], st, reg, patched)
                         lo, hi = fn.extent()
                         if any(not base <= i.addr < base + len(data) for i in fn.insns):
                             raise EmitError('runs outside its image')
@@ -683,10 +791,27 @@ def emit_overlays(reg: funcs.Registry, manifest: str | None) -> tuple[str, list[
                     # handing its rest to the interpreter ends its own code
                     c += [ln.replace('ct_tail_rest(', 'ct_overlay_tail_rest(') for ln in body] + ['']
                     name = c_name(e['addr'], st)
-                    h = fnv64(data[lo - base:hi - base + 1])
+                    # operand bytes of patched calls stay out of the hash
+                    # (the game rewrites them; the run-time target is read
+                    # from WRAM instead, #97)
+                    by_key = {i.key: i for i in fn.insns}
+                    ranges = sorted((by_key[k].addr + 1, by_key[k].addr + by_key[k].size - 1)
+                                    for k in fn.patched_calls)
+                    used_patched |= {by_key[k].addr for k in fn.patched_calls}
+                    skip = {a - lo for r0, r1 in ranges for a in range(r0, r1 + 1)}
+                    h = fnv64_skip(data[lo - base:hi - base + 1], skip)
+                    patch_c = '0, 0'
+                    if ranges:
+                        flat = ', '.join(f'0x{a:06X}' for r in ranges for a in r)
+                        c += [f'static const uint32_t patch_{fm.name}_{tag}[] = {{{flat}}};', '']
+                        patch_c = f'patch_{fm.name}_{tag}, {len(ranges)}'
                     table.append(f'    {{"{fm.name}", 0x{e["addr"]:06X}, {int(st.m)}, {int(st.x)}, '
                                  f'0x{lo:06X}, 0x{hi:06X}, 0x{h:016X}ull, {name}, {img}, '
-                                 f'0x{base:06X}, {len(data)}}},')
+                                 f'0x{base:06X}, {len(data)}, {patch_c}}},')
+            unused = patched - used_patched
+            if unused:
+                raise EmitError(f'{ov["name"]}: patched sites never decoded as a '
+                                f'JSR/JSL: {", ".join(f"${a:06X}" for a in sorted(unused))}')
         finally:
             _OVERLAY = ''
     c += ['const ct_overlay_func ct_overlay_funcs[] = {'] + \

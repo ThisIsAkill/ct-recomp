@@ -1,5 +1,6 @@
 /* Bus routing into the vendored SNES core (third_party/snes/), via the
  * adapter (runtime/snes_adapter.c): $21xx PPU, $43xx DMA, $420B MDMAEN. */
+#include <stdio.h>
 #include <string.h>
 
 #include "harness.h"
@@ -294,9 +295,47 @@ static void test_bg_16x16(void)
     CHECK(!strcmp(row8, "brrb"), "row 8 by 8-pixel quarter: %s, want brrb", row8);
 }
 
+/* Battery SRAM file in/out (#109): the 8 KB .srm a replay chapter starts
+ * from and ends with. Power-on (bus_reset) clears SRAM; a refused load
+ * (missing or wrong-sized file) leaves it untouched. */
+static void test_sram_file(void)
+{
+    const char *path = "test_sram_tmp.srm";
+    uint8_t *s = bus_sram();
+    bus_reset();
+    for (unsigned k = 0; k < CT_SRAM_SIZE; k++)
+        s[k] = (uint8_t)(k * 31 + 7);
+    CHECK(bus_sram_save(path) == 0, "sram save");
+    memset(s, 0, CT_SRAM_SIZE);
+    CHECK(bus_sram_load(path) == 0, "sram load");
+    int same = 1;
+    for (unsigned k = 0; k < CT_SRAM_SIZE; k++)
+        if (s[k] != (uint8_t)(k * 31 + 7))
+            same = 0;
+    CHECK(same, "sram round trip");
+    FILE *f = fopen(path, "wb");
+    CHECK(f != NULL, "rewrite as a short srm");
+    if (f) {
+        fputs("short", f);
+        fclose(f);
+    }
+    CHECK(bus_sram_load(path) != 0, "short sram refused");
+    CHECK(s[0] == 7 && s[CT_SRAM_SIZE - 1] == (uint8_t)((CT_SRAM_SIZE - 1) * 31 + 7),
+          "sram untouched by the refused load");
+    remove(path);
+    CHECK(bus_sram_load(path) != 0, "missing sram refused");
+    bus_reset();
+    int clear = 1;
+    for (unsigned k = 0; k < CT_SRAM_SIZE; k++)
+        if (s[k])
+            clear = 0;
+    CHECK(clear, "bus_reset (power-on) clears SRAM");
+}
+
 int main(void)
 {
     th_bus_init();
+    test_sram_file();
     test_readonly_writes();
     test_ppu_registers();
     test_dma_to_vram();

@@ -51,7 +51,7 @@ def parse_chronoret(path: str, bank: int) -> list[Block]:
     header = None
     cont = False
     cur: Block | None = None
-    with open(path) as f:
+    with open(path, encoding='utf-8', errors='replace') as f:
         for line in f:
             line = line.rstrip('\n')
             m = BLOCK_RE.match(line)
@@ -95,7 +95,7 @@ def parse_second(path: str) -> dict[str, int]:
     out: dict[str, int] = {}
     addr_re = re.compile(r';([0-9A-F]{6})\|')
     label = None
-    with open(path) as f:
+    with open(path, encoding='utf-8', errors='replace') as f:
         for line in f:
             m = re.match(r'^\s*([A-Za-z_][A-Za-z0-9_]*):', line)
             if m:

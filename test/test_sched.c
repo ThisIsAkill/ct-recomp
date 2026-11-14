@@ -436,8 +436,9 @@ static void test_frame_in_dma(void)
 
 /* The reset button: asked at VBlank with the frame about to begin; the
    frame ends there, the CPU takes the reset vector in emulation mode with
-   A and the low bytes of X/Y/S kept, WRAM is kept, and the clock restarts
-   from 0 at line 0 (then the reset sequence's 186 clocks). */
+   A and the low bytes of X/Y/S kept, WRAM and battery SRAM are kept (only
+   power-on clears SRAM: #109), and the clock restarts from 0 at line 0
+   (then the reset sequence's 186 clocks). */
 static long reset_asked[4];
 static int n_asked;
 
@@ -454,6 +455,8 @@ static void test_soft_reset(void)
     static const uint8_t prog[] = {0xC2, 0x30, 0xA9, 0x34, 0x12, 0xA2, 0x78, 0x56,
                                    0x85, 0x10, 0x80, 0xFE};
     start_prog(prog, sizeof prog);
+    bus_sram()[0] = 0xAB;
+    bus_sram()[CT_SRAM_SIZE - 1] = 0xCD;
     n_asked = 0;
     sched_set_reset_hook(reset_at_3);
     long a = sched_run_frame(), b = sched_run_frame();
@@ -468,6 +471,8 @@ static void test_soft_reset(void)
     CHECK(tc.A == 0x1234 && tc.X == 0x0078 && tc.S == 0x01FF, "A %04X X %04X S %04X kept",
           tc.A, tc.X, tc.S);
     CHECK(bus_wram()[0x10] == 0x34 && bus_wram()[0x11] == 0x12, "WRAM kept");
+    CHECK(bus_sram()[0] == 0xAB && bus_sram()[CT_SRAM_SIZE - 1] == 0xCD,
+          "SRAM kept across the soft reset");
     CHECK(sched_clock() == 0 && sched_line() == 0, "clock restarts: %llu, line %d",
           (unsigned long long)sched_clock(), sched_line());
 }

@@ -157,6 +157,52 @@ static void test_arith(void)
     }
 }
 
+static int bcd_val(int x) { return (x >> 4) * 10 + (x & 0xF); }
+static int bcd_enc(int v) { return ((v / 10) << 4) | (v % 10); }
+
+/* Decimal mode (D=1): BCD add/subtract, as Menu_BinToBcd relies on.
+   Exhaustive over valid BCD bytes; spot checks for 16-bit. */
+static void test_decimal(void)
+{
+    CPU c;
+    cpu_init(&c);
+    c.d = 1;
+    for (int a = 0; a < 256; a++) {
+        if ((a & 0xF) > 9 || (a >> 4) > 9) continue;
+        for (int b = 0; b < 256; b++) {
+            if ((b & 0xF) > 9 || (b >> 4) > 9) continue;
+            for (int ci = 0; ci < 2; ci++) {
+                int tot = bcd_val(a) + bcd_val(b) + ci;
+                c.A = (uint16_t)a;
+                c.c = (uint8_t)ci;
+                adc8(&c, (uint8_t)b, 0);
+                CHECK((c.A & 0xFF) == bcd_enc(tot % 100) && c.c == (tot >= 100) &&
+                      c.z == ((tot % 100) == 0) && c.n == ((bcd_enc(tot % 100) >> 7) & 1),
+                      "adc8 dec %02X+%02X+%d -> %02X c%d", a, b, ci, c.A & 0xFF, c.c);
+                int dif = bcd_val(a) - bcd_val(b) - (1 - ci);
+                c.A = (uint16_t)a;
+                c.c = (uint8_t)ci;
+                sbc8(&c, (uint8_t)b, 0);
+                CHECK((c.A & 0xFF) == bcd_enc((dif + 100) % 100) && c.c == (dif >= 0),
+                      "sbc8 dec %02X-%02X-%d -> %02X c%d", a, b, 1 - ci, c.A & 0xFF, c.c);
+            }
+        }
+    }
+    c.A = 0x0999; c.c = 0;
+    adc16(&c, 0x0001, 0);
+    CHECK(c.A == 0x1000 && c.c == 0, "adc16 dec 0999+0001 -> %04X c%d", c.A, c.c);
+    c.A = 0x9999; c.c = 0;
+    adc16(&c, 0x9999, 0);
+    CHECK(c.A == 0x9998 && c.c == 1, "adc16 dec 9999+9999 -> %04X c%d", c.A, c.c);
+    c.A = 0x1000; c.c = 1;
+    sbc16(&c, 0x0001, 0);
+    CHECK(c.A == 0x0999 && c.c == 1, "sbc16 dec 1000-0001 -> %04X c%d", c.A, c.c);
+    c.A = 0x0000; c.c = 1;
+    sbc16(&c, 0x0001, 0);
+    CHECK(c.A == 0x9999 && c.c == 0, "sbc16 dec 0000-0001 -> %04X c%d", c.A, c.c);
+    c.d = 0;
+}
+
 /* Fatal paths: each must print its message and exit nonzero. */
 static int fatal_case(const char *name)
 {
@@ -165,7 +211,6 @@ static int fatal_case(const char *name)
     if (!strcmp(name, "fatal_open_bus")) read8(0x006000);
     if (!strcmp(name, "fatal_rom_write")) write8(0xE50000, 0);
     if (!strcmp(name, "fatal_unhooked")) read8(0x004016);
-    if (!strcmp(name, "fatal_decimal")) { c.d = 1; adc8(&c, 1, 0xE50000); }
     if (!strcmp(name, "fatal_entry")) { c.m = 0; cpu_enter(&c, 0xC08100, 1, 0); }
     fprintf(stderr, "no fatal for %s\n", name);
     return 0;
@@ -208,6 +253,7 @@ int main(int argc, char **argv)
     test_index_ops();
     test_p();
     test_arith();
+    test_decimal();
     test_rmw_order();
     return th_report("runtime");
 }

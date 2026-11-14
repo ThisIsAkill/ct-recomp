@@ -30,6 +30,14 @@ void cpu_init(CPU *cpu);
 CT_NORETURN void ct_fatal(const char *fmt, ...) CT_PRINTF(1, 2);
 extern void (*ct_fatal_hook)(const char *msg);
 
+/* Windows only: when set by the frame scheduler, ct_fatal calls this with
+   the formatted message before the hook. It switches off the CPU fiber so
+   the scheduler can deliver the fatal on the host fiber (ct_fatal_deliver
+   below): a hook that longjmps to a host setjmp must not unwind SEH frames
+   across fibers. Unused (NULL) on other platforms. */
+extern void (*ct_fatal_escape)(const char *msg);
+void ct_fatal_deliver(const char *msg);
+
 /* Remaining backward-branch budget for generated code (0 = unlimited). */
 extern uint64_t ct_budget;
 

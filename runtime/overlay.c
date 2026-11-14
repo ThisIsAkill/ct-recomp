@@ -54,8 +54,16 @@ static int matches(const ct_overlay_func *f)
 {
     const uint8_t *w = bus_wram();
     uint64_t h = 0xCBF29CE484222325ull;
-    for (uint32_t a = f->lo; a <= f->hi; a++)
-        h = (h ^ w[a & 0x1FFFF]) * 0x100000001B3ull;
+    for (uint32_t a = f->lo; a <= f->hi; a++) {
+        /* patched operand bytes (#97) are not part of the hash: the game
+           rewrites them and the generated code reads them at run time.
+           Must agree with recomp/emit.py fnv64_skip. */
+        int patched = 0;
+        for (unsigned k = 0; k < f->patch_n; k++)
+            patched |= a >= f->patch[2 * k] && a <= f->patch[2 * k + 1];
+        if (!patched)
+            h = (h ^ w[a & 0x1FFFF]) * 0x100000001B3ull;
+    }
     return h == f->hash;
 }
 
@@ -90,6 +98,13 @@ const ct_overlay_func *overlay_lookup(const CPU *c)
     uint32_t at = (uint32_t)c->PB << 16 | c->PC;
     for (unsigned k = first_at(at); k < n_ovl && ovl[k]->addr == at; k++)
         if (ovl[k]->m == c->m && ovl[k]->x == c->x && valid(k)) {
+            /* A re-entry of a function already running natively (the
+               game's RTS-back-to-entry loop) runs interpreted instead:
+               nesting would grow a C frame and an act per iteration, and
+               the nested act trips the code-changed check. */
+            for (int j = ct_ovl_n - 1; j >= 0; j--)
+                if (ct_ovl_act[j].f == ovl[k])
+                    return NULL;
             overlay_last_idx = k;
             return ovl[k];
         }

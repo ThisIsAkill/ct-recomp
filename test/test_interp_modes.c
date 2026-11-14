@@ -133,22 +133,55 @@ static void test_shared_fatals(void)
 {
     /* Fatal in both modes: unimplemented behavior is never guessed. */
     static const uint8_t brk[] = {0x00, 0x00};
-    static const uint8_t adc_d[] = {0xF8, 0x69, 0x01};     /* SED / ADC #$01 */
     CPU c;
     load(brk, sizeof brk, 0x2300);
-    load(adc_d, sizeof adc_d, 0x2310);
 
     cpu_at(&c, 0x2300);
     EXPECT_MSG(strict(&c, 0x2300), "$7E2300: BRK executed");
     cpu_at(&c, 0x2300);
     EXPECT_MSG(system_steps(&c, 1), "$7E2300: BRK executed");
-    cpu_at(&c, 0x2310);
-    EXPECT_MSG(strict(&c, 0x2310), "interp $7E2311: decimal mode");
-    cpu_at(&c, 0x2310);
-    EXPECT_MSG(system_steps(&c, 2), "interp $7E2311: decimal mode");
     cpu_at(&c, 0x2300);
     c.e = 1;
     EXPECT_MSG(system_steps(&c, 1), "interp $7E2300: opcode $00 in emulation mode not implemented");
+}
+
+static void test_decimal_mode(void)
+{
+    /* SED / LDA #$09 / ADC #$01 / RTS: BCD 09 + 01 = 10, no carry. */
+    static const uint8_t adc8_d[] = {0xF8, 0xA9, 0x09, 0x69, 0x01, 0x60};
+    /* SED / LDA #$50 / ADC #$50 / RTS: BCD 50 + 50 = 00, carry set. */
+    static const uint8_t adc8_c[] = {0xF8, 0xA9, 0x50, 0x69, 0x50, 0x60};
+    /* SED / LDA #$10 / SEC / SBC #$01 / RTS: BCD 10 - 01 = 09. */
+    static const uint8_t sbc8_d[] = {0xF8, 0xA9, 0x10, 0x38, 0xE9, 0x01, 0x60};
+    /* REP #$20 / SED / LDA #$0999 / ADC #$0001 / RTS: BCD 0999 + 1 = 1000. */
+    static const uint8_t adc16_d[] = {0xC2, 0x20, 0xF8, 0xA9, 0x99, 0x09,
+                                      0x69, 0x01, 0x00, 0x60};
+    CPU c;
+    load(adc8_d, sizeof adc8_d, 0x2310);
+    load(adc8_c, sizeof adc8_c, 0x2320);
+    load(sbc8_d, sizeof sbc8_d, 0x2330);
+    load(adc16_d, sizeof adc16_d, 0x2340);
+
+    cpu_at(&c, 0x2310);
+    EXPECT_MSG(strict(&c, 0x2310), "");
+    CHECK((c.A & 0xFF) == 0x10 && c.c == 0, "strict dec adc8: A $%02X c %d", c.A & 0xFF, c.c);
+    cpu_at(&c, 0x2320);
+    EXPECT_MSG(strict(&c, 0x2320), "");
+    CHECK((c.A & 0xFF) == 0x00 && c.c == 1 && c.z == 1, "strict dec adc8 carry: A $%02X c %d",
+          c.A & 0xFF, c.c);
+    cpu_at(&c, 0x2330);
+    EXPECT_MSG(strict(&c, 0x2330), "");
+    CHECK((c.A & 0xFF) == 0x09 && c.c == 1, "strict dec sbc8: A $%02X c %d", c.A & 0xFF, c.c);
+    cpu_at(&c, 0x2340);
+    EXPECT_MSG(strict(&c, 0x2340), "");
+    CHECK(c.A == 0x1000 && c.c == 0, "strict dec adc16: A $%04X c %d", c.A, c.c);
+
+    cpu_at(&c, 0x2310);
+    EXPECT_MSG(system_steps(&c, 4), "");
+    CHECK((c.A & 0xFF) == 0x10 && c.c == 0, "system dec adc8: A $%02X c %d", c.A & 0xFF, c.c);
+    cpu_at(&c, 0x2330);
+    EXPECT_MSG(system_steps(&c, 5), "");
+    CHECK((c.A & 0xFF) == 0x09 && c.c == 1, "system dec sbc8: A $%02X c %d", c.A & 0xFF, c.c);
 }
 
 int main(void)
@@ -161,5 +194,6 @@ int main(void)
     /* Strict after system: the mode switch must not leak into strict. */
     test_undeclared_jump_table();
     test_shared_fatals();
+    test_decimal_mode();
     return th_report("interp_modes");
 }
