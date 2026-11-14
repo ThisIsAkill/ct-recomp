@@ -44,7 +44,10 @@ extern const unsigned ct_jumptable_count;
 /* Code the game puts in WRAM, recompiled from the image it was loaded from
  * (overlays, #92; ct_overlays.c). One entry per function and entry state:
  * it runs native only while WRAM $lo-$hi (the bytes it was decoded from)
- * still hashes to `hash` (FNV-1a 64); otherwise it is interpreted. */
+ * still hashes to `hash` (FNV-1a 64); otherwise it is interpreted.
+ * Operand bytes the game itself rewrites (patched call sites, #97) are
+ * left out of the hash: `patch` holds patch_n (lo, hi) inclusive 24-bit
+ * ranges to skip; the generated code reads those operands at run time. */
 typedef struct {
     const char *name;
     uint32_t addr;      /* entry, 24-bit WRAM address */
@@ -54,6 +57,8 @@ typedef struct {
     void (*fn)(CPU *);
     const uint8_t *image;   /* the whole blob it came from (tests load it) */
     uint32_t base, size;    /* where the blob sits in WRAM */
+    const uint32_t *patch;  /* patch_n (lo, hi) pairs skipped in the hash */
+    uint16_t patch_n;
 } ct_overlay_func;
 
 extern const ct_overlay_func ct_overlay_funcs[];

@@ -7,8 +7,8 @@
 3. split_emittable() holds a manual root back from emission while it
    doesn't decode, with the reason; the same entry without the flag still
    fails emission loudly. Field_ColdBootInit itself decodes now (its far
-   jump target is registered), so this uses a synthetic root: the entry
-   of Dma7_VramCopy_Full taken with m0x0, which runs into data.
+   jump target is registered), so this uses a synthetic root in WRAM,
+   which never decodes without an overlay image.
 """
 import dataclasses
 import os
@@ -26,7 +26,7 @@ import funcs  # noqa: E402
 import sync_symbols  # noqa: E402
 
 COLD_BOOT = 0xC0000E
-BAD_ROOT = funcs.FuncMeta('BadRoot', 0xC02DC8, ('m0x0',), 0, 0, 0, 'bankc0', True)
+BAD_ROOT = funcs.FuncMeta('BadRoot', 0x7E0000, ('m0x0',), 0, 0, 0, 'bankc0', True)
 LOAD_LOCATION = 0xC000F4   # JSR'd from the location loop the root falls into
 
 
@@ -63,7 +63,7 @@ def main() -> int:
     ok, pending = funcs.split_emittable(reg, others + [BAD_ROOT])
     check(BAD_ROOT not in ok, 'undecodable manual root is not emitted')
     check([fm for fm, _ in pending] == [BAD_ROOT], 'only the undecodable root is pending')
-    check(bool(pending) and 'WDM' in pending[0][1], f'pending reason: {pending}')
+    check(bool(pending) and 'not a ROM address' in pending[0][1], f'pending reason: {pending}')
 
     plain = dataclasses.replace(BAD_ROOT, manual=False)
     preg = funcs.Registry(rom, [plain], FUNCS_TOML)

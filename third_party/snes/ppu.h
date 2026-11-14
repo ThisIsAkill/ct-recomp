@@ -10,6 +10,11 @@
 #include "snes/saveload.h"
 typedef struct Ppu Ppu;
 
+/* ct-recomp: the sprite OAM word offsets whose Y span covers `line`, in
+   ascending OAM order (for evaluation and tests). Fills out[0..n) when
+   out is non-NULL and returns n. */
+int ppu_sprite_candidates(Ppu *ppu, int line, uint8_t *out);
+
 #include "src/types.h"
 
 typedef struct BgLayer {
@@ -118,6 +123,12 @@ struct Ppu {
   int32_t m7startY;
 
   uint16_t oam[0x110];
+  // ct-recomp: per-frame sprite Y buckets in ascending OAM order, so
+  // evaluation only visits sprites whose Y span covers the line; rebuilt
+  // when OAM or objSize changed. Order and limits are unchanged.
+  int oamGen, oamCacheGen, oamCacheSize;
+  uint8_t oamLineN[256];
+  uint8_t oamLineIdx[256][128];
   
   // store 31 extra entries to remove the need for clamp
   uint8_t brightnessMult[32 + 31];

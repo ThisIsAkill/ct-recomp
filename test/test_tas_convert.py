@@ -2,7 +2,13 @@
 """tools/tas_convert.py on synthetic movies: a BizHawk .bk2 and an lsnes
 .lsmv with the same input must convert to the same per-frame buttons;
 savestate movies are refused; resets become "reset F" lines, also from
-BizHawk's bsnes log with its "Reset Instruction" axis column."""
+BizHawk's bsnes log with its "Reset Instruction" axis column. A Mesen 2
+.mmo (rows "|system|pad1|pad2") with the same input converts the same;
+its embedded start save comes out via --sram-out with its SHA-1 in the
+script header, and movies that would not replay from power-on are
+refused: savestate, patch, cheats, reset/power press, pad 2, another
+ROM (--rom), non-reference power-on settings, old formats."""
+import hashlib
 import os
 import subprocess
 import sys
@@ -81,6 +87,43 @@ def lsmv(path, savestate=False):
             z.writestr("savestate", b"\0")
 
 
+MMO_ORDER = ["a", "b", "x", "y", "l", "r", "select", "start", "up", "down", "left", "right"]
+MMO_CHARS = "ABXYLRSTUDLR"
+
+
+def mmo(path, rom_sha1="", battery=None, savestate=False, patch=False, cheat=False,
+        ram="AllZeros", console="Snes", version="2.1.0", fmt=2, system_at=None,
+        pad2_at=None, pad1_at=None, extra_battery=False):
+    lines = []
+    for f in range(1, N + 1):
+        pressed = WANT.get(f, set())
+        pad = "".join(MMO_CHARS[i] if o in pressed else "." for i, o in enumerate(MMO_ORDER))
+        if pad1_at and f == pad1_at[0]:
+            pad = pad1_at[1]
+        system = system_at[1] if system_at and f == system_at[0] else ".."
+        pad2 = "A..........." if pad2_at and f == pad2_at else "." * 12
+        lines.append(f"|{system}|{pad}|{pad2}")
+    settings = ["MesenVersion " + version, "MovieFormatVersion " + str(fmt),
+                "GameFile game.sfc", "SHA1 " + rom_sha1,
+                "emu.consoleType " + console,
+                # GameSettings.txt goes on with the serialized settings
+                "snes.RamPowerOnState " + ram,
+                "snes.EnableRandomPowerOnState false"]
+    if cheat:
+        settings.append("Cheat GameGenie ABCDEF")
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("GameSettings.txt", "\n".join(settings) + "\n")
+        z.writestr("Input.txt", "\n".join(lines) + "\n")
+        if battery is not None:
+            z.writestr("Battery.srm", battery)
+        if extra_battery:
+            z.writestr("Battery.rtc", b"\0")
+        if savestate:
+            z.writestr("SaveState.mss", b"\0")
+        if patch:
+            z.writestr("PatchData.dat", b"\0")
+
+
 with tempfile.TemporaryDirectory() as tmp:
     want = {f: set(b) for f, b in WANT.items()}
     for kind, make in (("bk2", bk2), ("lsmv", lsmv)):
@@ -105,6 +148,62 @@ with tempfile.TemporaryDirectory() as tmp:
         check({f - 2: b for f, b in per_frame(out).items()} == want if text else False,
               f"buttons with a reset (bsnes={bsnes})")
         check(("2312 instructions in" in text) == bsnes, f"sub-frame noted (bsnes={bsnes})")
+
+    movie, out, srm = (os.path.join(tmp, "c.mmo"), os.path.join(tmp, "mmo.txt"),
+                       os.path.join(tmp, "out.srm"))
+    rom = os.path.join(tmp, "rom.sfc")
+    with open(rom, "wb") as f:
+        f.write(b"not the game, just bytes to hash" * 100)
+    rom_sha1 = hashlib.sha1(open(rom, "rb").read()).hexdigest()
+
+    mmo(movie, rom_sha1=rom_sha1)
+    r = run(movie, out)
+    check(r.returncode == 0, f"mmo converts: {r.stdout}")
+    check(per_frame(out) == want, f"mmo buttons: {per_frame(out)}")
+    check("# sram sha1 " + hashlib.sha1(bytes(0x2000)).hexdigest() in open(out).read(),
+          "mmo header carries the zeroed save's sha1")
+
+    seed = bytes(range(0x40, 0x48))   # a short battery file: zero-padded to 8 KB
+    mmo(movie, rom_sha1=rom_sha1, battery=seed)
+    r = run(movie, out, "--sram-out", srm, "--rom", rom)
+    got = open(srm, "rb").read() if r.returncode == 0 and os.path.exists(srm) else b""
+    check(r.returncode == 0 and got == seed + bytes(0x2000 - len(seed)),
+          f"mmo start save extracted: {r.stdout} {len(got)} bytes")
+    check("# sram sha1 " + hashlib.sha1(got).hexdigest() in open(out).read(),
+          "mmo header carries the start save's sha1")
+
+    mmo(movie, rom_sha1="0" * 40)
+    r = run(movie, out, "--rom", rom)
+    check(r.returncode == 1 and "another ROM" in r.stdout, f"wrong ROM refused: {r.stdout}")
+    r = run(movie, out)
+    check(r.returncode == 0, "without --rom the sha1 is only recorded")
+
+    refusals = [
+        (dict(savestate=True), "savestate"),
+        (dict(patch=True), "patch"),
+        (dict(cheat=True), "cheat"),
+        (dict(system_at=(5, "R.")), "reset"),
+        (dict(system_at=(5, ".P")), "power"),
+        (dict(pad2_at=6), "pad 2"),
+        (dict(ram="Random"), "AllZeros"),
+        (dict(ram="AllOnes"), "AllZeros"),
+        (dict(console="Nes"), "console"),
+        (dict(version="0.9.9"), "Mesen 2"),
+        (dict(fmt=1), "movie format"),
+        (dict(battery=bytes(0x2001)), "Battery.srm"),
+        (dict(extra_battery=True), "Battery.rtc"),
+        (dict(pad1_at=(3, "120 40 ............")), "port 1"),
+        (dict(pad1_at=(3, "....:.......")), "port 1"),
+    ]
+    for kw, word in refusals:
+        mmo(movie, rom_sha1=rom_sha1, **kw)
+        r = run(movie, out)
+        check(r.returncode == 1 and word in r.stdout, f"refused {kw}: {r.stdout.strip()}")
+
+    bk2(movie)
+    r = run(movie, out, "--sram-out", srm)
+    check(r.returncode == 1 and "start save" in r.stdout,
+          f"--sram-out on a .bk2 refused: {r.stdout.strip()}")
 
 print(f"tas_convert: {'ok' if not fails else str(fails) + ' failed'}")
 sys.exit(1 if fails else 0)
