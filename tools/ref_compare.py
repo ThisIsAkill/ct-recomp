@@ -4,6 +4,7 @@
 usage: ref_compare.py --probe PATH --mesen PATH --rom ROM --frames N
                       [--script FILE] [--offset D] [--setting Name.Path=value ...]
                       [--no-known-differences] [--inject-wram F[:ADDR]]
+                      [--sram-in FILE]
 
 Runs `PROBE --ref-log` and tools/mesen_ref.py side by side for N frames
 with the same input script, and compares the per-frame hashes (WRAM, and
@@ -28,6 +29,10 @@ is tolerated; --no-known-differences compares plain hardware behavior.
 
 Every probe frame from 2 on must be in the reference log: a missing frame
 is an error (exit 2), never skipped.
+
+--sram-in FILE (battery SRAM, exactly 8 KB, #109) starts both sides from
+that save at power-on, for comparing a replay chapter that begins from
+the previous chapter's save.
 
 Self-test: --inject-wram F[:ADDR] flips one WRAM byte in the probe at the
 edge of frame F (ADDR hex, default 1FFFF; `ct_boot --poke-wram F:ADDR^FF`) and runs
@@ -125,7 +130,14 @@ def main() -> int:
     ap.add_argument("--setting", action="append", default=[])
     ap.add_argument("--no-known-differences", action="store_true")
     ap.add_argument("--inject-wram")
+    ap.add_argument("--sram-in")
     a = ap.parse_args()
+    sram = []
+    if a.sram_in:
+        if not (os.path.isfile(a.sram_in) and os.path.getsize(a.sram_in) == 0x2000):
+            print(f"ref_compare: --sram-in {a.sram_in}: not an 8 KB save")
+            return 2
+        sram = ["--sram-in", a.sram_in]
     inject, poke = None, []
     if a.inject_wram:
         fr, _, addr = a.inject_wram.partition(":")
@@ -144,11 +156,12 @@ def main() -> int:
         ref_frames = a.frames + max(a.offset, 0)
         ours = subprocess.Popen([a.probe, "--frames", str(a.frames), "--ref-log", ours_log,
                                  "--overlay-strict",
-                                 *quirks, *script, *poke], env=env, stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT, text=True)
+                                 *quirks, *script, *poke, *sram], env=env,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         ref = subprocess.run([sys.executable, os.path.join(HERE, "mesen_ref.py"), "--mesen",
                               a.mesen, "--rom", a.rom, "--frames", str(ref_frames), "--out",
-                              ref_log, *script, *settings], capture_output=True, text=True)
+                              ref_log, *script, *settings, *sram], capture_output=True,
+                             text=True)
         ours_out = ours.communicate()[0]
         if ref.returncode:
             print(f"ref_compare: reference run failed: {ref.stdout.strip()[-300:]}")
@@ -178,11 +191,12 @@ def main() -> int:
         if f is not None:
             ours_wram, ref_wram = os.path.join(tmp, "ours.wram"), os.path.join(tmp, "ref.wram")
             subprocess.run([a.probe, "--frames", str(f), "--wram", ours_wram, "--overlay-strict",
-                            *quirks, *script, *poke], env=env, capture_output=True)
+                            *quirks, *script, *poke, *sram], env=env, capture_output=True)
             subprocess.run([sys.executable, os.path.join(HERE, "mesen_ref.py"), "--mesen",
                             a.mesen, "--rom", a.rom, "--frames", str(f + a.offset), "--out",
                             os.path.join(tmp, "ref2.log"), "--wram-at", str(f + a.offset),
-                            "--wram-out", ref_wram, *script, *settings], capture_output=True)
+                            "--wram-out", ref_wram, *script, *settings, *sram],
+                           capture_output=True)
             if os.path.exists(ours_wram) and os.path.exists(ref_wram):
                 x, y = open(ours_wram, "rb").read(), open(ref_wram, "rb").read()
                 rs, n = ranges(x, y)

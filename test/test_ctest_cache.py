@@ -5,6 +5,7 @@ runs nothing and reports the same results (checks included); committing
 the tree, or rewriting README.md / PROGRESS.md, keeps the records; editing
 a source reruns; a failing test is rerun every time."""
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -15,9 +16,10 @@ import ctest_cache  # noqa: E402
 
 CMAKE = r'''cmake_minimum_required(VERSION 3.16)
 project(t NONE)
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
 enable_testing()
-add_test(NAME good COMMAND sh -c "echo run >> ${CMAKE_BINARY_DIR}/good.runs; echo 'good: 3 checks, 0 failed'")
-add_test(NAME flaky COMMAND sh -c "echo run >> ${CMAKE_BINARY_DIR}/flaky.runs; test -f ${CMAKE_SOURCE_DIR}/ok")
+add_test(NAME good COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/good.py ${CMAKE_BINARY_DIR})
+add_test(NAME flaky COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/flaky.py ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR})
 '''
 
 
@@ -38,9 +40,16 @@ def main() -> int:
         git("init", "-q")
         with open(os.path.join(src, "CMakeLists.txt"), "w") as f:
             f.write(CMAKE)
+        with open(os.path.join(src, "good.py"), "w") as f:
+            f.write('import os, sys\nopen(os.path.join(sys.argv[1], "good.runs"), "a").write("run\\n")\nprint("good: 3 checks, 0 failed")\n')
+        with open(os.path.join(src, "flaky.py"), "w") as f:
+            f.write('import os, sys\nopen(os.path.join(sys.argv[1], "flaky.runs"), "a").write("run\\n")\nsys.exit(0 if os.path.exists(os.path.join(sys.argv[2], "ok")) else 1)\n')
         with open(os.path.join(src, ".gitignore"), "w") as f:
             f.write("build/\n")
-        subprocess.run(["cmake", "-S", src, "-B", build], capture_output=True, check=True)
+        cfg = ["cmake", "-S", src, "-B", build]
+        if shutil.which("ninja"):   # single-config: ctest needs no -C (VS default is multi-config)
+            cfg += ["-G", "Ninja"]
+        subprocess.run(cfg, capture_output=True, check=True)
         runs = lambda n: len(open(os.path.join(build, n + ".runs")).readlines())
         ctest_cache.ROOT = src
 

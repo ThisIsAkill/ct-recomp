@@ -30,6 +30,17 @@ int ct_exec_done(const CPU *c, const ct_exec_until *u)
 }
 
 
+void (*ct_fatal_escape)(const char *msg);
+
+void ct_fatal_deliver(const char *msg)
+{
+    if (ct_fatal_hook)
+        ct_fatal_hook(msg);
+    fflush(stdout);
+    fprintf(stderr, "ct: %s\n", msg);
+    exit(3);
+}
+
 void ct_fatal(const char *fmt, ...)
 {
     char buf[256];
@@ -37,9 +48,7 @@ void ct_fatal(const char *fmt, ...)
     va_start(ap, fmt);
     vsnprintf(buf, sizeof buf, fmt, ap);
     va_end(ap);
-    if (ct_fatal_hook)
-        ct_fatal_hook(buf);
-    fflush(stdout);
-    fprintf(stderr, "ct: %s\n", buf);
-    exit(3);
+    if (ct_fatal_escape)
+        ct_fatal_escape(buf);   /* Windows: may switch to the host fiber */
+    ct_fatal_deliver(buf);
 }

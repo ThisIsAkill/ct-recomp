@@ -55,7 +55,7 @@ README_START, README_END = '<!-- progress:start -->', '<!-- progress:end -->'
 
 def boot_native(build: str) -> float | None:
     """Percent of a 1500-frame boot's instructions that ran native."""
-    probe = os.path.join(build, 'ct_boot')
+    probe = os.path.join(build, 'ct_boot.exe' if os.name == 'nt' else 'ct_boot')
     if not os.path.exists(probe):
         return None
     r = subprocess.run([probe, '--frames', '1500', '--profile', '0'], capture_output=True,

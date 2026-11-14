@@ -5,7 +5,7 @@
  * usage: ct_sdl [--scale N] [--frames N] [--dump DIR] [--needed-hw FILE] [--fast]
  *               [--require-render] [--log-input] [--interp-only]
  *               [--record FILE] [--script FILE] [--log-audio]
- *               [--require-no-underrun]
+ *               [--require-no-underrun] [--sram-in FILE] [--sram-out FILE]
  *
  * 256x224, integer scaled (--scale, default 3); paced to 60.0988 Hz
  * (NTSC) unless --fast; 48 kHz stereo audio (below); keyboard (arrows, Z=B X=A
@@ -21,6 +21,9 @@
  * point, then `ct_boot --script FILE --frames N` reproduces the run.
  * --script FILE plays a script's buttons, combined with live input.
  * Input is applied at the frame edge, as in ct_boot.
+ * --sram-in FILE loads battery SRAM (8 KB .srm) at power-on and
+ * --sram-out FILE writes it on every exit, as --record does (#109):
+ * record a replay chapter here, replay it in ct_boot from the same save.
  *
  * Audio: the DSP's 32 kHz output, band-limited resampling to 48 kHz
  * (resample.h), queued to SDL. Playback starts once AUDIO_TARGET samples
@@ -131,6 +134,8 @@ static SDL_GameController *open_controller(void)
 
 static replay script;
 static replay_rec rec;
+static const char *sram_out_path;
+static int sram_out_armed;   /* set once the bus is up: see save_sram */
 
 /* Host state shared by main and the frame hook. */
 static SDL_Renderer *ren;
@@ -254,6 +259,14 @@ static void close_record(void)
     replay_rec_close(&rec);
 }
 
+/* --sram-out on every exit, like --record; armed only after bus_init so
+   a bad-usage exit never writes a zeroed save over a real one. */
+static void save_sram(void)
+{
+    if (sram_out_armed && bus_sram_save(sram_out_path))
+        fprintf(stderr, "ct_sdl: cannot write %s\n", sram_out_path);
+}
+
 /* The script's reset button (replay.h "reset F"). */
 static int script_reset(long frame)
 {
@@ -264,7 +277,7 @@ int main(int argc, char **argv)
 {
     static long frames = -1;           /* static: survive the longjmp */
     static int scale = 3, require_render, require_no_underrun;
-    static const char *needed;
+    static const char *needed, *sram_in_path;
     for (int k = 1; k < argc; k++) {
         if (!strcmp(argv[k], "--scale") && k + 1 < argc)
             scale = atoi(argv[++k]);
@@ -297,11 +310,16 @@ int main(int argc, char **argv)
                 fprintf(stderr, "ct_sdl: bad --script %s\n", argv[k]);
                 return 2;
             }
+        } else if (!strcmp(argv[k], "--sram-in") && k + 1 < argc) {
+            sram_in_path = argv[++k];
+        } else if (!strcmp(argv[k], "--sram-out") && k + 1 < argc) {
+            sram_out_path = argv[++k];
+            atexit(save_sram);
         } else {
             fprintf(stderr, "usage: ct_sdl [--scale N] [--frames N] [--dump DIR] "
                             "[--needed-hw FILE] [--fast] [--require-render] [--log-input] "
                             "[--interp-only] [--record FILE] [--script FILE] [--log-audio] "
-                            "[--require-no-underrun]\n");
+                            "[--require-no-underrun] [--sram-in FILE] [--sram-out FILE]\n");
             return 2;
         }
     }
@@ -316,6 +334,12 @@ int main(int argc, char **argv)
     }
     static CPU cpu;
     bus_init(NULL);
+    if (sram_in_path && bus_sram_load(sram_in_path)) {
+        fprintf(stderr, "ct_sdl: cannot read SRAM %s (need exactly %u bytes)\n",
+                sram_in_path, CT_SRAM_SIZE);
+        return 2;
+    }
+    sram_out_armed = sram_out_path != NULL;
     char title[22];   /* ROM header title, $FFC0, 21 bytes, space padded */
     memcpy(title, bus_rom() + 0xFFC0, 21);
     title[21] = 0;

@@ -4,6 +4,7 @@
 usage: mesen_ref.py --mesen PATH --rom ROM --frames N --out LOG
                     [--script FILE] [--setting Name.Path=value ...]
                     [--wram-at F --wram-out FILE]
+                    [--sram-in FILE] [--sram-out FILE]
 
 Runs ROM from power-on in Mesen's --testrunner mode with a generated Lua
 script that drives pad 1 from an input script (runtime/replay.h format,
@@ -22,6 +23,13 @@ same hashes as `ct_boot --ref-log` (tools/ref_compare.py compares them):
 "frame" is Mesen's frame count at that point: frames completed.
 --wram-at F also writes WRAM at that point of frame F to --wram-out (raw
 128 KB, as `ct_boot --frames F --wram FILE` does).
+--sram-in FILE (battery SRAM, exactly 8 KB, #109) is put where Mesen
+loads it at power-on (Saves/<ROM name>.srm in the private home) and the
+Lua checks its hash on the first frame, before game code can change it:
+a save Mesen did not pick up is an error, not a silent zeroed start.
+--sram-out FILE writes battery SRAM at the last frame, as
+`ct_boot --sram-out` does. Without --sram-in the private home starts
+with no save, as ct_boot starts with power-on-zeroed SRAM.
 
 Mesen runs on a virtual display (xvfb-run; required: --testrunner still
 opens its window on Linux) with a private home (XDG_CONFIG_HOME in a
@@ -48,6 +56,34 @@ import tempfile
 NAMES = {"b": 0x8000, "y": 0x4000, "select": 0x2000, "start": 0x1000, "up": 0x0800,
          "down": 0x0400, "left": 0x0200, "right": 0x0100, "a": 0x0080, "x": 0x0040,
          "l": 0x0020, "r": 0x0010}
+
+SRAM_SIZE = 0x2000
+
+
+def fnv1a64(data):
+    h = 0xCBF29CE484222325
+    for x in data:
+        h = ((h ^ x) * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
+    return h
+
+
+def read_sram(path):
+    """The 8 KB of a .srm, or SystemExit: battery SRAM is exactly
+    SRAM_SIZE here (bus.h CT_SRAM_SIZE), anything else is not our save."""
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+    except OSError as e:
+        raise SystemExit(f"mesen_ref: cannot read SRAM {path}: {e.strerror or e}")
+    if len(data) != SRAM_SIZE:
+        raise SystemExit(f"mesen_ref: SRAM {path}: {len(data)} bytes, want {SRAM_SIZE}")
+    return data
+
+
+def srm_path(home, rom):
+    """Where Mesen 2 keeps the ROM's battery save in its home folder."""
+    stem = os.path.splitext(os.path.basename(rom))[0]
+    return os.path.join(home, "Mesen2", "Saves", stem + ".srm")
 
 
 def load_script(path):
@@ -111,6 +147,8 @@ local changes = { %(changes)s }
 local resets = { %(resets)s }
 local frames = %(frames)d
 local wram_at, wram_out = %(wram_at)d, "%(wram_out)s"
+local sram_check, sram_hash_want = %(sram_check)s, %(sram_hash)s
+local sram_out = "%(sram_out)s"
 local out = io.open("%(out)s", "w")
 local names = { {"b",0x8000},{"y",0x4000},{"select",0x2000},{"start",0x1000},
   {"up",0x0800},{"down",0x0400},{"left",0x0200},{"right",0x0100},
@@ -130,6 +168,18 @@ local function wram_hash()
   local wram = emu.memType.snesWorkRam
   for a = 0, 0x1FFFC, 4 do
     local v = emu.read32(a, wram, false)
+    for k = 0, 3 do
+      h = (h ~ ((v >> (8 * k)) & 0xFF)) * PRIME
+    end
+  end
+  return h
+end
+
+local function sram_hash()
+  local h = BASIS
+  local sram = emu.memType.snesSaveRam
+  for a = 0, 0x1FFC, 4 do
+    local v = emu.read32(a, sram, false)
     for k = 0, 3 do
       h = (h ~ ((v >> (8 * k)) & 0xFF)) * PRIME
     end
@@ -191,8 +241,20 @@ emu.addEventCallback(function()
   picture = frame_hash()
 end, emu.eventType.endFrame)
 
+local sram_checked = false
 emu.addEventCallback(function()
   local f = emu.getState()["frameCount"]
+  -- --sram-in: on the first frame, before game code has run, battery
+  -- SRAM must be the save the caller placed; anything else means Mesen
+  -- did not load it, and comparing from a zeroed start would be a lie.
+  if sram_check and not sram_checked then
+    sram_checked = true
+    if sram_hash() ~= sram_hash_want then
+      print("mesen_ref: battery SRAM at power-on is not the --sram-in save")
+      emu.stop(3)
+      return
+    end
+  end
   if f == wram_at then
     local w = io.open(wram_out, "wb")
     for a = 0, 0x1FFFF do w:write(string.char(emu.read(a, emu.memType.snesWorkRam, false))) end
@@ -208,6 +270,11 @@ emu.addEventCallback(function()
     reset_done = true
   end
   if f >= frames then
+    if sram_out ~= "" then
+      local w = io.open(sram_out, "wb")
+      for a = 0, 0x1FFF do w:write(string.char(emu.read(a, emu.memType.snesSaveRam, false))) end
+      w:close()
+    end
     out:close()
     emu.stop(0)
   end
@@ -226,7 +293,10 @@ def main() -> int:
     ap.add_argument("--timeout", type=int, default=3600)
     ap.add_argument("--wram-at", type=int, default=-1)
     ap.add_argument("--wram-out", default="")
+    ap.add_argument("--sram-in")
+    ap.add_argument("--sram-out", default="")
     a = ap.parse_args()
+    sram = read_sram(a.sram_in) if a.sram_in else None
     spans = load_script(a.script) if a.script else []
     resets = load_resets(a.script) if a.script else []
     xvfb = shutil.which("xvfb-run")
@@ -237,6 +307,11 @@ def main() -> int:
     os.makedirs(os.path.join(home, "Mesen2"))
     with open(os.path.join(home, "Mesen2", "settings.json"), "w") as f:
         f.write("{}\n")
+    if sram is not None:
+        dst = srm_path(home, a.rom)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        with open(dst, "wb") as f:
+            f.write(sram)
     try:
         lua = os.path.join(home, "ref.lua")
         with open(lua, "w") as f:
@@ -247,6 +322,9 @@ def main() -> int:
                 "out": lua_str(os.path.abspath(a.out)),
                 "wram_at": a.wram_at,
                 "wram_out": lua_str(os.path.abspath(a.wram_out)) if a.wram_out else "",
+                "sram_check": "true" if sram is not None else "false",
+                "sram_hash": f"0x{fnv1a64(sram):016X}" if sram is not None else "0",
+                "sram_out": lua_str(os.path.abspath(a.sram_out)) if a.sram_out else "",
             })
         settings = ["Debug.ScriptWindow.AllowIoOsAccess=true", "Snes.RamPowerOnState=AllZeros",
                     "Snes.SpcClockSpeedAdjustment=40", "Snes.DisableFrameSkipping=true",
@@ -277,6 +355,10 @@ def main() -> int:
         expect = a.frames - sum(1 for f in resets if f <= a.frames)
         if n < expect:
             print(f"mesen_ref: only {n} of {a.frames} frames logged")
+            return 1
+        if a.sram_out and not (os.path.exists(a.sram_out)
+                               and os.path.getsize(a.sram_out) == SRAM_SIZE):
+            print("mesen_ref: --sram-out was not written")
             return 1
         print(f"mesen_ref: {n} frames")
         return 0
