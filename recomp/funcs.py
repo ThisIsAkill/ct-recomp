@@ -59,6 +59,22 @@ def load_externs(path: str) -> dict[int, Extern]:
     return out
 
 
+def load_boundaries(path: str) -> set[int]:
+    """Scheduler boundary addresses ([[boundary]] in funcs.toml): decode
+    stops at a transfer to one and hands the rest to the interpreter; the
+    address itself is never a function entry (menu thread scheduler and
+    its yield points, whose TCS/TSC stack switch no static stack model
+    can follow)."""
+    with open(path, 'rb') as f:
+        data = tomllib.load(f)
+    out = set()
+    for t in data.get('boundary', []):
+        if 'addr' not in t:
+            raise DecodeError(f'funcs.toml: bad boundary {t}')
+        out.add(t['addr'])
+    return out
+
+
 def load_jumptables(path: str) -> dict[int, int]:
     """site (24-bit address of JMP/JSR (abs,X)) -> entry count."""
     with open(path, 'rb') as f:
@@ -142,6 +158,7 @@ class Registry:
         self.by_addr = {fm.addr: fm for fm in metas}
         self.jumptables = load_jumptables(funcs_path) if jumptables is None else jumptables
         self.externs = load_externs(funcs_path)
+        self.boundaries = load_boundaries(funcs_path)
         self.cache: dict[tuple, decode.Function] = {}
         self.active: set[tuple] = set()
         self.assume: dict[tuple, tuple] = {}   # recursive key -> assumed exit (m, x)
@@ -219,6 +236,20 @@ class Registry:
             return set(self.assume[key])
         return set(self.function(target, st).exit_states)
 
+    def other_exits(self, target: int, st: State, kind: str) -> set:
+        """Exit states of a callee that do not return through this call
+        (e.g. a JSR callee that also unwinds with RTL to its caller's
+        caller). The decoder adds them to the caller's own exits."""
+        if target in self.externs:
+            return set()
+        fm = self.by_addr.get(target)
+        if fm is None or st.tag() not in fm.states:
+            return set()
+        ret = 'RTS' if kind == 'JSR' else 'RTL'
+        key = (target, st.m, st.x, st.e)
+        exit_states = self.assume[key] if key in self.assume else self.function(target, st).exit_states
+        return {(mn, m, x) for mn, m, x in exit_states if mn != ret}
+
     def missing(self, target: int, st: State, kind: str) -> bool:
         """A JSR/JSL target the translation doesn't compile for st: not
         registered, or registered without that entry state (and not an
@@ -252,8 +283,8 @@ class Registry:
         exits = {(m, x) for mn, m, x in exit_states if mn == ret}
         if not exit_states:
             return set()   # never returns
-        if {mn for mn, _, _ in exit_states} != {ret}:
-            raise DecodeError(f'${site:06X}: {kind} {fm.name}: exits {sorted(exit_states, key=str)}')
+        if False:  # mixed RTS/RTL unwind exits: see other_exits()
+            pass  # mixed exits propagate via other_exits (decode.py)
         if any(m is None or x is None for m, x in exits):
             raise DecodeError(f'${site:06X}: {kind} {fm.name}: exit M/X unknown')
         return exits

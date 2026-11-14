@@ -3,7 +3,8 @@
 
 Decodes every registered routine. Each JSR/JSL to an unregistered target
 (or registered without the caller's M/X) -- an interpreter call in the
-generated code (#30), or a far jump the decoder rejects -- becomes a
+generated code (#30), a jump-table target run interpreted, or a far jump
+the decoder rejects -- becomes a
 candidate whose entry state is the caller's state at the call site. Repeats until no new targets
 appear or --max candidates exist. Names: ChronoRET label, else second
 disassembly label, else Sub_XXXXXX.
@@ -59,7 +60,7 @@ def label_names() -> dict[int, str]:
     lab_re = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*):')
     for path in sorted(glob.glob(os.path.join(cret, 'asm', 'bank*', '*.asm'))):
         org = None
-        with open(path) as f:
+        with open(path, encoding='utf-8', errors='replace') as f:
             for line in f:
                 m = org_re.match(line)
                 if m:
@@ -120,6 +121,18 @@ def close_graph(rom, metas, cands, add_states, failures, funcs_path, names, used
                         known = reg.by_addr.get(target)
                         k = (target, cst.tag(), known.name if known else None)
                         missing[k] = missing.get(k, 0) + 1
+                    # Jump-table targets run interpreted are entry points
+                    # too: neither interp_calls nor MissingTarget sites, so
+                    # without this they never become candidates. The entry
+                    # state is the state live at the dispatch site.
+                    for key, targets in fn.table_interp.items():
+                        cst = fn.tables[key][1]
+                        if cst.m is None or cst.x is None:
+                            continue
+                        for target in targets:
+                            known = reg.by_addr.get(target)
+                            k = (target, cst.tag(), known.name if known else None)
+                            missing[k] = missing.get(k, 0) + 1
                 except funcs.MissingTarget as ex:
                     k = (ex.target, ex.state.tag(), ex.name)
                     missing[k] = missing.get(k, 0) + 1
@@ -129,6 +142,8 @@ def close_graph(rom, metas, cands, add_states, failures, funcs_path, names, used
         interp_known: dict[tuple, int] = {}
         by_name = {m.name: m for m in metas}
         for (target, tag, known), sites in sorted(missing.items()):
+            if target in reg.boundaries:
+                continue   # scheduler boundary: stays interpreted by design
             if known and target not in cands:
                 if tag in by_name[known].states:
                     interp_known[(known, tag)] = sites
@@ -170,6 +185,7 @@ def main() -> int:
     rom = decode.load_rom()
     metas = funcs.load(FUNCS_TOML)
     names = label_names()
+    bounds = funcs.load_boundaries(FUNCS_TOML)
     used_names = {fm.name for fm in metas}
     cands: dict[int, funcs.FuncMeta] = {}
     add_states: dict[str, set] = {}
@@ -189,6 +205,8 @@ def main() -> int:
             if not m:
                 continue
             addr, tag = int(m.group(1), 16), f'm{m.group(2)}x{m.group(3)}'
+            if addr in bounds:
+                continue   # scheduler boundary: never an entry (see funcs.toml)
             if decode.snes_to_file(addr) is None or (addr >> 16) in (0x7E, 0x7F):
                 continue   # not ROM (code in WRAM: #92)
             known = by_addr.get(addr)
@@ -220,7 +238,8 @@ def main() -> int:
         path = os.path.join(cret, 'asm', f'bank{bank:02X}', f'bank{bank:02X}.asm')
         known = {fm.addr for fm in metas}
         for c in import_chronoret.parse(path):
-            if c['addr'] >> 16 != bank or c['addr'] in known:
+            if c['addr'] >> 16 != bank or c['addr'] in known or c['addr'] in bounds \
+                    or c.get('data'):
                 continue
             tag, db, _ = import_chronoret.entry_state(c['entry'], bank)
             if tag is None:

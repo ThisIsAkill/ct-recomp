@@ -225,6 +225,31 @@ uint8_t *bus_wram(void) { return wram; }
 uint8_t *bus_sram(void) { return sram; }
 const uint8_t *bus_rom(void) { return rom; }
 
+int bus_sram_load(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f)
+        return -1;
+    static uint8_t buf[CT_SRAM_SIZE];   /* only copied in whole: see bus.h */
+    size_t n = fread(buf, 1, sizeof buf, f);
+    int extra = fgetc(f);
+    fclose(f);
+    if (n != sizeof buf || extra != EOF)
+        return -1;
+    memcpy(sram, buf, sizeof buf);
+    return 0;
+}
+
+int bus_sram_save(const char *path)
+{
+    FILE *f = fopen(path, "wb");
+    if (!f)
+        return -1;
+    size_t n = fwrite(sram, 1, sizeof sram, f);
+    int bad = fclose(f) != 0;
+    return n == sizeof sram && !bad ? 0 : -1;
+}
+
 /* ---- HiROM map ---- */
 
 enum region { R_WRAM, R_SRAM, R_ROM, R_HW, R_OPEN };

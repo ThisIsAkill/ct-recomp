@@ -89,4 +89,12 @@ uint8_t *bus_wram(void);
 uint8_t *bus_sram(void);
 const uint8_t *bus_rom(void);
 
+/* Battery SRAM to/from an 8 KB .srm file (#109): 0 on success, -1 if the
+   file cannot be read/written or (load) is not exactly CT_SRAM_SIZE
+   bytes; a refused load leaves SRAM untouched. Power-on (bus_reset)
+   clears SRAM, so load after bus_init; the scheduler's soft reset
+   keeps it. */
+int bus_sram_load(const char *path);
+int bus_sram_save(const char *path);
+
 #endif
