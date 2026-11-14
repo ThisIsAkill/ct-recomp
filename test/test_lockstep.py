@@ -34,7 +34,7 @@ if "--vram" in a:
 
 fails = 0
 with tempfile.TemporaryDirectory() as tmp:
-    probe = os.path.join(tmp, "probe")
+    probe = os.path.join(tmp, "probe.py")
     open(probe, "w").write(FAKE)
     os.chmod(probe, os.stat(probe).st_mode | stat.S_IEXEC)
     r = subprocess.run([sys.executable, TOOL, probe, "--frames", "10"], capture_output=True,

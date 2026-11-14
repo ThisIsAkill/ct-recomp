@@ -21,6 +21,12 @@ import sys
 import tempfile
 
 
+def probe_cmd(probe):
+    """A .py probe runs under this interpreter (no shebang execution on
+    Windows); anything else is executed directly."""
+    return [sys.executable, probe] if probe.endswith(".py") else [probe]
+
+
 def ranges(a, b):
     out, start = [], None
     for k in range(len(a) + 1):
@@ -39,7 +45,7 @@ def detail(probe, args, frame):
         dumps = {}
         for mode in ("native", "interp"):
             w, v = os.path.join(tmp, mode + ".wram"), os.path.join(tmp, mode + ".vram")
-            cmd = [probe, *strip_frames(args), "--frames", str(frame), "--wram", w, "--vram", v]
+            cmd = [*probe_cmd(probe), *strip_frames(args), "--frames", str(frame), "--wram", w, "--vram", v]
             if mode == "interp":
                 cmd.append("--interp-only")
             subprocess.run(cmd, capture_output=True)
@@ -81,8 +87,12 @@ def main() -> int:
         logs = {m: os.path.join(tmp, m + ".log") for m in ("native", "interp")}
         procs = {}
         for mode, log in logs.items():
-            # native overlay code must never outlive a change to its bytes here
-            cmd = [probe, *args, "--hash-log", log, "--overlay-strict"]
+            # native overlay code must never outlive a change to its bytes
+            # here, unless the caller opted out (--overlay-fallback in the
+            # probe args, for runs through known patched code, #97)
+            cmd = [*probe_cmd(probe), *args, "--hash-log", log]
+            if "--overlay-fallback" not in args:
+                cmd.append("--overlay-strict")
             if mode == "interp":
                 cmd.append("--interp-only")
             procs[mode] = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,

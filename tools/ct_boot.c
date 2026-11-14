@@ -40,6 +40,11 @@
  * --vram FILE      likewise the 64 KB of VRAM, then CGRAM (512 bytes) and
  *                  OAM (544 bytes)
  * --aram FILE      likewise the SPC700's 64 KB of RAM
+ * --sram-in FILE   load battery SRAM (8 KB .srm) at power-on (#109): a
+ *                  replay chapter's starting save. A soft reset keeps it;
+ *                  without it SRAM starts zeroed, as at power-on
+ * --sram-out FILE  write battery SRAM at the last frame edge, likewise:
+ *                  the chapter's ending save
  * --profile N[@F]  at the end, print the native share of instructions and
  *                  the N functions most interpreted instructions ran in,
  *                  with why each didn't run natively (and, for entries run
@@ -337,12 +342,13 @@ static int nonblack(const uint8_t *p, size_t n)
 
 static const char *dump;
 static FILE *wav, *hash_log, *ref_log;
-static const char *wram_path, *vram_path, *aram_path;
+static const char *wram_path, *vram_path, *aram_path, *sram_out_path;
 static long last_frame;
 static int dumped_state;
 
-/* --wram / --vram: WRAM, then VRAM, CGRAM and OAM, as they are at the
-   last frame edge (a native call still running there doesn't move it). */
+/* --wram / --vram / --aram / --sram-out: WRAM, then VRAM, CGRAM and
+   OAM, then ARAM and battery SRAM, as they are at the last frame edge
+   (a native call still running there doesn't move it). */
 static void dump_state(void)
 {
     dumped_state = 1;
@@ -370,6 +376,8 @@ static void dump_state(void)
         if (f)
             fclose(f);
     }
+    if (sram_out_path && bus_sram_save(sram_out_path))
+        fprintf(stderr, "ct_boot: cannot write %s\n", sram_out_path);
 }
 static long dumped, audible;
 
@@ -404,7 +412,7 @@ static void on_frame(long f)
         dumped++;
     if (hash_log)
         write_state_hashes(hash_log, f);
-    if (f == last_frame && (wram_path || vram_path || aram_path))
+    if (f == last_frame && (wram_path || vram_path || aram_path || sram_out_path))
         dump_state();
     if (ref_log)
         fprintf(ref_log, "%ld %016llx %016llx%s\n", f,
@@ -422,7 +430,7 @@ int main(int argc, char **argv)
 {
     static long frames = 60, min_nmis;    /* static: survive the longjmp */
     static int require_render, require_audio;
-    static const char *wav_path, *hash_path;
+    static const char *wav_path, *hash_path, *sram_in_path;
     static int profile_top = -1;
     static double min_native = -1;
     static const char *needed;
@@ -451,6 +459,10 @@ int main(int argc, char **argv)
                 fprintf(stderr, "ct_boot: bad --script %s\n", argv[k]);
                 return 2;
             }
+        } else if (!strcmp(argv[k], "--sram-in") && k + 1 < argc) {
+            sram_in_path = argv[++k];
+        } else if (!strcmp(argv[k], "--sram-out") && k + 1 < argc) {
+            sram_out_path = argv[++k];
         } else if (!strcmp(argv[k], "--aram") && k + 1 < argc) {
             aram_path = argv[++k];
         } else if (!strcmp(argv[k], "--vram") && k + 1 < argc) {
@@ -565,13 +577,18 @@ int main(int argc, char **argv)
             fprintf(stderr, "usage: ct_boot [--frames N] [--dump DIR] [--needed-hw FILE] "
                             "[--min-nmis K] [--require-render] [--wav FILE] "
                             "[--require-audio] [--input F1-F2:BUTTONS] [--script FILE] "
-                            "[--expect-pc ADDR] [--expect-wram F:ADDR=V] [--poke-wram F:ADDR^M] [--log-ppu LO:HI[@F] FILE] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--aram FILE] [--profile N[@F]] [--min-native P] [--max-stack N] [--watch A[:N]] [--at ADDR] [--log-entry ADDR[:MEM]] [--snap-at ADDR[@F] DIR] [--wram-entries FILE] [--overlay-strict|--overlay-fallback] [--first-exec FILE] [--trace LO:HI[@N] FILE] [--ref-quirk NAME] [--interp-only]\n");
+                            "[--expect-pc ADDR] [--expect-wram F:ADDR=V] [--poke-wram F:ADDR^M] [--log-ppu LO:HI[@F] FILE] [--hash-log FILE] [--ref-log FILE] [--wram FILE] [--vram FILE] [--aram FILE] [--sram-in FILE] [--sram-out FILE] [--profile N[@F]] [--min-native P] [--max-stack N] [--watch A[:N]] [--at ADDR] [--log-entry ADDR[:MEM]] [--snap-at ADDR[@F] DIR] [--wram-entries FILE] [--overlay-strict|--overlay-fallback] [--first-exec FILE] [--trace LO:HI[@N] FILE] [--ref-quirk NAME] [--interp-only]\n");
             return 2;
         }
     }
 
     static char stop[512];
     bus_init(NULL);
+    if (sram_in_path && bus_sram_load(sram_in_path)) {
+        fprintf(stderr, "ct_boot: cannot read SRAM %s (need exactly %u bytes)\n",
+                sram_in_path, CT_SRAM_SIZE);
+        return 2;
+    }
     interp_reset(&cpu);
     sched_init(&cpu);
     ct_fatal_hook = on_fatal;
@@ -622,7 +639,7 @@ int main(int argc, char **argv)
         fclose(ref_log);
     if (ppu_log)
         fclose(ppu_log);
-    if ((wram_path || vram_path) && !dumped_state)
+    if ((wram_path || vram_path || aram_path || sram_out_path) && !dumped_state)
         dump_state();   /* stopped before the last frame edge (fatal) */
     printf("ct_boot: %ld frames, %ld NMIs, %ld frames dumped, %ld with audio, PC $%02X%04X\n",
            sched_frame_count(), sched_nmi_count(), (long)dumped, (long)audible, cpu.PB, cpu.PC);
